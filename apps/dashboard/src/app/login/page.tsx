@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import type { AuthTokensResponse } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { clearSession, saveSession } from '@/lib/auth';
 import { homePathForRole } from '@/lib/roles';
@@ -61,36 +62,26 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await api<{
-        accessToken: string;
-        refreshToken: string;
-        user: {
-          id: string;
-          name: string;
-          email: string | null;
-          phone: string | null;
-          role: string;
-        };
-      }>('/api/auth/login', {
+      const { data } = await api<AuthTokensResponse>('/api/auth/login', {
         method: 'POST',
         auth: false,
         body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
 
       const allowed = ['PLAYER', 'COMPANY_OWNER', 'BRANCH_MANAGER', 'ADMIN'];
-      if (!allowed.includes(data.user.role)) {
+      if (!allowed.includes(String(data.user.role))) {
         setError('Unsupported account role for this portal.');
         return;
       }
 
       saveSession(data);
       // Customer → /discover · Company → /companies · Admin → /admin
-      router.replace(homePathForRole(data.user.role));
+      router.replace(homePathForRole(String(data.user.role)));
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
       } else if (err instanceof TypeError) {
-        setError('Cannot reach API at localhost:4000. Start it with: npm run dev:api');
+        setError('Cannot reach API. Check NEXT_PUBLIC_API_URL and that the API is running.');
       } else {
         setError(err instanceof Error ? err.message : 'Login failed');
       }
