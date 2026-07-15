@@ -1,0 +1,10 @@
+{
+  "name": "@playpk/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared ESLint, TypeScript, and Prettier config for PlayPK",
+  "files": [
+    "tsconfig.base.json",
+    "tsconfig.node.json"
+  ]
+}

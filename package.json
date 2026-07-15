@@ -1,0 +1,35 @@
+{
+  "name": "playpk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PlayPK — multi-sport venue booking platform for Pakistan",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@playpk/api",
+    "dev:api": "npm run dev --workspace=@playpk/api",
+    "build": "npm run build --workspaces --if-present",
+    "build:api": "npm run build --workspace=@playpk/api",
+    "test": "npm run test --workspaces --if-present",
+    "test:api": "npm run test --workspace=@playpk/api",
+    "verify:stack": "npm run verify:stack --workspace=@playpk/api",
+    "db:generate": "npm run db:generate --workspace=@playpk/api",
+    "db:migrate": "npm run db:migrate --workspace=@playpk/api",
+    "db:seed": "npm run db:seed --workspace=@playpk/api",
+    "db:studio": "npm run db:studio --workspace=@playpk/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3"
+  }
+}

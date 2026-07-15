@@ -1,0 +1,7 @@
+{
+  "name": "@playpk/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PlayPK company dashboard + admin panel (Next.js) — scaffold deferred",
+  "scripts": {}
+}
