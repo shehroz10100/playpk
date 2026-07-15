@@ -1,0 +1,303 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  format,
+  isSameDay,
+  isSameMonth,
+  startOfMonth,
+  startOfWeek,
+  endOfWeek,
+} from 'date-fns';
+import { useParams } from 'next/navigation';
+import { api } from '@/lib/api';
+import { formatPkr } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+
+type Court = { id: string; name: string; sport: { name: string } };
+type Slot = {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: 'AVAILABLE' | 'BOOKED' | 'BLOCKED' | 'MAINTENANCE';
+  price: number;
+};
+
+const statusVariant: Record<Slot['status'], 'success' | 'danger' | 'warn' | 'muted'> = {
+  AVAILABLE: 'success',
+  BOOKED: 'danger',
+  BLOCKED: 'muted',
+  MAINTENANCE: 'warn',
+};
+
+export default function SlotsPage() {
+  const params = useParams<{ branchId: string }>();
+  const branchId = params.branchId;
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [courtId, setCourtId] = useState('');
+  const [month, setMonth] = useState(startOfMonth(new Date()));
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [generateDays, setGenerateDays] = useState(14);
+
+  const days = useMemo(() => {
+    const start = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
+    const end = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+    return eachDayOfInterval({ start, end });
+  }, [month]);
+
+  async function loadCourts() {
+    const { data } = await api<Court[]>(`/api/branches/${branchId}/courts`);
+    setCourts(data);
+    if (!courtId && data[0]) setCourtId(data[0].id);
+  }
+
+  async function loadSlots(activeCourtId = courtId, date = selectedDate) {
+    if (!activeCourtId) return;
+    const { data } = await api<Slot[]>(`/api/slots/court/${activeCourtId}?date=${date}`);
+    setSlots(data);
+  }
+
+  useEffect(() => {
+    loadCourts().catch((err: Error) => setError(err.message));
+  }, [branchId]);
+
+  useEffect(() => {
+    loadSlots().catch((err: Error) => setError(err.message));
+  }, [courtId, selectedDate]);
+
+  async function generateSlots() {
+    if (!courtId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const startDate = format(new Date(), 'yyyy-MM-dd');
+      const end = new Date();
+      end.setDate(end.getDate() + generateDays - 1);
+      await api('/api/slots/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          courtId,
+          startDate,
+          endDate: format(end, 'yyyy-MM-dd'),
+          durationMinutes: 60,
+        }),
+      });
+      await loadSlots();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Generate failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateSlot(slotId: string, status: Slot['status']) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/slots/${slotId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      await loadSlots();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Update failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function markHoliday() {
+    if (!courtId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api('/api/slots/holiday', {
+        method: 'POST',
+        body: JSON.stringify({ courtId, date: selectedDate }),
+      });
+      await loadSlots();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Holiday mark failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-navy">Slot calendar</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Monthly view per court. Click a date to create, block, or mark maintenance.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label>Court</Label>
+            <select
+              className="flex h-10 min-w-52 rounded-md border border-border bg-white px-3 text-sm"
+              value={courtId}
+              onChange={(e) => setCourtId(e.target.value)}
+            >
+              {courts.map((court) => (
+                <option key={court.id} value={court.id}>
+                  {court.name} ({court.sport.name})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label>Generate days</Label>
+            <Input
+              type="number"
+              min={1}
+              max={60}
+              className="w-24"
+              value={generateDays}
+              onChange={(e) => setGenerateDays(Number(e.target.value))}
+            />
+          </div>
+          <Button disabled={busy || !courtId} onClick={generateSlots}>
+            Generate slots
+          </Button>
+        </div>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Slots follow this branch&apos;s open/close hours (including overnight, e.g. 06:00–04:00).
+      </p>
+
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>{format(month, 'MMMM yyyy')}</CardTitle>
+            <CardDescription>Select a day to manage its slots.</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setMonth((m) => addMonths(m, -1))}>
+              Prev
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setMonth((m) => addMonths(m, 1))}>
+              Next
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-7 gap-2 text-center text-xs font-medium text-muted-foreground">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+              <div key={d} className="py-1">
+                {d}
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 grid grid-cols-7 gap-2">
+            {days.map((day) => {
+              const iso = format(day, 'yyyy-MM-dd');
+              const selected = iso === selectedDate;
+              const inMonth = isSameMonth(day, month);
+              return (
+                <button
+                  key={iso}
+                  type="button"
+                  onClick={() => setSelectedDate(iso)}
+                  className={`rounded-lg border px-2 py-3 text-sm transition-colors ${
+                    selected
+                      ? 'border-brand bg-brand text-white'
+                      : inMonth
+                        ? 'border-border bg-white text-navy hover:border-brand/40'
+                        : 'border-transparent bg-transparent text-muted-foreground'
+                  }`}
+                >
+                  {format(day, 'd')}
+                  {isSameDay(day, new Date()) && !selected ? (
+                    <span className="mt-1 block text-[10px] text-brand">Today</span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <div>
+            <CardTitle>Slots for {selectedDate}</CardTitle>
+            <CardDescription>
+              {slots.length} slots · click status actions to update availability
+            </CardDescription>
+          </div>
+          <Button variant="secondary" size="sm" disabled={busy || !courtId} onClick={markHoliday}>
+            Mark holiday
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {slots.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No slots for this day. Use Generate slots to create a schedule.
+            </p>
+          ) : (
+            slots.map((slot) => (
+              <div
+                key={slot.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-3"
+              >
+                <div>
+                  <div className="font-medium text-navy">
+                    {slot.startTime} – {slot.endTime}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{formatPkr(slot.price)}</div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={statusVariant[slot.status]}>{slot.status}</Badge>
+                  {slot.status !== 'BOOKED' ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => updateSlot(slot.id, 'AVAILABLE')}
+                      >
+                        Available
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => updateSlot(slot.id, 'MAINTENANCE')}
+                      >
+                        Maintenance
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => updateSlot(slot.id, 'BLOCKED')}
+                      >
+                        Block
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

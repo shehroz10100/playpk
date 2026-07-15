@@ -1,9 +1,11 @@
+import type { PaymentMethod } from '@playpk/shared-types';
+
 /**
  * Payment provider abstraction.
  * Core booking logic must only depend on this interface so JazzCash,
  * Easypaisa, and card gateways can be plugged in later without refactors.
  */
-export type PaymentMethod = 'jazzcash' | 'easypaisa' | 'card' | 'mock' | 'wallet';
+export type { PaymentMethod };
 
 export type PaymentIntentStatus =
   | 'requires_action'

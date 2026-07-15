@@ -10,8 +10,11 @@
   "scripts": {
     "dev": "npm run dev --workspace=@playpk/api",
     "dev:api": "npm run dev --workspace=@playpk/api",
+    "dev:dashboard": "npm run dev --workspace=@playpk/dashboard",
+    "dev:mobile": "npm run start --workspace=@playpk/mobile",
     "build": "npm run build --workspaces --if-present",
     "build:api": "npm run build --workspace=@playpk/api",
+    "build:dashboard": "npm run build --workspace=@playpk/dashboard",
     "test": "npm run test --workspaces --if-present",
     "test:api": "npm run test --workspace=@playpk/api",
     "verify:stack": "npm run verify:stack --workspace=@playpk/api",

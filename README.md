@@ -9,13 +9,14 @@ PlayPK connects players, venue companies, and platform admins to search, book, a
 ```
 playpk/
 ├── apps/
-│   ├── api/          # Node.js + Express + TypeScript + Prisma REST API
-│   ├── mobile/       # React Native (Expo) — deferred
-│   └── dashboard/    # Next.js company + admin UI — deferred
+│   ├── api/          # Express + TypeScript + Prisma REST API
+│   ├── mobile/       # Expo (React Native) customer app
+│   └── dashboard/    # Next.js company dashboard (+ admin later)
 ├── packages/
-│   ├── shared-types/ # Shared enums & API response types
+│   ├── shared-types/ # Shared enums & API DTOs (import as @playpk/shared-types)
 │   └── config/       # Shared TSConfig / tooling
 ├── docker-compose.yml
+├── .env.example
 └── README.md
 ```
 
@@ -23,102 +24,165 @@ playpk/
 
 - Node.js **≥ 20**
 - npm **≥ 10** (workspaces)
-- **Docker Desktop** (recommended) for Postgres + Redis
+- Docker Desktop (Postgres + Redis)
+- Expo Go (optional, for physical-device mobile testing)
 
-## Quick start (Docker — recommended)
-
-### 1. Start Postgres + Redis
+## First-time setup
 
 ```bash
+# 1. Infrastructure
 docker compose up -d
-# or: npm run docker:up
-```
 
-### 2. Install dependencies
-
-```bash
+# 2. Dependencies
 npm install
-```
 
-### 3. Environment
-
-```bash
+# 3. Environment (never commit real secrets)
 cp .env.example apps/api/.env
-```
+# Dashboard + mobile public API URL (optional if using defaults):
+echo "NEXT_PUBLIC_API_URL=http://localhost:4000" > apps/dashboard/.env.local
+echo "EXPO_PUBLIC_API_URL=http://localhost:4000" > apps/mobile/.env
 
-### 4. Migrate + seed
-
-```bash
+# 4. Database
 npm run db:generate
 cd apps/api && npx prisma migrate deploy && npm run db:seed && cd ../..
 ```
 
-On a fresh clone, `migrate deploy` applies the committed `init` migration. For iterative schema work use `npm run db:migrate`.
+## Run locally
 
-### 5. Run the API
+Use **three terminals** (or run what you need):
 
 ```bash
-npm run dev
+npm run docker:up        # Postgres :5432 + Redis :6379
+npm run dev:api          # http://localhost:4000
+npm run dev:dashboard    # http://localhost:3000
+npm run dev:mobile       # Expo Metro :8081
 ```
 
-| URL | Purpose |
-|-----|---------|
-| http://localhost:4000 | API root |
-| http://localhost:4000/health | Health check (Postgres + Redis) |
-| http://localhost:4000/api | API index |
+| App | URL / command | Demo login |
+|-----|---------------|------------|
+| API | http://localhost:4000/health | — |
+| **Unified portal** | http://localhost:3000/login | Customer / Company / Admin (same page) |
+| Mobile (optional) | Expo Metro http://localhost:8081 | same player account |
 
-### Demo accounts (from seed)
+One sign-in at `/login` routes by role:
 
-| Role   | Email               | Password       |
-|--------|---------------------|----------------|
-| Owner  | owner@playpk.demo  | PlayPK@demo1   |
-| Player | player@playpk.demo  | PlayPK@player1 |
+| Role | Demo email | Password | Lands on |
+|------|------------|----------|----------|
+| Customer | player@playpk.demo | PlayPK@player1 | `/discover` |
+| GameOn owner | owner@playpk.demo | PlayPK@demo1 | `/companies` |
+| 360 Arena owner | owner360@playpk.demo | PlayPK@3601 | `/companies` |
+| Admin | admin@playpk.demo | PlayPK@admin1 | `/admin` |
 
-Seed also creates **GameOn Sports** (Lahore DHA Phase 5) with 5 courts and 7 days of hourly slots.
+### Mobile notes
+
+- iOS Simulator / Expo web: `EXPO_PUBLIC_API_URL=http://localhost:4000`
+- Physical phone: set `EXPO_PUBLIC_API_URL` to your Mac LAN IP, e.g. `http://192.168.1.10:4000`, and ensure the phone is on the same Wi‑Fi.
+- Start with `npm run dev:mobile`, then press `i` / `a` or scan the QR in Expo Go.
+
+### Shared types
+
+All cross-app enums and API DTOs live in [`packages/shared-types`](packages/shared-types). Import them as:
+
+```ts
+import type { AuthUser, BookingDto, VenueListItem } from '@playpk/shared-types';
+```
+
+Do **not** duplicate these contracts in `apps/api`, `apps/dashboard`, or `apps/mobile`.
+
+## Environment variables
+
+See [`.env.example`](.env.example) for the full list. Summary:
+
+| Variable | App | Purpose |
+|----------|-----|---------|
+| `DATABASE_URL` | api | Postgres connection |
+| `REDIS_URL` | api | Redis / slot locks |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | api | JWT signing (change before deploy) |
+| `STORAGE_*` | api | Local/S3-compatible uploads |
+| `LLM_PROVIDER` / `OPENAI_API_KEY` | api | Chatbot intent parser (`mock` by default) |
+| `NEXT_PUBLIC_API_URL` | dashboard | API base URL |
+| `EXPO_PUBLIC_API_URL` | mobile | API base URL |
+
+## Useful scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run docker:up` / `docker:down` | Start/stop Postgres + Redis |
+| `npm run dev:api` | API watch mode |
+| `npm run dev:dashboard` | Next.js dashboard |
+| `npm run dev:mobile` | Expo Metro |
+| `npm run db:migrate` | Prisma migrate (dev) |
+| `npm run db:seed` | Seed sports + demo venue |
+| `npm run db:studio` | Prisma Studio |
+| `npm run test:api` | Jest (incl. double-booking / Redis lock) |
+| `npm run verify:stack` | Ephemeral migrate/seed/health without Docker |
 
 ## Fallback without Docker
-
-If Docker is not installed, you can still smoke-test migrate → seed → `/health` using embedded Postgres + Redis Memory Server:
 
 ```bash
 npm install
 npm run verify:stack
 ```
 
-Day-to-day development should still use `docker compose up -d`.
+Uses embedded Postgres + Redis Memory Server for a one-shot smoke test only.
 
-## Useful scripts
+## API surface (high level)
 
-| Script | Description |
-|--------|-------------|
-| `npm run docker:up` | Start Postgres + Redis |
-| `npm run docker:down` | Stop containers |
-| `npm run dev` | Start API in watch mode |
-| `npm run db:migrate` | Prisma migrate (dev) |
-| `npm run db:seed` | Seed sports + demo venue |
-| `npm run db:studio` | Open Prisma Studio |
-| `npm run test:api` | Run API Jest tests |
-| `npm run verify:stack` | Ephemeral migrate/seed/health check |
+- Auth: `/api/auth/*` (register, login, OTP, refresh, me)
+- Staff: companies, branches, courts, slot generate/edit, branch bookings/stats
+- Public/player: `/api/venues`, `/api/slots/search`, `/api/slots/court/:id/availability`, `/api/bookings`
+- Loyalty: `GET /api/loyalty/me` (points + Bronze/Silver/Gold/Diamond tier)
+- Wallet: `GET /api/wallet/me`, `POST /api/wallet/topup` (mock); book with `paymentMethod: "wallet"`
+- Reviews: `GET|POST /api/reviews/branches/:branchId` (post requires completed booking)
+- Waitlist: `POST /api/waitlist/slots/:slotId`; staff `GET /api/waitlist/branches/:branchId`
+- Notifications: `GET /api/notifications/me` (waitlist promotions)
+- AI: `POST /api/ai/pricing/suggest`, `GET /api/ai/analytics`, `POST /api/ai/chat`
+- Tournaments: `/api/tournaments` (CRUD, register, knockout fixtures, results, standings)
+- Teams: `/api/teams` (create, invite by email/phone, accept/decline)
+- Leaderboard: `GET /api/leaderboard?branchId=`
+- Admin (ADMIN role): `/api/admin/*` — users, company/branch approvals, commission, reports, coupons, tickets
+- Support: `POST /api/support/tickets` (authenticated)
+- Sports: `/api/sports`
 
-## Tech stack (MVP)
+### Admin dashboard
 
-- **API:** Express, TypeScript, Prisma, Zod
-- **DB:** PostgreSQL 16 + Redis 7 via Docker Compose
-- **Auth:** JWT + refresh tokens (Phase 1)
-- **Payments:** `PaymentProvider` interface + mock provider
-- **Storage:** S3-compatible interface + local disk provider for dev
+Log in as `admin@playpk.demo` → redirects to `/admin`:
+
+- Users — list/search/suspend
+- Companies — approve/reject PENDING, edit commission %
+- Reports — platform bookings & revenue
+- Coupons — platform-wide coupon CRUD
+- Tickets — support inbox
+
+## Seeded demo data
+
+| Role | Email | Password |
+|------|-------|----------|
+| Customer (player) | player@playpk.demo | PlayPK@player1 |
+| GameOn Sports owner | owner@playpk.demo | PlayPK@demo1 |
+| 360 Arena owner | owner360@playpk.demo | PlayPK@3601 |
+| Platform admin | admin@playpk.demo | PlayPK@admin1 |
+
+Also seeds **GameOn Sports · DHA Phase 5 (Lahore)** with 5 courts and 7 days of slots, plus 14 sports.
 
 ## Current status
 
-✅ Monorepo skeleton  
-✅ Docker Compose (Postgres + Redis)  
-✅ API bootstrap + Prisma schema + `init` migration + seed  
-✅ `GET /health`  
-✅ Payment + storage abstractions (mock/local)  
-⏳ Auth & booking API (Phase 1)  
-⏳ Mobile app  
-⏳ Dashboard  
+✅ Monorepo + Docker Compose  
+✅ Phase 1 API (auth, CRUD, Redis slot locks, venues, bookings)  
+✅ Loyalty / wallet / reviews / waitlist (+ auto-promote on cancel)  
+✅ AI layer (rules pricing, analytics + forecast, chatbot with swappable LLM)  
+✅ Tournaments & community (knockout fixtures, teams, leaderboard)  
+✅ Admin portal (`/admin`) — users, approvals, reports, coupons, support  
+✅ Company dashboard (analytics, tournaments management)  
+✅ Mobile (Expo) — Ask AI, Events, teams  
+⏳ Admin panel enhancements (fraud / KYC)  
+⏳ Real JazzCash / Easypaisa / card adapters  
+⏳ ML pricing model (interface ready; rules-based today)  
+⏳ League / groups tournament formats  
 
-## Seeded sports
 
-Cricket, Padel, Futsal, Badminton, Pickleball, Tennis, Squash, Basketball, Volleyball, Table Tennis, Swimming, Gym, Snooker, Bowling
+## Conventions
+
+- Shared TypeScript contracts → `packages/shared-types` only  
+- Secrets → `.env` / `.env.local` (never hardcoded); keep `.env.example` in sync  
+- After each major phase: update this README’s run instructions
