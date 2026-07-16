@@ -2,23 +2,15 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { SportDto, VenueListItem } from '@playpk/shared-types';
-import { api } from '@/lib/api';
+import {
+  DEFAULT_VENUE_FILTERS,
+  fetchSportsCatalog,
+  fetchVenuesCatalog,
+  type VenueFilters,
+} from '@/lib/catalog';
 
-export type VenueFilters = {
-  city: string;
-  sport: string;
-  minPrice: string;
-  maxPrice: string;
-  minRating: string;
-};
-
-export const DEFAULT_VENUE_FILTERS: VenueFilters = {
-  city: 'Lahore',
-  sport: '',
-  minPrice: '',
-  maxPrice: '',
-  minRating: '',
-};
+export type { VenueFilters };
+export { DEFAULT_VENUE_FILTERS };
 
 export function buildVenueQuery(filters: VenueFilters) {
   const query = new URLSearchParams({ pageSize: '30' });
@@ -47,12 +39,11 @@ export function buildVenueQuery(filters: VenueFilters) {
 export function useSports(initialData?: SportDto[]) {
   return useQuery({
     queryKey: ['sports'],
-    queryFn: async () => {
-      const { data } = await api<SportDto[]>('/api/sports', { auth: false });
-      return data;
-    },
+    queryFn: fetchSportsCatalog,
     initialData,
+    initialDataUpdatedAt: initialData?.length ? Date.now() : 0,
     staleTime: 60 * 60_000,
+    placeholderData: (prev) => prev ?? initialData,
   });
 }
 
@@ -61,14 +52,15 @@ export function useVenues(
   options?: { initialData?: VenueListItem[] },
 ) {
   const qs = buildVenueQuery(filters);
+  const isDefault = qs === buildVenueQuery(DEFAULT_VENUE_FILTERS);
+  const initialData = isDefault ? options?.initialData : undefined;
+
   return useQuery({
     queryKey: ['venues', qs],
-    queryFn: async () => {
-      const { data } = await api<VenueListItem[]>(`/api/venues?${qs}`, { auth: false });
-      return data;
-    },
-    initialData:
-      qs === buildVenueQuery(DEFAULT_VENUE_FILTERS) ? options?.initialData : undefined,
+    queryFn: () => fetchVenuesCatalog(filters),
+    initialData,
+    initialDataUpdatedAt: initialData?.length ? Date.now() : 0,
     staleTime: 30_000,
+    placeholderData: (prev) => prev ?? initialData,
   });
 }

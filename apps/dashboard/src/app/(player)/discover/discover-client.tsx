@@ -28,7 +28,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
 
   const { data: sports = initialSports } = useSports(initialSports);
   const {
-    data: venues = [],
+    data: venues = initialVenues,
     isFetching,
     error,
   } = useVenues(applied, { initialData: initialVenues });
