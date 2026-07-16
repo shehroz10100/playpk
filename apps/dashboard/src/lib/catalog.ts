@@ -64,9 +64,16 @@ type SbBranch = {
   address: string;
   latitude: number | null;
   longitude: number | null;
+  operatingHoursStart?: string;
+  operatingHoursEnd?: string;
   Company: { id: string; name: string; logoUrl: string | null };
   Court: Array<{
+    id?: string;
+    name?: string;
+    capacity?: number;
     pricePerHour: number | string;
+    indoor?: boolean;
+    hasAC?: boolean;
     photos: string[] | null;
     Sport: { id: string; name: string; iconUrl: string | null };
   }>;
@@ -103,6 +110,67 @@ function mapBranch(branch: SbBranch): VenueListItem {
     sports,
     photos,
     courtCount: courts.length,
+  };
+}
+
+export type CatalogVenueDetail = {
+  id: string;
+  name: string;
+  city: string;
+  address: string;
+  operatingHoursStart: string;
+  operatingHoursEnd: string;
+  company: { name: string };
+  courts: Array<{
+    id: string;
+    name: string;
+    pricePerHour: number;
+    indoor: boolean;
+    hasAC: boolean;
+    sport: { name: string };
+  }>;
+};
+
+export async function fetchVenueDetail(branchId: string): Promise<CatalogVenueDetail | null> {
+  const fromApi = await apiGet<CatalogVenueDetail>(`/api/venues/${branchId}`);
+  if (fromApi) return fromApi;
+
+  const supabase = getSupabaseBrowser();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('Branch')
+    .select(
+      'id, name, city, address, latitude, longitude, operatingHoursStart, operatingHoursEnd, approvalStatus, Company!inner(id, name, logoUrl, approvalStatus), Court(id, name, capacity, pricePerHour, indoor, hasAC, photos, Sport(id, name, iconUrl))',
+    )
+    .eq('id', branchId)
+    .eq('approvalStatus', 'APPROVED')
+    .eq('Company.approvalStatus', 'APPROVED')
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const branch = data as unknown as SbBranch;
+  const courts = (branch.Court ?? [])
+    .filter((c): c is typeof c & { id: string; name: string } => Boolean(c.id && c.name))
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      pricePerHour: Number(c.pricePerHour),
+      indoor: Boolean(c.indoor),
+      hasAC: Boolean(c.hasAC),
+      sport: { name: c.Sport.name },
+    }));
+
+  return {
+    id: branch.id,
+    name: branch.name,
+    city: branch.city,
+    address: branch.address,
+    operatingHoursStart: branch.operatingHoursStart ?? '06:00',
+    operatingHoursEnd: branch.operatingHoursEnd ?? '23:00',
+    company: { name: branch.Company.name },
+    courts,
   };
 }
 

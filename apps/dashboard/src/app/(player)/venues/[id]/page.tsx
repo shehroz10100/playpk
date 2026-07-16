@@ -3,38 +3,33 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { api } from '@/lib/api';
+import { fetchVenueDetail, type CatalogVenueDetail } from '@/lib/catalog';
 import { formatPkr } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-type VenueDetail = {
-  id: string;
-  name: string;
-  city: string;
-  address: string;
-  operatingHoursStart: string;
-  operatingHoursEnd: string;
-  company: { name: string };
-  courts: Array<{
-    id: string;
-    name: string;
-    pricePerHour: number;
-    indoor: boolean;
-    hasAC: boolean;
-    sport: { name: string };
-  }>;
-};
-
 export default function VenueDetailPage() {
   const params = useParams<{ id: string }>();
-  const [venue, setVenue] = useState<VenueDetail | null>(null);
+  const [venue, setVenue] = useState<CatalogVenueDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<VenueDetail>(`/api/venues/${params.id}`, { auth: false })
-      .then(({ data }) => setVenue(data))
-      .catch((err: Error) => setError(err.message));
+    let cancelled = false;
+    fetchVenueDetail(params.id)
+      .then((data) => {
+        if (cancelled) return;
+        if (!data) {
+          setError('Venue not found');
+          return;
+        }
+        setVenue(data);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [params.id]);
 
   if (error) return <p className="text-sm text-red-600">{error}</p>;
