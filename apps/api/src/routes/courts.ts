@@ -10,6 +10,7 @@ import { AppError, sendSuccess } from '../lib/errors';
 import { param } from '../lib/params';
 import { assertCanManageBranch } from '../services/access.service';
 import { getStorageProvider } from '../services/storage/LocalDiskStorageProvider';
+import { invalidateVenueListCache } from '../lib/cache-invalidate';
 
 export const courtsRouter = Router({ mergeParams: true });
 
@@ -67,6 +68,7 @@ courtsRouter.post(
         data: { branchId, ...req.body },
         include: { sport: true },
       });
+      await invalidateVenueListCache();
       sendSuccess(res, { ...court, pricePerHour: Number(court.pricePerHour) }, 201);
     } catch (error) {
       next(error);
@@ -93,6 +95,7 @@ courtsRouter.patch(
         data: req.body,
         include: { sport: true },
       });
+      await invalidateVenueListCache();
       sendSuccess(res, { ...court, pricePerHour: Number(court.pricePerHour) });
     } catch (error) {
       next(error);
@@ -139,6 +142,7 @@ courtsRouter.post(
         include: { sport: true },
       });
 
+      await invalidateVenueListCache();
       sendSuccess(res, { ...updated, pricePerHour: Number(updated.pricePerHour) });
     } catch (error) {
       next(error);

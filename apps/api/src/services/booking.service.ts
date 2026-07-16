@@ -12,6 +12,8 @@ import { getPaymentProvider } from './payments/MockPaymentProvider';
 import { awardLoyaltyForBooking } from './loyalty.service';
 import { creditWalletRefund, debitWallet } from './wallet.service';
 import { promoteNextWaitlistedUser } from './waitlist.service';
+import { notifyUser } from './notify.service';
+import { BOOKING_ADVANCE_PKR } from '@playpk/shared-types';
 
 /**
  * Create a booking with Redis slot-locking to prevent double-booking under concurrency.
@@ -60,12 +62,14 @@ export async function createBooking(input: {
         });
       }
 
+      const advanceAmount = BOOKING_ADVANCE_PKR;
+
       const created = await tx.booking.create({
         data: {
           userId: input.userId,
           slotId: slot.id,
           status: BookingStatus.PENDING,
-          totalAmount: slot.price,
+          totalAmount: advanceAmount,
           paymentStatus: PaymentStatus.PENDING,
           qrCode: `playpk://booking/${randomUUID()}`,
         },
@@ -79,7 +83,7 @@ export async function createBooking(input: {
       if (method === 'wallet') {
         await debitWallet(tx, {
           userId: input.userId,
-          amount: Number(slot.price),
+          amount: advanceAmount,
           bookingId: created.id,
         });
       }
@@ -125,6 +129,9 @@ export async function createBooking(input: {
       bookingId: confirmed.id,
       amount: Number(confirmed.totalAmount),
     });
+
+    // Notify company owner + branch manager so the dashboard lights up immediately
+    await notifyBranchStaffOfNewBooking(confirmed.id);
 
     return serializeBooking(confirmed);
   } finally {
@@ -356,4 +363,55 @@ export function serializeBooking(booking: {
         }
       : undefined,
   };
+}
+
+/** Push an in-app notification to company owner + branch manager when a customer books. */
+export async function notifyBranchStaffOfNewBooking(bookingId: string) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      user: { select: { name: true, email: true, phone: true } },
+      slot: {
+        include: {
+          court: {
+            include: {
+              sport: true,
+              branch: {
+                include: {
+                  company: { select: { id: true, ownerId: true, name: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!booking?.slot?.court?.branch) return;
+
+  const branch = booking.slot.court.branch;
+  const recipientIds = new Set<string>([branch.company.ownerId]);
+  if (branch.managerId) recipientIds.add(branch.managerId);
+
+  const date = new Date(booking.slot.date).toISOString().slice(0, 10);
+  const title = 'New booking';
+  const body = `${booking.user.name} booked ${booking.slot.court.name} (${booking.slot.court.sport.name}) · ${date} ${booking.slot.startTime}–${booking.slot.endTime} · Booking ID ${booking.id}`;
+
+  await Promise.all(
+    [...recipientIds].map((userId) =>
+      notifyUser(prisma, {
+        userId,
+        title,
+        body,
+        meta: {
+          type: 'BOOKING_CREATED',
+          bookingId: booking.id,
+          branchId: branch.id,
+          companyId: branch.company.id,
+          courtId: booking.slot.court.id,
+          amount: Number(booking.totalAmount),
+        },
+      }),
+    ),
+  );
 }

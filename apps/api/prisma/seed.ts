@@ -2,7 +2,7 @@
  * PlayPK seed script
  * Seeds: 14 sports + demo company owner, company, branch, courts, and slots.
  */
-import { PrismaClient, SlotStatus, UserRole } from '@prisma/client';
+import { PrismaClient, SlotStatus, TournamentFormat, TournamentStatus, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -151,6 +151,22 @@ async function main(): Promise<void> {
     data: { approvalStatus: 'APPROVED' },
   });
 
+  // Keep demo Cricket indoor pricing at Rs 1,000/hr for 360 Arena.
+  const arenaCricket = await prisma.court.findFirst({
+    where: { name: 'Cricket indoor', branch: { name: '360 Arena' } },
+  });
+  if (arenaCricket) {
+    await prisma.court.update({
+      where: { id: arenaCricket.id },
+      data: { pricePerHour: 1000 },
+    });
+    await prisma.slot.updateMany({
+      where: { courtId: arenaCricket.id, status: 'AVAILABLE' },
+      data: { price: 1000 },
+    });
+    console.log('✓ 360 Arena Cricket indoor priced at Rs 1,000/hr');
+  }
+
   // ── Demo player ─────────────────────────────────────────────────────────
   const playerHash = await bcrypt.hash('PlayPK@player1', 10);
   const player = await prisma.user.upsert({
@@ -227,15 +243,19 @@ async function main(): Promise<void> {
         address: '23-K, DHA Phase 5, Lahore',
         latitude: 31.4697,
         longitude: 74.4081,
-        operatingHoursStart: '06:00',
-        operatingHoursEnd: '23:00',
+        operatingHoursStart: '17:00',
+        operatingHoursEnd: '04:00',
         approvalStatus: 'APPROVED',
       },
     });
   } else {
     branch = await prisma.branch.update({
       where: { id: branch.id },
-      data: { approvalStatus: 'APPROVED' },
+      data: {
+        approvalStatus: 'APPROVED',
+        operatingHoursStart: '17:00',
+        operatingHoursEnd: '04:00',
+      },
     });
   }
   console.log(`✓ branch: ${branch.name} (${branch.city})`);
@@ -353,6 +373,41 @@ async function main(): Promise<void> {
     }
   }
   console.log(`✓ ${slotCount} slots (upserted)`);
+
+  // ── Demo open tournament (customer Events tab) ───────────────────────────
+  const padelSport = sportByName.Padel;
+  const existingTournament = await prisma.tournament.findFirst({
+    where: { branchId: branch.id, name: 'GameOn Padel Open' },
+  });
+  if (!existingTournament) {
+    const start = new Date();
+    start.setUTCDate(start.getUTCDate() + 3);
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 2);
+    await prisma.tournament.create({
+      data: {
+        branchId: branch.id,
+        name: 'GameOn Padel Open',
+        sportId: padelSport.id,
+        format: TournamentFormat.KNOCKOUT,
+        status: TournamentStatus.OPEN,
+        entryFee: 1000,
+        prizePool: 20000,
+        startDate: new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate())),
+        endDate: new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate())),
+        maxParticipants: 16,
+        description:
+          'Open padel knockout. Register solo or with a team. Entry fee Rs 1,000 (same payment options as court booking).',
+      },
+    });
+    console.log('✓ demo tournament: GameOn Padel Open (Rs 1,000 entry)');
+  } else {
+    await prisma.tournament.update({
+      where: { id: existingTournament.id },
+      data: { status: TournamentStatus.OPEN, entryFee: 1000 },
+    });
+    console.log('✓ demo tournament refreshed: GameOn Padel Open');
+  }
 
   console.log('\n✅ Seed complete.');
   console.log('Demo accounts:');

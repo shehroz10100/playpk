@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { AuthUser } from '@playpk/shared-types';
+import { BOOKING_ADVANCE_PKR } from '@playpk/shared-types';
 import { api, ApiError } from '../../src/lib/api';
 import { Badge, Button, Card, Muted, Screen, Title } from '../../src/components/ui';
 import { colors, formatPkr } from '../../src/lib/theme';
@@ -25,7 +26,8 @@ export default function ConfirmBookingScreen() {
   const [method, setMethod] = useState<PayMethod>('mock');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const price = Number(params.price ?? 0);
+  const rate = Number(params.price ?? 0);
+  const advance = BOOKING_ADVANCE_PKR;
 
   useEffect(() => {
     api<AuthUser>('/api/auth/me')
@@ -34,7 +36,7 @@ export default function ConfirmBookingScreen() {
   }, []);
 
   async function payAndBook() {
-    if (method === 'wallet' && walletBalance != null && walletBalance < price) {
+    if (method === 'wallet' && walletBalance != null && walletBalance < advance) {
       Alert.alert('Insufficient wallet', 'Top up from Profile, then try again.');
       return;
     }
@@ -60,7 +62,9 @@ export default function ConfirmBookingScreen() {
   return (
     <Screen>
       <Title>Confirm & pay</Title>
-      <Muted>Choose mock payment or deduct from your PlayPK wallet.</Muted>
+      <Muted>
+        Pay a flat advance of {formatPkr(advance)}. Remaining court balance is settled at the venue.
+      </Muted>
 
       <Card style={{ marginTop: 16 }}>
         <Text style={styles.label}>Venue</Text>
@@ -71,8 +75,14 @@ export default function ConfirmBookingScreen() {
         <Text style={styles.value}>
           {params.date} · {params.startTime}-{params.endTime}
         </Text>
-        <Text style={styles.label}>Amount</Text>
-        <Text style={styles.amount}>{formatPkr(price)}</Text>
+        {rate > 0 ? (
+          <>
+            <Text style={styles.label}>Court rate</Text>
+            <Text style={styles.value}>{formatPkr(rate)}/hr</Text>
+          </>
+        ) : null}
+        <Text style={styles.label}>Advance due now</Text>
+        <Text style={styles.amount}>{formatPkr(advance)}</Text>
         {walletBalance != null ? (
           <Muted>Wallet balance: {formatPkr(walletBalance)}</Muted>
         ) : null}
@@ -96,7 +106,11 @@ export default function ConfirmBookingScreen() {
         ))}
       </View>
 
-      <Button label="Pay & confirm booking" onPress={payAndBook} loading={loading} />
+      <Button
+        label={`Pay ${formatPkr(advance)} advance & book`}
+        onPress={payAndBook}
+        loading={loading}
+      />
       <Text style={styles.hint}>
         Wallet debits instantly. Other methods use MockPaymentProvider.
       </Text>

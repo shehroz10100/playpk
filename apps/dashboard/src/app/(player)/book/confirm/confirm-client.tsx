@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { AuthUser } from '@playpk/shared-types';
+import { BOOKING_ADVANCE_PKR, type AuthUser } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { formatPkr } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,8 @@ export default function BookConfirmPage() {
   const date = search.get('date') ?? '';
   const startTime = search.get('startTime') ?? '';
   const endTime = search.get('endTime') ?? '';
-  const price = Number(search.get('price') ?? 0);
+  const rate = Number(search.get('rate') ?? search.get('price') ?? 0);
+  const advance = BOOKING_ADVANCE_PKR;
 
   const [method, setMethod] = useState<PayMethod>('mock');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
@@ -43,8 +44,8 @@ export default function BookConfirmPage() {
       setError('Missing slot. Go back and pick a time again.');
       return;
     }
-    if (method === 'wallet' && walletBalance != null && walletBalance < price) {
-      setError('Insufficient wallet balance.');
+    if (method === 'wallet' && walletBalance != null && walletBalance < advance) {
+      setError('Insufficient wallet balance for the advance.');
       return;
     }
     setLoading(true);
@@ -63,11 +64,12 @@ export default function BookConfirmPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-lg space-y-6 pb-28">
       <div>
         <h1 className="text-2xl font-semibold text-navy">Confirm & pay</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose mock payment or deduct from your PlayPK wallet.
+          Pay a flat advance of {formatPkr(advance)} to confirm. Remaining court balance is settled
+          at the venue.
         </p>
       </div>
 
@@ -83,9 +85,15 @@ export default function BookConfirmPage() {
               {date} · {startTime}–{endTime}
             </span>
           </div>
+          {rate > 0 ? (
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Court rate</span>
+              <span className="text-navy">{formatPkr(rate)}/hr</span>
+            </div>
+          ) : null}
           <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Amount</span>
-            <span className="text-lg font-semibold text-navy">{formatPkr(price)}</span>
+            <span className="text-muted-foreground">Advance due now</span>
+            <span className="text-lg font-semibold text-navy">{formatPkr(advance)}</span>
           </div>
           {walletBalance != null ? (
             <p className="text-xs text-muted-foreground">Wallet: {formatPkr(walletBalance)}</p>
@@ -109,7 +117,7 @@ export default function BookConfirmPage() {
         </div>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <Button className="w-full" type="submit" disabled={loading || !slotId}>
-          {loading ? 'Booking…' : `Pay ${formatPkr(price)} & book`}
+          {loading ? 'Booking…' : `Pay ${formatPkr(advance)} advance & book`}
         </Button>
       </form>
     </div>

@@ -1,5 +1,8 @@
 /** Shared domain enums & API DTO shapes used by api, mobile, and dashboard. */
 
+/** Flat advance charged at booking time for every sport/court (PKR). */
+export const BOOKING_ADVANCE_PKR = 1000;
+
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export enum UserRole {

@@ -13,6 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { api, ApiError } from '../../src/lib/api';
 import { Badge, Button, Card, Muted, Screen } from '../../src/components/ui';
+import { BOOKING_ADVANCE_PKR } from '@playpk/shared-types';
 import { colors, formatPkr } from '../../src/lib/theme';
 
 type Slot = {
@@ -148,8 +149,8 @@ export default function CourtSlotsScreen() {
       <View style={[styles.header, { paddingHorizontal: compact ? 12 : 16 }]}>
         <Text style={[styles.title, { fontSize: compact ? 20 : 22 }]}>{data.court.name}</Text>
         <Muted>
-          {data.court.sport.name} · {data.court.branch.name} · from{' '}
-          {formatPkr(data.court.pricePerHour)}/hr
+          {data.court.sport.name} · {data.court.branch.name} · rate{' '}
+          {formatPkr(data.court.pricePerHour)}/hr · advance {formatPkr(BOOKING_ADVANCE_PKR)}
         </Muted>
         <View style={styles.row}>
           <Badge label={data.court.indoor ? 'Indoor' : 'Outdoor'} />
@@ -240,7 +241,9 @@ export default function CourtSlotsScreen() {
                 <Text style={styles.slotTime}>
                   {item.startTime} – {item.endTime}
                 </Text>
-                <Muted>{formatPkr(item.price)}</Muted>
+                <Muted>
+                  Advance {formatPkr(BOOKING_ADVANCE_PKR)} · rate {formatPkr(item.price)}/hr
+                </Muted>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 6 }}>
                 <Badge
@@ -268,7 +271,7 @@ export default function CourtSlotsScreen() {
         <Card style={{ marginBottom: 8 }}>
           <Muted>
             {selectedSlot
-              ? `${selectedDate} · ${selectedSlot.startTime}-${selectedSlot.endTime} · ${formatPkr(selectedSlot.price)}`
+              ? `${selectedDate} · ${selectedSlot.startTime}-${selectedSlot.endTime} · advance ${formatPkr(BOOKING_ADVANCE_PKR)}`
               : 'Tap an available time slot to continue'}
           </Muted>
         </Card>

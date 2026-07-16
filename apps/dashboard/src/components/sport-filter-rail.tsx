@@ -119,7 +119,7 @@ function SportChip({
         fill
         sizes="(max-width:640px) 72px, (max-width:1024px) 88px, 112px"
         className="object-cover"
-        unoptimized
+        loading="lazy"
       />
       <span
         className={cn(

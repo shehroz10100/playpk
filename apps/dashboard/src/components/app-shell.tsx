@@ -6,6 +6,8 @@ import { getAccessToken, getStoredUser } from '@/lib/auth';
 import { homePathForRole } from '@/lib/roles';
 import { api } from '@/lib/api';
 import { Sidebar } from '@/components/sidebar';
+import { CompanyNotifications } from '@/components/company-notifications';
+import { NotificationsProvider } from '@/components/notifications-provider';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -69,11 +71,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row">
-      <Sidebar companyId={companyId} branchId={branchId} />
-      <main className="min-w-0 flex-1 overflow-auto bg-[#F7F9FC]">
-        <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-8">{children}</div>
-      </main>
-    </div>
+    <NotificationsProvider>
+      <div className="flex min-h-screen flex-col lg:flex-row">
+        <Sidebar companyId={companyId} branchId={branchId} />
+        <main className="min-w-0 flex-1 overflow-auto bg-[#F7F9FC]">
+          <div className="sticky top-0 z-20 flex items-center justify-end border-b border-border bg-white/95 px-4 py-2 backdrop-blur sm:px-6">
+            <CompanyNotifications />
+          </div>
+          <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-8">{children}</div>
+        </main>
+      </div>
+    </NotificationsProvider>
   );
 }

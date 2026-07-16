@@ -7,6 +7,7 @@ import { validate } from '../middleware/validate';
 import { AppError, sendSuccess } from '../lib/errors';
 import { param } from '../lib/params';
 import { assertCanManageBranch } from '../services/access.service';
+import { invalidateVenueListCache } from '../lib/cache-invalidate';
 
 export const branchesRouter = Router();
 
@@ -53,6 +54,7 @@ branchesRouter.patch(
         where: { id: param(req, 'branchId') },
         data: req.body,
       });
+      await invalidateVenueListCache();
       sendSuccess(res, branch);
     } catch (error) {
       next(error);

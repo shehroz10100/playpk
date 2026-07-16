@@ -17,26 +17,34 @@ import { colors, formatPkr } from '../../src/lib/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [city, setCityState] = useState('Lahore');
+  const [filters, setFilters] = useState({
+    city: 'Lahore',
+    sport: '',
+    minPrice: '',
+    maxPrice: '',
+    minRating: '',
+  });
   const [sports, setSports] = useState<SportDto[]>([]);
   const [venues, setVenues] = useState<VenueListItem[]>([]);
-  const [sport, setSport] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [minRating, setMinRating] = useState('');
-  const [timeHint, setTimeHint] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (active?: typeof filters) => {
     setLoading(true);
     setError(null);
     try {
       const storedCity = (await getCity()) ?? 'Lahore';
-      setCityState(storedCity);
-      const query = new URLSearchParams({ city: storedCity, pageSize: '30' });
-      if (sport) query.set('sport', sport);
-      if (maxPrice) query.set('maxPrice', maxPrice);
-      if (minRating) query.set('minRating', minRating);
+      const current = active ?? filters;
+      const city = current.city.trim() || storedCity;
+      if (!current.city.trim()) {
+        setFilters((f) => ({ ...f, city: storedCity }));
+      }
+
+      const query = new URLSearchParams({ city, pageSize: '30' });
+      if (current.sport) query.set('sport', current.sport);
+      if (current.minPrice.trim()) query.set('minPrice', current.minPrice);
+      if (current.maxPrice.trim()) query.set('maxPrice', current.maxPrice);
+      if (current.minRating.trim()) query.set('minRating', current.minRating);
 
       const [venuesRes, sportsRes] = await Promise.all([
         api<VenueListItem[]>(`/api/venues?${query.toString()}`, { auth: false }),
@@ -49,59 +57,89 @@ export default function HomeScreen() {
     } finally {
       setLoading(false);
     }
-  }, [sport, maxPrice, minRating]);
+  }, [filters]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load]),
+      void load();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
   );
 
   useEffect(() => {
-    void timeHint;
-  }, [timeHint]);
+    void (async () => {
+      const storedCity = (await getCity()) ?? 'Lahore';
+      setFilters((f) => ({ ...f, city: f.city || storedCity }));
+    })();
+  }, []);
+
+  function clearFilters() {
+    const cleared = {
+      city: filters.city,
+      sport: '',
+      minPrice: '',
+      maxPrice: '',
+      minRating: '',
+    };
+    setFilters(cleared);
+    void load(cleared);
+  }
 
   return (
     <Screen style={{ paddingHorizontal: 0 }}>
       <View style={styles.header}>
         <Text style={styles.kicker}>Near you</Text>
-        <Text style={styles.city}>{city}</Text>
-        <Muted>Filter by sport, budget, rating, and preferred time.</Muted>
+        <Text style={styles.city}>{filters.city}</Text>
+        <Muted>Filter by sport, city, price, and rating.</Muted>
       </View>
 
       <SportFilterRail
         sports={sports}
-        selected={sport}
-        onSelect={setSport}
+        selected={filters.sport}
+        onSelect={(sport) => setFilters((f) => ({ ...f, sport }))}
         featuredOnly={false}
         showAll
       />
 
-      <View style={styles.filterRow}>
+      <Card style={{ marginHorizontal: 16, marginBottom: 8 }}>
+        <Muted>City</Muted>
         <Input
-          placeholder="Max price / hr"
-          keyboardType="number-pad"
-          value={maxPrice}
-          onChangeText={setMaxPrice}
-          style={styles.filterInput}
+          value={filters.city}
+          onChangeText={(city) => setFilters((f) => ({ ...f, city }))}
+          placeholder="Lahore"
         />
+        <View style={{ height: 8 }} />
+        <Muted>Price per hour (PKR)</Muted>
+        <View style={styles.filterRow}>
+          <Input
+            placeholder="Min"
+            keyboardType="number-pad"
+            value={filters.minPrice}
+            onChangeText={(minPrice) => setFilters((f) => ({ ...f, minPrice }))}
+            style={styles.filterInput}
+          />
+          <Input
+            placeholder="Max"
+            keyboardType="number-pad"
+            value={filters.maxPrice}
+            onChangeText={(maxPrice) => setFilters((f) => ({ ...f, maxPrice }))}
+            style={styles.filterInput}
+          />
+        </View>
+        <View style={{ height: 8 }} />
+        <Muted>Min rating (1–5)</Muted>
         <Input
-          placeholder="Min rating"
+          placeholder="e.g. 4.0"
           keyboardType="decimal-pad"
-          value={minRating}
-          onChangeText={setMinRating}
-          style={styles.filterInput}
+          value={filters.minRating}
+          onChangeText={(minRating) => setFilters((f) => ({ ...f, minRating }))}
         />
-        <Input
-          placeholder="Time e.g. 18:00"
-          value={timeHint}
-          onChangeText={setTimeHint}
-          style={styles.filterInput}
-        />
-      </View>
-      <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-        <Button label="Apply filters" onPress={load} variant="secondary" />
-      </View>
+        <View style={{ height: 8 }} />
+        <View style={styles.actions}>
+          <Button label="Apply filters" onPress={() => void load(filters)} loading={loading} />
+          <Button label="Clear" variant="outline" onPress={clearFilters} />
+        </View>
+      </Card>
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 24 }} />
@@ -155,13 +193,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   city: { fontSize: 26, fontWeight: '800', color: colors.navy, marginVertical: 4 },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 16,
-  },
-  filterInput: { flexGrow: 1, flexBasis: 110, minWidth: 100, marginBottom: 0 },
+  filterRow: { flexDirection: 'row', gap: 8 },
+  filterInput: { flex: 1, marginBottom: 0 },
+  actions: { flexDirection: 'row', gap: 8 },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   venueName: { fontSize: 17, fontWeight: '700', color: colors.navy, marginBottom: 4 },
   error: { color: colors.danger, paddingHorizontal: 16, marginTop: 12 },

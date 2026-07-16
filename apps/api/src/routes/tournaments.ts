@@ -24,6 +24,16 @@ tournamentsRouter.get('/', async (req, res, next) => {
         sportId: z.string().optional(),
         city: z.string().optional(),
         status: z.nativeEnum(TournamentStatus).optional(),
+        minFee: z.coerce.number().min(0).optional(),
+        maxFee: z.coerce.number().min(0).optional(),
+        dateFrom: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, 'dateFrom must be YYYY-MM-DD')
+          .optional(),
+        dateTo: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, 'dateTo must be YYYY-MM-DD')
+          .optional(),
       })
       .parse(req.query);
     const data = await tournamentService.listTournaments(q);
@@ -120,6 +130,10 @@ tournamentsRouter.post(
   validate(
     z.object({
       teamId: z.string().optional(),
+      teamName: z.string().min(2).max(80).optional(),
+      teammateContacts: z.array(z.string().min(3).max(120)).max(12).optional(),
+      playerName: z.string().min(2).max(80).optional(),
+      paymentMethod: z.enum(['mock', 'wallet', 'jazzcash', 'easypaisa', 'card']).optional(),
     }),
   ),
   async (req, res, next) => {
@@ -128,6 +142,10 @@ tournamentsRouter.post(
         tournamentId: param(req, 'tournamentId'),
         userId: req.user!.id,
         teamId: req.body.teamId,
+        teamName: req.body.teamName,
+        teammateContacts: req.body.teammateContacts,
+        playerName: req.body.playerName,
+        paymentMethod: req.body.paymentMethod,
       });
       sendSuccess(res, data, 201);
     } catch (error) {

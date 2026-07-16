@@ -1,24 +1,20 @@
-import type {
-  AuthUser,
-  LoyaltyStatusDto,
-  NotificationDto,
-  WalletStatusDto,
-} from '@playpk/shared-types';
+import type { AuthUser, LoyaltyStatusDto, WalletStatusDto } from '@playpk/shared-types';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { api, ApiError } from '../../src/lib/api';
 import { clearSession, getCity, getStoredUser } from '../../src/lib/auth';
+import { useNotifications } from '../../src/context/notifications';
 import { Badge, Button, Card, Input, Muted, Screen, Title } from '../../src/components/ui';
 import { colors, formatPkr } from '../../src/lib/theme';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { notifications, markAllRead } = useNotifications();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [city, setCityState] = useState<string>('');
   const [loyalty, setLoyalty] = useState<LoyaltyStatusDto | null>(null);
   const [wallet, setWallet] = useState<WalletStatusDto | null>(null);
-  const [notifications, setNotifications] = useState<NotificationDto[]>([]);
   const [topUpAmount, setTopUpAmount] = useState('1000');
   const [busy, setBusy] = useState(false);
 
@@ -31,14 +27,12 @@ export default function ProfileScreen() {
     }
     setCityState((await getCity()) ?? '');
     try {
-      const [loy, wal, notes] = await Promise.all([
+      const [loy, wal] = await Promise.all([
         api<LoyaltyStatusDto>('/api/loyalty/me'),
         api<WalletStatusDto>('/api/wallet/me'),
-        api<NotificationDto[]>('/api/notifications/me'),
       ]);
       setLoyalty(loy.data);
       setWallet(wal.data);
-      setNotifications(notes.data);
     } catch {
       /* offline / first load */
     }
@@ -83,8 +77,7 @@ export default function ProfileScreen() {
 
   async function markNotificationsRead() {
     try {
-      await api('/api/notifications/me/read-all', { method: 'POST' });
-      await refresh();
+      await markAllRead();
     } catch (err) {
       Alert.alert('Error', err instanceof ApiError ? err.message : 'Try again');
     }
@@ -93,7 +86,7 @@ export default function ProfileScreen() {
   return (
     <Screen>
       <Title>Profile</Title>
-      <Muted>Loyalty, wallet top-up, and waitlist notifications.</Muted>
+      <Muted>Loyalty, wallet, and alerts for tournaments and waitlist offers.</Muted>
 
       <Card style={{ marginTop: 16 }}>
         <Text style={styles.name}>{user?.name ?? 'Player'}</Text>
@@ -147,18 +140,31 @@ export default function ProfileScreen() {
           ) : null}
         </View>
         {notifications.length === 0 ? (
-          <Muted>No notifications yet (waitlist promotions appear here).</Muted>
+          <Muted>No notifications yet — new tournaments and waitlist offers appear here.</Muted>
         ) : (
           <FlatList
-            data={notifications.slice(0, 8)}
+            data={notifications.slice(0, 12)}
             keyExtractor={(item) => item.id}
             scrollEnabled={false}
-            renderItem={({ item }) => (
-              <View style={styles.note}>
-                <Text style={styles.noteTitle}>{item.title}</Text>
-                <Muted>{item.body}</Muted>
-              </View>
-            )}
+            renderItem={({ item }) => {
+              const tournamentId =
+                item.meta?.type === 'TOURNAMENT_LISTED' && typeof item.meta.tournamentId === 'string'
+                  ? item.meta.tournamentId
+                  : null;
+              return (
+                <View style={styles.note}>
+                  <Text style={styles.noteTitle}>{item.title}</Text>
+                  <Muted>{item.body}</Muted>
+                  {tournamentId ? (
+                    <Button
+                      label="View event"
+                      variant="outline"
+                      onPress={() => router.push(`/tournament/${tournamentId}`)}
+                    />
+                  ) : null}
+                </View>
+              );
+            }}
           />
         )}
       </Card>

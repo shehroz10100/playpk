@@ -1,5 +1,5 @@
 import type { TournamentDto } from '@playpk/shared-types';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,

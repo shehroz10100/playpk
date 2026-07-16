@@ -118,6 +118,11 @@ export async function createTournament(input: {
     },
   });
 
+  if (tournament.status === TournamentStatus.OPEN) {
+    const { enqueueJob } = await import('../lib/jobs');
+    enqueueJob('NOTIFY_TOURNAMENT_LISTED', { tournamentId: tournament.id });
+  }
+
   return serializeTournament(tournament);
 }
 
@@ -158,6 +163,13 @@ export async function updateTournament(
     },
   });
 
+  const publishedNow =
+    input.status === TournamentStatus.OPEN && existing.status !== TournamentStatus.OPEN;
+  if (publishedNow) {
+    const { enqueueJob } = await import('../lib/jobs');
+    enqueueJob('NOTIFY_TOURNAMENT_LISTED', { tournamentId: updated.id });
+  }
+
   return serializeTournament(updated);
 }
 
@@ -166,7 +178,31 @@ export async function listTournaments(filter: {
   sportId?: string;
   status?: TournamentStatus;
   city?: string;
+  minFee?: number;
+  maxFee?: number;
+  dateFrom?: string;
+  dateTo?: string;
 }) {
+  if (
+    filter.minFee !== undefined &&
+    filter.maxFee !== undefined &&
+    filter.maxFee < filter.minFee
+  ) {
+    throw new AppError('maxFee must be >= minFee', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+
+  const dateFrom = filter.dateFrom ? parseDate(filter.dateFrom) : undefined;
+  const dateTo = filter.dateTo ? parseDate(filter.dateTo) : undefined;
+  if (dateFrom && dateTo && dateTo < dateFrom) {
+    throw new AppError('dateTo must be on/after dateFrom', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+
   const items = await prisma.tournament.findMany({
     where: {
       ...(filter.branchId ? { branchId: filter.branchId } : {}),
@@ -175,6 +211,16 @@ export async function listTournaments(filter: {
       ...(filter.city
         ? { branch: { city: { equals: filter.city, mode: 'insensitive' } } }
         : {}),
+      ...(filter.minFee !== undefined || filter.maxFee !== undefined
+        ? {
+            entryFee: {
+              ...(filter.minFee !== undefined ? { gte: filter.minFee } : {}),
+              ...(filter.maxFee !== undefined ? { lte: filter.maxFee } : {}),
+            },
+          }
+        : {}),
+      ...(dateFrom ? { endDate: { gte: dateFrom } } : {}),
+      ...(dateTo ? { startDate: { lte: dateTo } } : {}),
     },
     include: {
       sport: true,
@@ -299,7 +345,15 @@ export async function registerForTournament(input: {
   tournamentId: string;
   userId: string;
   teamId?: string;
+  /** Create a new team during registration (ignored if teamId is set). */
+  teamName?: string;
+  /** Email or phone contacts to invite onto the new/existing team. */
+  teammateContacts?: string[];
+  /** Optional display name for the registering player. */
+  playerName?: string;
+  paymentMethod?: 'mock' | 'wallet' | 'jazzcash' | 'easypaisa' | 'card';
 }) {
+  const method = input.paymentMethod ?? 'mock';
   const tournament = await prisma.tournament.findUnique({
     where: { id: input.tournamentId },
     include: { _count: { select: { registrations: true } } },
@@ -329,9 +383,38 @@ export async function registerForTournament(input: {
     throw new AppError('Already registered', { statusCode: 409, code: 'ALREADY_REGISTERED' });
   }
 
-  if (input.teamId) {
+  if (input.playerName?.trim()) {
+    await prisma.user.update({
+      where: { id: input.userId },
+      data: { name: input.playerName.trim() },
+    });
+  }
+
+  let teamId = input.teamId;
+  if (!teamId && input.teamName?.trim()) {
+    const { createTeam, inviteToTeam } = await import('./team.service');
+    const team = await createTeam({
+      captainId: input.userId,
+      name: input.teamName.trim(),
+      sportId: tournament.sportId,
+    });
+    teamId = team.id;
+    for (const raw of input.teammateContacts ?? []) {
+      const contact = raw.trim();
+      if (!contact) continue;
+      try {
+        await inviteToTeam({
+          teamId,
+          invitedById: input.userId,
+          ...(contact.includes('@') ? { email: contact } : { phone: contact }),
+        });
+      } catch {
+        /* skip invalid / duplicate invites */
+      }
+    }
+  } else if (teamId) {
     const member = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: input.teamId, userId: input.userId } },
+      where: { teamId_userId: { teamId, userId: input.userId } },
     });
     if (!member) {
       throw new AppError('You must be a member of that team', {
@@ -339,34 +422,67 @@ export async function registerForTournament(input: {
         code: 'FORBIDDEN',
       });
     }
+    if (input.teammateContacts?.length) {
+      const { inviteToTeam } = await import('./team.service');
+      for (const raw of input.teammateContacts) {
+        const contact = raw.trim();
+        if (!contact) continue;
+        try {
+          await inviteToTeam({
+            teamId,
+            invitedById: input.userId,
+            ...(contact.includes('@') ? { email: contact } : { phone: contact }),
+          });
+        } catch {
+          /* skip */
+        }
+      }
+    }
   }
 
   const fee = Number(tournament.entryFee);
+
   const registration = await prisma.tournamentRegistration.create({
     data: {
       tournamentId: input.tournamentId,
       userId: input.userId,
-      teamId: input.teamId,
+      teamId,
       paidAmount: fee,
-      paymentStatus: PaymentStatus.PENDING,
+      paymentStatus: fee === 0 ? PaymentStatus.PAID : PaymentStatus.PENDING,
+      paymentIntentId: fee === 0 ? `free_${input.tournamentId}` : null,
     },
   });
 
-  const payment = getPaymentProvider();
-  const intent = await payment.createPaymentIntent({
-    amount: fee,
-    currency: 'PKR',
-    bookingId: registration.id,
-    userId: input.userId,
-    method: 'mock',
-    metadata: { type: 'tournament_entry', tournamentId: input.tournamentId },
-  });
+  let paymentIntentId = registration.paymentIntentId;
+  if (fee > 0) {
+    if (method === 'wallet') {
+      const { debitWallet } = await import('./wallet.service');
+      await debitWallet(prisma, {
+        userId: input.userId,
+        amount: fee,
+        bookingId: registration.id,
+        reason: `Tournament entry: ${tournament.name}`,
+      });
+      paymentIntentId = `wallet_tournament_${registration.id}`;
+    } else {
+      const payment = getPaymentProvider();
+      const intent = await payment.createPaymentIntent({
+        amount: fee,
+        currency: 'PKR',
+        bookingId: registration.id,
+        userId: input.userId,
+        method,
+        metadata: { type: 'tournament_entry', tournamentId: input.tournamentId },
+      });
+      paymentIntentId = intent.id;
+    }
+  }
 
   const paid = await prisma.tournamentRegistration.update({
     where: { id: registration.id },
     data: {
       paymentStatus: PaymentStatus.PAID,
-      paymentIntentId: intent.id,
+      paymentIntentId,
     },
     include: regInclude,
   });

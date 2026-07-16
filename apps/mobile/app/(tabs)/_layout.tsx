@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
 import { colors } from '../../src/lib/theme';
+import { NotificationsProvider } from '../../src/context/notifications';
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   return (
@@ -12,7 +13,8 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
 
 export default function TabsLayout() {
   return (
-    <Tabs
+    <NotificationsProvider>
+      <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: colors.navy },
         headerTintColor: colors.white,
@@ -24,7 +26,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Discover',
+          title: 'Home',
           tabBarIcon: ({ focused }) => <TabIcon label="Home" focused={focused} />,
           tabBarLabel: 'Home',
         }}
@@ -32,35 +34,36 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="bookings"
         options={{
-          title: 'My bookings',
+          title: 'Book',
           tabBarIcon: ({ focused }) => <TabIcon label="Book" focused={focused} />,
-          tabBarLabel: 'Bookings',
+          tabBarLabel: 'Book',
         }}
       />
       <Tabs.Screen
         name="tournaments"
         options={{
-          title: 'Tournaments',
-          tabBarIcon: ({ focused }) => <TabIcon label="Cups" focused={focused} />,
+          title: 'Events',
+          tabBarIcon: ({ focused }) => <TabIcon label="Events" focused={focused} />,
           tabBarLabel: 'Events',
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'PlayPK AI',
+          title: 'AI',
           tabBarIcon: ({ focused }) => <TabIcon label="AI" focused={focused} />,
-          tabBarLabel: 'Ask AI',
+          tabBarLabel: 'AI',
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'Me',
           tabBarIcon: ({ focused }) => <TabIcon label="Me" focused={focused} />,
-          tabBarLabel: 'Profile',
+          tabBarLabel: 'Me',
         }}
       />
     </Tabs>
+    </NotificationsProvider>
   );
 }

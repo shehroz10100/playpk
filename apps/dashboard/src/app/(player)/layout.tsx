@@ -1,5 +1,10 @@
 import { PlayerShell } from '@/components/player-shell';
+import { NotificationsProvider } from '@/components/notifications-provider';
 
 export default function PlayerLayout({ children }: { children: React.ReactNode }) {
-  return <PlayerShell>{children}</PlayerShell>;
+  return (
+    <NotificationsProvider>
+      <PlayerShell>{children}</PlayerShell>
+    </NotificationsProvider>
+  );
 }

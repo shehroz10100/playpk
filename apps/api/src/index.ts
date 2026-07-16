@@ -2,8 +2,10 @@ import { createApp } from './app';
 import { appConfig } from './config/env';
 import { connectRedis } from './lib/redis';
 import { prisma } from './lib/prisma';
+import { registerBackgroundJobs } from './services/jobs.registry';
 
 async function bootstrap(): Promise<void> {
+  registerBackgroundJobs();
   // Ensure Redis is reachable early so slot-locking is ready later
   try {
     await connectRedis();

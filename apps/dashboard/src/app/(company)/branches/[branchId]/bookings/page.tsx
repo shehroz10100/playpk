@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { formatPkr } from '@/lib/utils';
@@ -32,6 +32,8 @@ const statusVariant: Record<string, 'success' | 'warn' | 'danger' | 'muted'> = {
   COMPLETED: 'muted',
 };
 
+import { useVisibilityPoll } from '@/hooks/use-visibility-poll';
+
 export default function BookingsPage() {
   const params = useParams<{ branchId: string }>();
   const branchId = params.branchId;
@@ -41,8 +43,11 @@ export default function BookingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState<Record<string, unknown> | undefined>();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [liveBanner, setLiveBanner] = useState<string | null>(null);
+  const knownIds = useRef<Set<string>>(new Set());
+  const primed = useRef(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     const query = new URLSearchParams();
     if (date) query.set('date', date);
     if (status) query.set('status', status);
@@ -50,13 +55,38 @@ export default function BookingsPage() {
     const { data, meta: responseMeta } = await api<Booking[]>(
       `/api/branches/${branchId}/bookings?${query.toString()}`,
     );
+
+    if (!primed.current) {
+      knownIds.current = new Set(data.map((b) => b.id));
+      primed.current = true;
+    } else {
+      const fresh = data.filter((b) => !knownIds.current.has(b.id));
+      if (fresh.length > 0) {
+        const latest = fresh[0];
+        setLiveBanner(
+          `New booking · ${latest.user.name} · ${latest.slot.court.name} · ID ${latest.id}`,
+        );
+        for (const b of fresh) knownIds.current.add(b.id);
+      }
+    }
+
     setBookings(data);
     setMeta(responseMeta);
-  }
+  }, [branchId, date, status]);
 
   useEffect(() => {
+    primed.current = false;
+    knownIds.current = new Set();
     load().catch((err: Error) => setError(err.message));
-  }, [branchId, date, status]);
+  }, [load]);
+
+  useVisibilityPoll(
+    () => {
+      load().catch(() => undefined);
+    },
+    true,
+    { intervalMs: 20000 },
+  );
 
   async function completeBooking(bookingId: string) {
     setBusyId(bookingId);
@@ -75,9 +105,15 @@ export default function BookingsPage() {
       <div>
         <h1 className="text-2xl font-semibold text-navy">Bookings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          All bookings for this branch, filterable by date and status.
+          Live list for this branch — refreshes automatically when customers book.
         </p>
       </div>
+
+      {liveBanner ? (
+        <p className="rounded-md border border-brand/30 bg-brand-50 px-3 py-2 text-sm text-brand-700">
+          {liveBanner}
+        </p>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -106,6 +142,11 @@ export default function BookingsPage() {
               <option value="COMPLETED">Completed</option>
             </select>
           </div>
+          <div className="flex items-end">
+            <Button type="button" variant="outline" onClick={() => void load()}>
+              Refresh now
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -116,6 +157,7 @@ export default function BookingsPage() {
           <table className="min-w-full text-left text-sm">
             <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
+                <th className="px-4 py-3 font-medium">Booking ID</th>
                 <th className="px-4 py-3 font-medium">Customer</th>
                 <th className="px-4 py-3 font-medium">Court</th>
                 <th className="px-4 py-3 font-medium">Slot</th>
@@ -128,13 +170,19 @@ export default function BookingsPage() {
             <tbody>
               {bookings.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                     No bookings match these filters.
                   </td>
                 </tr>
               ) : (
                 bookings.map((booking) => (
                   <tr key={booking.id} className="border-t border-border">
+                    <td className="px-4 py-3">
+                      <code className="break-all text-[11px] text-navy">{booking.id}</code>
+                      <div className="text-[10px] text-muted-foreground">
+                        {new Date(booking.createdAt).toLocaleString()}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-navy">{booking.user.name}</div>
                       <div className="text-xs text-muted-foreground">

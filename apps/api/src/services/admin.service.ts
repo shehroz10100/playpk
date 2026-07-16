@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
+import { invalidateVenueListCache } from '../lib/cache-invalidate';
 
 function serializeUser(u: {
   id: string;
@@ -150,6 +151,7 @@ export async function approveCompany(companyId: string, adminId: string) {
     where: { companyId },
     data: { approvalStatus: CompanyApprovalStatus.APPROVED },
   });
+  await invalidateVenueListCache();
   return serializeCompany({
     ...company,
     branches: company.branches.map((b) => ({
@@ -177,6 +179,7 @@ export async function rejectCompany(companyId: string, reason?: string) {
     where: { companyId },
     data: { approvalStatus: CompanyApprovalStatus.REJECTED },
   });
+  await invalidateVenueListCache();
   return serializeCompany(company);
 }
 
@@ -192,10 +195,12 @@ export async function approveBranch(branchId: string) {
       code: 'COMPANY_NOT_APPROVED',
     });
   }
-  return prisma.branch.update({
+  const updated = await prisma.branch.update({
     where: { id: branchId },
     data: { approvalStatus: CompanyApprovalStatus.APPROVED },
   });
+  await invalidateVenueListCache();
+  return updated;
 }
 
 export async function updateCommission(companyId: string, commissionPercent: number) {

@@ -1,6 +1,7 @@
 import { BookingStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
+import { invalidateVenueListCache } from '../lib/cache-invalidate';
 
 /**
  * Players may review a branch after at least one COMPLETED booking there.
@@ -60,6 +61,8 @@ export async function upsertBranchReview(input: {
     _avg: { rating: true },
     _count: { rating: true },
   });
+
+  await invalidateVenueListCache();
 
   return {
     review,
