@@ -10,6 +10,7 @@ import type {
   TournamentStandingDto,
 } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
+import { getStoredUser } from '@/lib/auth';
 import { formatPkr } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -50,15 +51,15 @@ export default function EventDetailPage() {
       auth: false,
     });
     setStandings(s.data);
+    const profile = getStoredUser();
+    if (profile) {
+      setMe(profile);
+      if (!playerName) setPlayerName(profile.name ?? '');
+      if (!playerId) setPlayerId(profile.email ?? profile.phone ?? '');
+    }
     try {
-      const [myTeams, profile] = await Promise.all([
-        api<TeamDto[]>('/api/teams/me'),
-        api<AuthUser>('/api/auth/me'),
-      ]);
+      const myTeams = await api<TeamDto[]>('/api/teams/me');
       setTeams(myTeams.data);
-      setMe(profile.data);
-      if (!playerName) setPlayerName(profile.data.name ?? '');
-      if (!playerId) setPlayerId(profile.data.email ?? profile.data.phone ?? '');
     } catch {
       setTeams([]);
     }

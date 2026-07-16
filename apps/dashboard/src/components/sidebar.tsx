@@ -122,8 +122,7 @@ export function Sidebar({ companyId, branchId }: SidebarProps) {
           variant="outline"
           className="w-full border-white/20 bg-transparent text-white hover:bg-white/10"
           onClick={() => {
-            clearSession();
-            router.replace('/login');
+            void clearSession().then(() => router.replace('/login'));
           }}
         >
           <LogOut className="h-4 w-4" />

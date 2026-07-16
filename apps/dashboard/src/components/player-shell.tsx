@@ -65,8 +65,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
               variant="outline"
               size="sm"
               onClick={() => {
-                clearSession();
-                router.replace('/login');
+                void clearSession().then(() => router.replace('/login'));
               }}
             >
               <LogOut className="h-4 w-4" />

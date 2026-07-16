@@ -2,9 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { AuthTokensResponse } from '@playpk/shared-types';
-import { api, ApiError } from '@/lib/api';
-import { clearSession, saveSession } from '@/lib/auth';
+import { clearSession, signInWithPassword } from '@/lib/auth';
 import { homePathForRole } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,7 +52,7 @@ export default function LoginPage() {
 
   // Always start at Sign in — clear any previous session so this page is first.
   useEffect(() => {
-    clearSession();
+    void clearSession();
   }, []);
 
   async function onSubmit(e: FormEvent) {
@@ -62,29 +60,18 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await api<AuthTokensResponse>('/api/auth/login', {
-        method: 'POST',
-        auth: false,
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
-      });
+      const user = await signInWithPassword(email, password);
 
       const allowed = ['PLAYER', 'COMPANY_OWNER', 'BRANCH_MANAGER', 'ADMIN'];
-      if (!allowed.includes(String(data.user.role))) {
+      if (!allowed.includes(String(user.role))) {
         setError('Unsupported account role for this portal.');
+        await clearSession();
         return;
       }
 
-      saveSession(data);
-      // Customer → /discover · Company → /companies · Admin → /admin
-      router.replace(homePathForRole(String(data.user.role)));
+      router.replace(homePathForRole(String(user.role)));
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else if (err instanceof TypeError) {
-        setError('Cannot reach API. Check NEXT_PUBLIC_API_URL and that the API is running.');
-      } else {
-        setError(err instanceof Error ? err.message : 'Login failed');
-      }
+      setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }

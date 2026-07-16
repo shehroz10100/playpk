@@ -2,8 +2,9 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { BOOKING_ADVANCE_PKR, type AuthUser } from '@playpk/shared-types';
+import { BOOKING_ADVANCE_PKR } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
+import { getStoredUser } from '@/lib/auth';
 import { formatPkr } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,9 +34,7 @@ export default function BookConfirmPage() {
   );
 
   useEffect(() => {
-    api<AuthUser>('/api/auth/me')
-      .then(({ data }) => setWalletBalance(data.walletBalance ?? null))
-      .catch(() => setWalletBalance(null));
+    setWalletBalance(getStoredUser()?.walletBalance ?? null);
   }, []);
 
   async function onSubmit(e: FormEvent) {
