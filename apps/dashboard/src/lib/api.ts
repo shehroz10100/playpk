@@ -1,10 +1,9 @@
 'use client';
 
-import { clearSession, getAccessToken, getStoredUser, saveSession } from './auth';
-import { getSupabase } from './supabase';
+import type { AuthTokensResponse } from '@playpk/shared-types';
+import { clearSession, getAccessToken, getRefreshToken, saveSession } from './auth';
 
-/** Optional Express API for legacy data routes. Auth no longer uses this. */
-const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? '';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export class ApiError extends Error {
   status: number;
@@ -31,42 +30,26 @@ type ApiFailure = {
 };
 
 async function refreshAccessToken(): Promise<string | null> {
-  try {
-    const { data, error } = await getSupabase().auth.refreshSession();
-    if (error || !data.session) {
-      await clearSession();
-      return null;
-    }
-    const user = getStoredUser();
-    if (user) {
-      saveSession({
-        accessToken: data.session.access_token,
-        refreshToken: data.session.refresh_token,
-        user,
-      });
-    } else {
-      localStorage.setItem('playpk_access_token', data.session.access_token);
-      localStorage.setItem('playpk_refresh_token', data.session.refresh_token);
-    }
-    return data.session.access_token;
-  } catch {
-    await clearSession();
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+  const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  });
+  if (!res.ok) {
+    clearSession();
     return null;
   }
+  const json = (await res.json()) as ApiSuccess<AuthTokensResponse>;
+  saveSession(json.data);
+  return json.data.accessToken;
 }
 
 export async function api<T>(
   path: string,
   options: RequestInit & { auth?: boolean } = {},
 ): Promise<{ data: T; meta?: Record<string, unknown> }> {
-  if (!API_BASE) {
-    throw new ApiError(
-      'Data API is not configured (NEXT_PUBLIC_API_URL). Login uses Supabase; set the API URL only if you still need Express data routes.',
-      503,
-      'API_NOT_CONFIGURED',
-    );
-  }
-
   const headers = new Headers(options.headers);
   if (!(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
