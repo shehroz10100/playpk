@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   addMonths,
   eachDayOfInterval,
@@ -56,27 +56,28 @@ export default function SlotsPage() {
     return eachDayOfInterval({ start, end });
   }, [month]);
 
-  async function loadCourts() {
+  const loadCourts = useCallback(async () => {
     const { data } = await api<Court[]>(`/api/branches/${branchId}/courts`);
     setCourts(data);
-    if (!courtId && data[0]) setCourtId(data[0].id);
-  }
-
-  async function loadSlots(activeCourtId = courtId, date = selectedDate) {
-    if (!activeCourtId) return;
-    const { data } = await api<Slot[]>(`/api/slots/court/${activeCourtId}?date=${date}`);
-    setSlots(data);
-  }
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/branch change only
-  useEffect(() => {
-    loadCourts().catch((err: Error) => setError(err.message));
+    setCourtId((prev) => prev || data[0]?.id || '');
   }, [branchId]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- remount when court/date changes
+  const loadSlots = useCallback(
+    async (activeCourtId = courtId, date = selectedDate) => {
+      if (!activeCourtId) return;
+      const { data } = await api<Slot[]>(`/api/slots/court/${activeCourtId}?date=${date}`);
+      setSlots(data);
+    },
+    [courtId, selectedDate],
+  );
+
+  useEffect(() => {
+    loadCourts().catch((err: Error) => setError(err.message));
+  }, [loadCourts]);
+
   useEffect(() => {
     loadSlots().catch((err: Error) => setError(err.message));
-  }, [courtId, selectedDate]);
+  }, [loadSlots]);
 
   async function generateSlots() {
     if (!courtId) return;
