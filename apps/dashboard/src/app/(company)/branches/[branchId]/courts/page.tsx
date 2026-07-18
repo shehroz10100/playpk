@@ -58,6 +58,7 @@ export default function CourtsPage() {
 
   useEffect(() => {
     load().catch((err: Error) => setError(err.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchId]);
 
   function startCreate() {

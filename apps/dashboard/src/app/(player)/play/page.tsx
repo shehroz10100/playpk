@@ -48,15 +48,15 @@ export default function PlayPage() {
       setProfile(p.data);
       setMatches(m.data);
       setSports(s.data);
-      if (!createSportId && s.data[0]) {
+      if (s.data[0]) {
         const padel = s.data.find((x) => x.name.toLowerCase() === 'padel') ?? s.data[0];
-        setCreateSportId(padel.id);
-        setSportId(padel.id);
+        setCreateSportId((prev) => prev || padel.id);
+        setSportId((prev) => prev || padel.id);
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load play hub');
     }
-  }, [createSportId]);
+  }, []);
 
   useEffect(() => {
     void load();

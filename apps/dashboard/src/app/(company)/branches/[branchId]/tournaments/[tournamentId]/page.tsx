@@ -41,6 +41,7 @@ export default function TournamentManagePage() {
 
   useEffect(() => {
     load().catch((err: Error) => setError(err.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId, branchId]);
 
   const rounds = useMemo(() => {

@@ -51,6 +51,7 @@ export default function AdminCouponsPage() {
 
   useEffect(() => {
     load().catch((err: Error) => setError(err.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function onCreate(e: FormEvent) {

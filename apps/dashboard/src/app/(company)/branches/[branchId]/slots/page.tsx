@@ -68,10 +68,12 @@ export default function SlotsPage() {
     setSlots(data);
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/branch change only
   useEffect(() => {
     loadCourts().catch((err: Error) => setError(err.message));
   }, [branchId]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- remount when court/date changes
   useEffect(() => {
     loadSlots().catch((err: Error) => setError(err.message));
   }, [courtId, selectedDate]);

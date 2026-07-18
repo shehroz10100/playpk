@@ -38,6 +38,7 @@ export default function AdminTicketsPage() {
 
   useEffect(() => {
     load().catch((err: Error) => setError(err.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
   async function update(ticketId: string, patch: Record<string, unknown>) {

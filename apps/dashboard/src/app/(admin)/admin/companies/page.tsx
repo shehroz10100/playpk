@@ -35,6 +35,7 @@ export default function AdminCompaniesPage() {
 
   useEffect(() => {
     load().catch((err: Error) => setError(err.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   async function approve(id: string) {

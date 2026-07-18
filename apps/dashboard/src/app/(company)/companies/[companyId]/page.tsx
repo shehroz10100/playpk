@@ -53,6 +53,7 @@ export default function CompanyOverviewPage() {
 
   useEffect(() => {
     load().catch((err: Error) => setError(err.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
   async function onRenameCompany(e: FormEvent) {

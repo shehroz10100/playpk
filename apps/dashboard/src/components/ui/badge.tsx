@@ -5,7 +5,7 @@ export function Badge({
   variant = 'default',
   ...props
 }: React.HTMLAttributes<HTMLSpanElement> & {
-  variant?: 'default' | 'success' | 'warn' | 'danger' | 'muted';
+  variant?: 'default' | 'success' | 'warn' | 'danger' | 'muted' | 'secondary' | 'outline';
 }) {
   const styles = {
     default: 'bg-navy/10 text-navy',
@@ -13,6 +13,8 @@ export function Badge({
     warn: 'bg-amber-50 text-amber-800',
     danger: 'bg-red-50 text-red-700',
     muted: 'bg-muted text-muted-foreground',
+    secondary: 'bg-brand/10 text-brand',
+    outline: 'border border-border bg-white text-navy',
   } as const;
 
   return (

@@ -51,8 +51,16 @@ export async function fetchSportsCatalog(): Promise<SportDto[]> {
   const { data, error } = await supabase.from('Sport').select('id, name, iconUrl, createdAt');
   if (error || !data) return [];
 
-  return orderSportsForRail(data).map((s) => ({
-    ...s,
+  const rows = data as Array<{
+    id: string;
+    name: string;
+    iconUrl: string | null;
+    createdAt?: string;
+  }>;
+
+  return orderSportsForRail(rows).map((s) => ({
+    id: s.id,
+    name: s.name,
     iconUrl: resolveSportCover(s.name, s.iconUrl),
   }));
 }

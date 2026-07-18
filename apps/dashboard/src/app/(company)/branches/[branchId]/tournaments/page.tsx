@@ -48,6 +48,7 @@ export default function BranchTournamentsPage() {
 
   useEffect(() => {
     load().catch((err: Error) => setError(err.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchId]);
 
   async function onCreate(e: FormEvent) {
