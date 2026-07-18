@@ -409,6 +409,68 @@ async function main(): Promise<void> {
     console.log('✓ demo tournament refreshed: GameOn Padel Open');
   }
 
+  // Social / open-match demo
+  const SkillLevel = { BEGINNER: 'BEGINNER', INTERMEDIATE: 'INTERMEDIATE', ADVANCED: 'ADVANCED', PRO: 'PRO' } as const;
+  await prisma.playerProfile.upsert({
+    where: { userId: player.id },
+    create: {
+      userId: player.id,
+      skillLevel: 'INTERMEDIATE',
+      primarySportId: padelSport.id,
+      onboardingComplete: true,
+      wins: 2,
+      losses: 1,
+      points: 55,
+      matchesPlayed: 3,
+      bio: 'Looking for doubles partners in DHA',
+    },
+    update: {
+      skillLevel: 'INTERMEDIATE',
+      primarySportId: padelSport.id,
+      onboardingComplete: true,
+    },
+  });
+
+  const openCount = await prisma.openMatch.count({
+    where: { hostId: player.id, status: { in: ['OPEN', 'FULL'] } },
+  });
+  if (openCount === 0) {
+    await prisma.openMatch.create({
+      data: {
+        hostId: player.id,
+        sportId: padelSport.id,
+        branchId: branch.id,
+        title: 'Evening open padel · looking for 2',
+        notes: 'Friendly doubles. Intermediate preferred.',
+        visibility: 'PUBLIC',
+        matchType: 'FRIENDLY',
+        format: 'DOUBLES',
+        skillMin: 'BEGINNER',
+        skillMax: 'ADVANCED',
+        status: 'OPEN',
+        maxPlayers: 4,
+        city: 'Lahore',
+        scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        players: {
+          create: { userId: player.id, status: 'JOINED', side: 'HOME' },
+        },
+      },
+    });
+    console.log('✓ demo open match seeded');
+  }
+
+  await prisma.socialPost.createMany({
+    data: [
+      {
+        authorId: player.id,
+        body: 'Anyone up for padel in DHA this week? Open match posted in Play.',
+      },
+    ],
+    skipDuplicates: true,
+  });
+  console.log('✓ social profile + feed seed');
+  void SkillLevel;
+
   console.log('\n✅ Seed complete.');
   console.log('Demo accounts:');
   console.log('  Admin:         admin@playpk.demo       / PlayPK@admin1');

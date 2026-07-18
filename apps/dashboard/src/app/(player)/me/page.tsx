@@ -108,6 +108,21 @@ export default function MePage() {
             {loyalty?.loyaltyTier ?? user?.loyaltyTier ?? 'BRONZE'}
           </Badge>
           <Badge variant="muted">PLAYER</Badge>
+          <Link href="/play">
+            <Badge variant="secondary">Open matches</Badge>
+          </Link>
+          <Link href="/social">
+            <Badge variant="secondary">Social</Badge>
+          </Link>
+          <Link href="/rank">
+            <Badge variant="secondary">Ranking</Badge>
+          </Link>
+          <Link href="/my-bookings">
+            <Badge variant="secondary">Bookings</Badge>
+          </Link>
+          <Link href="/events">
+            <Badge variant="secondary">Events</Badge>
+          </Link>
         </CardContent>
       </Card>
 

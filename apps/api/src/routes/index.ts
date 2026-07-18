@@ -13,6 +13,7 @@ import { reviewsRouter, waitlistRouter } from './reviews-waitlist';
 import { aiRouter } from './ai';
 import { tournamentsRouter, teamsRouter, leaderboardRouter } from './tournaments';
 import { adminRouter, supportRouter } from './admin';
+import { socialRouter } from './social';
 
 /**
  * Versioned API routes under /api
@@ -47,6 +48,7 @@ apiRouter.get('/', (_req, res) => {
         tournaments: '/api/tournaments',
         teams: '/api/teams',
         leaderboard: '/api/leaderboard',
+        social: '/api/social',
         admin: '/api/admin',
         support: '/api/support',
       },
@@ -72,5 +74,6 @@ apiRouter.use('/ai', aiRouter);
 apiRouter.use('/tournaments', tournamentsRouter);
 apiRouter.use('/teams', teamsRouter);
 apiRouter.use('/leaderboard', leaderboardRouter);
+apiRouter.use('/social', socialRouter);
 apiRouter.use('/admin', adminRouter);
 apiRouter.use('/support', supportRouter);

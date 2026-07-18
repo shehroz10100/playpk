@@ -643,3 +643,98 @@ export interface LeaderboardEntryDto {
   sports: string[];
 }
 
+// ─── Social / open matchmaking ───────────────────────────────────────────────
+
+export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'PRO';
+export type MatchVisibility = 'PUBLIC' | 'PRIVATE';
+export type CasualMatchType = 'COMPETITIVE' | 'FRIENDLY';
+export type MatchFormat = 'SINGLES' | 'DOUBLES';
+export type OpenMatchStatus = 'OPEN' | 'FULL' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface PlayerProfileDto {
+  userId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  skillLevel: SkillLevel;
+  primarySportId: string | null;
+  primarySportName: string | null;
+  bio: string | null;
+  wins: number;
+  losses: number;
+  points: number;
+  matchesPlayed: number;
+  onboardingComplete: boolean;
+  followersCount?: number;
+  followingCount?: number;
+  isFollowing?: boolean;
+}
+
+export interface OpenMatchPlayerDto {
+  id: string;
+  userId: string;
+  name: string;
+  skillLevel: SkillLevel | null;
+  status: string;
+  side: string | null;
+}
+
+export interface OpenMatchDto {
+  id: string;
+  title: string;
+  notes: string | null;
+  visibility: MatchVisibility;
+  matchType: CasualMatchType;
+  format: MatchFormat;
+  skillMin: SkillLevel;
+  skillMax: SkillLevel;
+  status: OpenMatchStatus;
+  maxPlayers: number;
+  joinedCount: number;
+  scheduledAt: string | Date | null;
+  city: string | null;
+  sport: { id: string; name: string };
+  host: { id: string; name: string };
+  branch: { id: string; name: string; city: string } | null;
+  players: OpenMatchPlayerDto[];
+  result: {
+    homeScore: number;
+    awayScore: number;
+    winnerSide: string | null;
+    notes: string | null;
+  } | null;
+  createdAt: string | Date;
+}
+
+export interface SocialPostDto {
+  id: string;
+  body: string;
+  matchId: string | null;
+  createdAt: string | Date;
+  author: { id: string; name: string; skillLevel: SkillLevel | null };
+  starCount: number;
+  starredByMe: boolean;
+}
+
+export interface PerformanceLeaderboardEntryDto {
+  userId: string;
+  name: string;
+  skillLevel: SkillLevel;
+  wins: number;
+  losses: number;
+  points: number;
+  matchesPlayed: number;
+  primarySportName: string | null;
+}
+
+export interface PlayerSearchHitDto {
+  userId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  skillLevel: SkillLevel | null;
+  points: number;
+  isFollowing: boolean;
+  fromContacts?: boolean;
+}
+

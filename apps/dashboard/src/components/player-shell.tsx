@@ -3,21 +3,42 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Bot, CalendarDays, Home, LogOut, Ticket, UserRound } from 'lucide-react';
+import {
+  Bot,
+  CalendarDays,
+  Home,
+  LogOut,
+  Swords,
+  Ticket,
+  Trophy,
+  Users,
+  UserRound,
+} from 'lucide-react';
 import { clearSession, getAccessToken, getStoredUser, type AuthUser } from '@/lib/auth';
 import { homePathForRole, isPlayerRole } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/components/notifications-provider';
 
-/** Matches mobile bottom bar: Home, Book, Events, AI, Me */
+/** Top utility strip — same visual language as bottom tabs */
+const headerTabs = [
+  { href: '/my-bookings', label: 'Bookings', icon: Ticket, match: (p: string) => p.startsWith('/my-bookings') || p.startsWith('/book') },
+  { href: '/events', label: 'Events', icon: CalendarDays, match: (p: string) => p.startsWith('/events') },
+  { href: '/ai', label: 'AI', icon: Bot, match: (p: string) => p.startsWith('/ai') },
+] as const;
+
+/** Bottom primary bar */
 const tabs = [
   { href: '/discover', label: 'Home', icon: Home },
-  { href: '/my-bookings', label: 'Book', icon: Ticket },
-  { href: '/events', label: 'Events', icon: CalendarDays },
-  { href: '/ai', label: 'AI', icon: Bot },
+  { href: '/play', label: 'Play', icon: Swords },
+  { href: '/social', label: 'Social', icon: Users },
+  { href: '/rank', label: 'Rank', icon: Trophy },
   { href: '/me', label: 'Me', icon: UserRound },
 ] as const;
+
+function tabActiveClass(active: boolean) {
+  return active ? 'bg-brand/10 text-brand' : 'text-navy/55 hover:bg-brand/5 hover:text-navy';
+}
 
 export function PlayerShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -52,28 +73,55 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#F7F9FC] pb-24">
       <header className="sticky top-0 z-30 border-b border-border bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
           <Link href="/discover" className="text-lg font-semibold tracking-tight text-navy">
-            PlayPK
+            Play<span className="text-brand">PK</span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="hidden text-right text-xs sm:block">
               <div className="font-medium text-navy">{user?.name ?? 'Player'}</div>
-              <div className="text-muted-foreground">{user?.email}</div>
+              <div className="truncate text-muted-foreground">{user?.email}</div>
             </div>
             <Button
               variant="outline"
               size="sm"
+              className="border-brand/20 text-navy hover:border-brand/40 hover:bg-brand/5"
               onClick={() => {
                 clearSession();
                 router.replace('/login');
               }}
             >
               <LogOut className="h-4 w-4" />
-              Sign out
+              <span className="hidden sm:inline">Sign out</span>
             </Button>
           </div>
         </div>
+
+        {/* Full-width secondary nav — same theme as bottom bar */}
+        <nav
+          aria-label="Bookings Events AI"
+          className="border-t border-border/80 bg-white"
+        >
+          <div className="mx-auto grid max-w-6xl grid-cols-3 gap-1 px-2 py-1.5 sm:px-6">
+            {headerTabs.map((item) => {
+              const Icon = item.icon;
+              const active = item.match(pathname);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'relative flex items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-[12px] font-semibold transition-colors sm:text-[13px]',
+                    tabActiveClass(active),
+                  )}
+                >
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-8">{children}</main>
@@ -98,7 +146,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
                 href={item.href}
                 className={cn(
                   'relative flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[11px] font-semibold transition-colors',
-                  active ? 'bg-brand/10 text-brand' : 'text-navy/55 hover:text-navy',
+                  tabActiveClass(active),
                 )}
               >
                 <span className="relative">
