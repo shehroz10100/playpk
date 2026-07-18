@@ -191,7 +191,7 @@ export default function BranchHomePage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(v: number) => formatPkr(v)} />
+                    <Tooltip formatter={(v) => formatPkr(Number(v ?? 0))} />
                     <Legend />
                     <Line
                       type="monotone"

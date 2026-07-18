@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "installCommand": "npm install --prefix=../..",
+  "installCommand": "npm install --prefix=../.. --workspace=@playpk/dashboard --workspace=@playpk/shared-types --include-workspace-root",
   "buildCommand": "npm run build --prefix=../.. --workspace=@playpk/dashboard"
 }

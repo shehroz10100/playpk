@@ -33,7 +33,15 @@
   },
   "overrides": {
     "glob": "13.0.6",
-    "rimraf": "6.1.2"
+    "rimraf": "6.1.2",
+    "uuid": "11.1.0",
+    "text-encoding": "npm:fast-text-encoding@1.0.6",
+    "xcode": {
+      "uuid": "11.1.0"
+    },
+    "react-native-qrcode-svg": {
+      "text-encoding": "npm:fast-text-encoding@1.0.6"
+    }
   },
   "devDependencies": {
     "prettier": "^3.4.2",
