@@ -13,6 +13,8 @@ export function getApiBase(): string {
   return (
     process.env.API_URL ??
     process.env.NEXT_PUBLIC_API_URL ??
-    'http://localhost:4000'
+    (process.env.VERCEL
+      ? 'https://api-production-2057.up.railway.app'
+      : 'http://localhost:4000')
   ).replace(/\/$/, '');
 }
