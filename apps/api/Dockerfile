@@ -23,6 +23,9 @@ COPY --from=deps /app/packages ./packages
 COPY apps/api ./apps/api
 COPY packages/shared-types ./packages/shared-types
 COPY packages/config ./packages/config
+# Compile shared-types to JS — Node cannot require the package's .ts entry in production.
+RUN npm run build --workspace=@playpk/shared-types \
+  && node -e "const fs=require('fs');const p='packages/shared-types/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.main='./dist/index.js';j.types='./dist/index.d.ts';j.exports={'.':{types:'./dist/index.d.ts',default:'./dist/index.js'}};fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');"
 RUN npm run db:generate --workspace=@playpk/api
 RUN npm run build --workspace=@playpk/api
 
