@@ -10,6 +10,7 @@ import {
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { sendSuccess } from '../lib/errors';
+import { param } from '../lib/params';
 import * as social from '../services/social-match.service';
 
 export const socialRouter = Router();
@@ -81,7 +82,7 @@ socialRouter.get('/matches', async (req, res, next) => {
 
 socialRouter.get('/matches/:matchId', async (req, res, next) => {
   try {
-    sendSuccess(res, await social.getOpenMatch(req.params.matchId, req.user!.id));
+    sendSuccess(res, await social.getOpenMatch(param(req, 'matchId'), req.user!.id));
   } catch (e) {
     next(e);
   }
@@ -115,7 +116,7 @@ socialRouter.post(
 
 socialRouter.post('/matches/:matchId/join', async (req, res, next) => {
   try {
-    sendSuccess(res, await social.joinOpenMatch(req.params.matchId, req.user!.id));
+    sendSuccess(res, await social.joinOpenMatch(param(req, 'matchId'), req.user!.id));
   } catch (e) {
     next(e);
   }
@@ -136,7 +137,7 @@ socialRouter.post(
   ),
   async (req, res, next) => {
     try {
-      sendSuccess(res, await social.invitePlayerToMatch(req.params.matchId, req.user!.id, req.body));
+      sendSuccess(res, await social.invitePlayerToMatch(param(req, 'matchId'), req.user!.id, req.body));
     } catch (e) {
       next(e);
     }
@@ -154,7 +155,7 @@ socialRouter.post(
   ),
   async (req, res, next) => {
     try {
-      sendSuccess(res, await social.reportMatchResult(req.params.matchId, req.user!.id, req.body));
+      sendSuccess(res, await social.reportMatchResult(param(req, 'matchId'), req.user!.id, req.body));
     } catch (e) {
       next(e);
     }
@@ -172,7 +173,7 @@ socialRouter.get('/players/search', async (req, res, next) => {
 
 socialRouter.post('/players/:userId/follow', async (req, res, next) => {
   try {
-    sendSuccess(res, await social.followPlayer(req.user!.id, req.params.userId));
+    sendSuccess(res, await social.followPlayer(req.user!.id, param(req, 'userId')));
   } catch (e) {
     next(e);
   }
@@ -180,7 +181,7 @@ socialRouter.post('/players/:userId/follow', async (req, res, next) => {
 
 socialRouter.delete('/players/:userId/follow', async (req, res, next) => {
   try {
-    sendSuccess(res, await social.unfollowPlayer(req.user!.id, req.params.userId));
+    sendSuccess(res, await social.unfollowPlayer(req.user!.id, param(req, 'userId')));
   } catch (e) {
     next(e);
   }
@@ -209,7 +210,7 @@ socialRouter.post(
 
 socialRouter.post('/feed/:postId/star', async (req, res, next) => {
   try {
-    sendSuccess(res, await social.toggleStar(req.user!.id, req.params.postId));
+    sendSuccess(res, await social.toggleStar(req.user!.id, param(req, 'postId')));
   } catch (e) {
     next(e);
   }

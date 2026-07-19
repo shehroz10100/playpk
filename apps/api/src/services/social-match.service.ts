@@ -304,7 +304,7 @@ export async function joinOpenMatch(matchId: string, userId: string) {
       });
     }
   }
-  if (![OpenMatchStatus.OPEN, OpenMatchStatus.FULL].includes(match.status)) {
+  if (match.status !== OpenMatchStatus.OPEN && match.status !== OpenMatchStatus.FULL) {
     throw new AppError('Match is not open to join', { statusCode: 400, code: 'BAD_REQUEST' });
   }
   const myRank = skillRank(profile.skillLevel);
