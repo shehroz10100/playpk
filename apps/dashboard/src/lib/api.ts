@@ -1,9 +1,8 @@
 'use client';
 
 import type { AuthTokensResponse } from '@playpk/shared-types';
+import { getApiBase } from './api-base';
 import { clearSession, getAccessToken, getRefreshToken, saveSession } from './auth';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export class ApiError extends Error {
   status: number;
@@ -32,7 +31,7 @@ type ApiFailure = {
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return null;
-  const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+  const res = await fetch(`${getApiBase()}/api/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
@@ -61,13 +60,14 @@ export async function api<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  let res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const base = getApiBase();
+  let res = await fetch(`${base}${path}`, { ...options, headers });
 
   if (res.status === 401 && useAuth) {
     token = await refreshAccessToken();
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
-      res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      res = await fetch(`${base}${path}`, { ...options, headers });
     }
   }
 

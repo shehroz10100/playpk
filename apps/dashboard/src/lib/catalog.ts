@@ -4,6 +4,7 @@ import {
   type SportDto,
   type VenueListItem,
 } from '@playpk/shared-types';
+import { getApiBase } from './api-base';
 import { getSupabaseBrowser } from './supabase';
 
 export type VenueFilters = {
@@ -22,13 +23,11 @@ export const DEFAULT_VENUE_FILTERS: VenueFilters = {
   minRating: '',
 };
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
-
 type ApiSuccess<T> = { success: true; data: T };
 
 async function apiGet<T>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(`${getApiBase()}${path}`, {
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
     });

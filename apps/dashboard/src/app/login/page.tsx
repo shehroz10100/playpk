@@ -81,7 +81,9 @@ export default function LoginPage() {
       if (err instanceof ApiError) {
         setError(err.message);
       } else if (err instanceof TypeError) {
-        setError('Cannot reach API. Check NEXT_PUBLIC_API_URL and that the API is running.');
+        setError(
+          'Cannot reach API. On Vercel set API_URL to your public HTTPS API (e.g. Railway), redeploy, and keep that API running.',
+        );
       } else {
         setError(err instanceof Error ? err.message : 'Login failed');
       }

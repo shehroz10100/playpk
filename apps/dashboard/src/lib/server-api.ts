@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { getApiBase } from './api-base';
 
 type ApiSuccess<T> = { success: true; data: T; meta?: Record<string, unknown> };
 
@@ -6,7 +6,7 @@ export async function serverFetch<T>(
   path: string,
   revalidateSeconds = 300,
 ): Promise<{ data: T; meta?: Record<string, unknown> }> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${getApiBase()}${path}`, {
     next: { revalidate: revalidateSeconds },
   });
   if (!res.ok) {
