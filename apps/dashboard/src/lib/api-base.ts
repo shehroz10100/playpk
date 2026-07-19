@@ -5,16 +5,31 @@
  *
  * Server-side code still calls the backend directly via API_URL / NEXT_PUBLIC_API_URL.
  */
+
+const RAILWAY_API = 'https://api-production-2057.up.railway.app';
+
+function isLoopback(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  } catch {
+    return /localhost|127\.0\.0\.1/.test(url);
+  }
+}
+
 export function getApiBase(): string {
   if (typeof window !== 'undefined') {
     return '';
   }
 
-  return (
-    process.env.API_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    (process.env.VERCEL
-      ? 'https://api-production-2057.up.railway.app'
-      : 'http://localhost:4000')
-  ).replace(/\/$/, '');
+  const candidates = [process.env.API_URL, process.env.NEXT_PUBLIC_API_URL];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const cleaned = raw.replace(/\/$/, '');
+    if (process.env.VERCEL && isLoopback(cleaned)) continue;
+    return cleaned;
+  }
+
+  if (process.env.VERCEL) return RAILWAY_API;
+  return 'http://localhost:4000';
 }
