@@ -2,9 +2,11 @@
   "name": "playpk",
   "version": "0.1.0",
   "private": true,
-  "description": "PlayPK — multi-sport venue booking platform for Pakistan",
+  "description": "PlayPK \u2014 multi-sport venue booking platform for Pakistan",
   "workspaces": [
-    "apps/*",
+    "apps/api",
+    "apps/dashboard",
+    "apps/mobile",
     "packages/*"
   ],
   "scripts": {
@@ -37,6 +39,7 @@
     "uuid": "11.1.0",
     "text-encoding": "npm:fast-text-encoding@1.0.6",
     "fast-text-encoding": "1.0.6",
+    "recharts": "3.9.2",
     "xcode": {
       "uuid": "11.1.0"
     },
@@ -53,5 +56,9 @@
   "devDependencies": {
     "prettier": "^3.4.2",
     "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "uuid": "11.1.0",
+    "fast-text-encoding": "1.0.6"
   }
 }
