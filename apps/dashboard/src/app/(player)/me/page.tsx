@@ -90,20 +90,22 @@ export default function MePage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-lg space-y-6 animate-rise">
       <div>
-        <h1 className="text-2xl font-semibold text-navy">Me</h1>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Profile</p>
+        <h1 className="font-display mt-1 text-3xl font-extrabold text-navy">Me</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Loyalty, wallet, and alerts for tournaments and waitlist offers.
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{user?.name ?? 'Player'}</CardTitle>
-          <CardDescription>{user?.email ?? user?.phone}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+      <Card className="overflow-hidden rounded-2xl border-0 shadow-panel">
+        <div className="bg-gradient-to-br from-navy to-navy-700 px-5 py-5 text-white">
+          <p className="text-xs font-semibold uppercase tracking-wider text-brand">Player</p>
+          <CardTitle className="mt-1 text-xl text-white">{user?.name ?? 'Player'}</CardTitle>
+          <CardDescription className="text-white/65">{user?.email ?? user?.phone}</CardDescription>
+        </div>
+        <CardContent className="flex flex-wrap gap-2 pt-4">
           <Badge variant="success">
             {loyalty?.loyaltyTier ?? user?.loyaltyTier ?? 'BRONZE'}
           </Badge>

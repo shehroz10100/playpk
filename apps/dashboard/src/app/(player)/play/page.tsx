@@ -114,10 +114,14 @@ export default function PlayPage() {
 
   if (profile && !profile.onboardingComplete) {
     return (
-      <div className="mx-auto max-w-lg space-y-4">
-        <Card>
+      <div className="mx-auto max-w-lg space-y-4 animate-rise">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Play hub</p>
+          <h1 className="font-display mt-1 text-3xl font-extrabold text-navy">Skill setup</h1>
+        </div>
+        <Card className="rounded-2xl border-0 shadow-panel">
           <CardHeader>
-            <CardTitle>Skill setup</CardTitle>
+            <CardTitle>Tell us how you play</CardTitle>
             <CardDescription>
               Quick questionnaire so we can match you with players at your level.
             </CardDescription>
@@ -162,16 +166,17 @@ export default function PlayPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-rise">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-navy">Play an open match</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Community</p>
+          <h1 className="font-display mt-1 text-3xl font-extrabold text-navy">Open matches</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Public or private · Friendly or Competitive · Singles or Doubles
           </p>
         </div>
         {profile ? (
-          <div className="rounded-lg bg-white px-3 py-2 text-xs shadow-sm">
+          <div className="rounded-2xl bg-white px-4 py-3 text-xs shadow-panel">
             <div className="font-semibold text-navy">{profile.name}</div>
             <div className="text-muted-foreground">
               {profile.skillLevel} · {profile.wins}W–{profile.losses}L · {profile.points} pts

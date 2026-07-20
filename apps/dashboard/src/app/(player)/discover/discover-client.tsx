@@ -1,21 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import Image from 'next/image';
+import { ChevronDown, SlidersHorizontal } from 'lucide-react';
 import type { SportDto, VenueListItem } from '@playpk/shared-types';
-import { formatPkr } from '@/lib/utils';
 import { SportFilterRail } from '@/components/sport-filter-rail';
-import { Badge } from '@/components/ui/badge';
+import { VenueCard } from '@/components/venue-card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DISCOVER_HERO_IMAGE } from '@/lib/venue-cover';
 import {
   DEFAULT_VENUE_FILTERS,
   useSports,
   useVenues,
   type VenueFilters,
 } from '@/hooks/use-venues';
+import { cn } from '@/lib/utils';
 
 type Props = {
   initialVenues: VenueListItem[];
@@ -25,6 +26,7 @@ type Props = {
 export function DiscoverClient({ initialVenues, initialSports }: Props) {
   const [draft, setDraft] = useState<VenueFilters>(DEFAULT_VENUE_FILTERS);
   const [applied, setApplied] = useState<VenueFilters>(DEFAULT_VENUE_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const { data: sports = initialSports } = useSports(initialSports);
   const {
@@ -35,6 +37,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
 
   function applyFilters() {
     setApplied({ ...draft });
+    setFiltersOpen(false);
   }
 
   function clearFilters() {
@@ -42,34 +45,75 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
     setApplied(DEFAULT_VENUE_FILTERS);
   }
 
+  function onSportChange(sport: string) {
+    setDraft((f) => ({ ...f, sport }));
+    setApplied((f) => ({ ...f, sport }));
+  }
+
   const hasExtraFilters =
     applied.sport || applied.minPrice || applied.maxPrice || applied.minRating;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">Near you</p>
-        <h1 className="mt-1 text-2xl font-semibold text-navy sm:text-3xl">{applied.city}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Browse venues, pick a sport, and book available courts.
-        </p>
-      </div>
+    <div className="space-y-6 sm:space-y-8">
+      {/* PlayPro-style hero */}
+      <section className="relative -mx-4 overflow-hidden sm:-mx-6 sm:rounded-3xl animate-fade-in">
+        <div className="relative min-h-[200px] sm:min-h-[240px]">
+          <Image
+            src={DISCOVER_HERO_IMAGE}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-navy via-navy/85 to-navy/40" />
+          <div className="relative z-10 flex h-full min-h-[200px] flex-col justify-end px-5 py-6 sm:min-h-[240px] sm:px-8 sm:py-8">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand">PlayPK</p>
+            <h1 className="font-display mt-2 max-w-xl text-3xl font-extrabold leading-tight text-white sm:text-4xl md:text-5xl">
+              Book courts.
+              <br />
+              Find your game.
+            </h1>
+            <p className="mt-2 max-w-md text-sm text-white/75 sm:text-base">
+              Venues near <span className="font-semibold text-white">{applied.city}</span> — padel,
+              cricket, futsal, and more.
+            </p>
+          </div>
+        </div>
+      </section>
 
-      <SportFilterRail
-        sports={sports}
-        value={draft.sport}
-        onChange={(sport) => setDraft((f) => ({ ...f, sport }))}
-        featuredOnly={false}
-        showAll
-        size="md"
-      />
+      <section className="space-y-3 animate-rise" style={{ animationDelay: '60ms' }}>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-bold text-navy sm:text-xl">Pick a sport</h2>
+            <p className="text-sm text-muted-foreground">Swipe and filter venues instantly</p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-1.5 rounded-xl border-navy/15"
+            onClick={() => setFiltersOpen((o) => !o)}
+            aria-expanded={filtersOpen}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filters
+            <ChevronDown className={cn('h-4 w-4 transition', filtersOpen && 'rotate-180')} />
+          </Button>
+        </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Filters</CardTitle>
-          <CardDescription>Refine venues by city, sport, price, and rating</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <SportFilterRail
+          sports={sports}
+          value={draft.sport}
+          onChange={onSportChange}
+          featuredOnly={false}
+          showAll
+          size="md"
+        />
+      </section>
+
+      {filtersOpen ? (
+        <section className="rounded-2xl border border-border/80 bg-white/90 p-4 shadow-panel backdrop-blur animate-rise sm:p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="home-city">City</Label>
@@ -78,6 +122,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                 value={draft.city}
                 onChange={(e) => setDraft((f) => ({ ...f, city: e.target.value }))}
                 placeholder="Lahore"
+                className="rounded-xl"
               />
             </div>
             <div className="space-y-1.5">
@@ -86,7 +131,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                 id="home-sport"
                 value={draft.sport}
                 onChange={(e) => setDraft((f) => ({ ...f, sport: e.target.value }))}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
               >
                 <option value="">All sports</option>
                 {sports.map((s) => (
@@ -104,6 +149,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                 value={draft.minPrice}
                 onChange={(e) => setDraft((f) => ({ ...f, minPrice: e.target.value }))}
                 placeholder="0"
+                className="rounded-xl"
               />
             </div>
             <div className="space-y-1.5">
@@ -114,6 +160,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                 value={draft.maxPrice}
                 onChange={(e) => setDraft((f) => ({ ...f, maxPrice: e.target.value }))}
                 placeholder="5000"
+                className="rounded-xl"
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
@@ -123,65 +170,56 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                 inputMode="decimal"
                 value={draft.minRating}
                 onChange={(e) => setDraft((f) => ({ ...f, minRating: e.target.value }))}
-                placeholder="4.0"
+                placeholder="Optional"
+                className="rounded-xl"
               />
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={applyFilters} disabled={isFetching}>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button onClick={applyFilters} disabled={isFetching} className="rounded-xl">
               {isFetching ? 'Loading…' : 'Apply filters'}
             </Button>
             {hasExtraFilters ? (
-              <Button type="button" variant="outline" onClick={clearFilters}>
-                Clear filters
+              <Button type="button" variant="outline" onClick={clearFilters} className="rounded-xl">
+                Clear
               </Button>
             ) : null}
           </div>
-        </CardContent>
-      </Card>
-
-      {error ? (
-        <p className="text-sm text-red-600">
-          {error instanceof Error ? error.message : 'Failed to load venues'}
-        </p>
+        </section>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {venues.map((venue) => (
-          <Card key={venue.id} className="overflow-hidden">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{venue.name}</CardTitle>
-              <CardDescription>
-                {venue.company.name} · {venue.address}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                <Badge>
-                  {venue.avgRating ? `${venue.avgRating.toFixed(1)}★` : 'New'}
-                </Badge>
-                <Badge variant="success">
-                  {venue.minPrice != null ? `from ${formatPkr(venue.minPrice)}` : '—'}
-                </Badge>
-                <Badge variant="muted">{venue.courtCount} courts</Badge>
-                {venue.sports.slice(0, 4).map((s) => (
-                  <Badge key={s.id}>{s.name}</Badge>
-                ))}
-              </div>
-              <Link
-                href={`/venues/${venue.id}`}
-                className="inline-flex h-9 items-center rounded-md bg-navy px-3 text-sm font-medium text-white hover:bg-navy-700"
-              >
-                View courts
-              </Link>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <section className="space-y-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="font-display text-lg font-bold text-navy sm:text-xl">
+            Venues in {applied.city}
+          </h2>
+          <p className="text-sm font-medium text-muted-foreground">
+            {isFetching ? 'Updating…' : `${venues.length} spot${venues.length === 1 ? '' : 's'}`}
+          </p>
+        </div>
 
-      {!isFetching && venues.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No venues found for these filters.</p>
-      ) : null}
+        {error ? (
+          <p className="text-sm text-red-600">
+            {error instanceof Error ? error.message : 'Failed to load venues'}
+          </p>
+        ) : null}
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {venues.map((venue, i) => (
+            <VenueCard key={venue.id} venue={venue} index={i} />
+          ))}
+        </div>
+
+        {!isFetching && venues.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-navy/20 bg-white/60 px-6 py-12 text-center">
+            <p className="font-display text-lg font-bold text-navy">No venues found</p>
+            <p className="mt-1 text-sm text-muted-foreground">Try another city or clear filters.</p>
+            <Button type="button" variant="outline" className="mt-4 rounded-xl" onClick={clearFilters}>
+              Reset filters
+            </Button>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }

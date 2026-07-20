@@ -127,6 +127,9 @@ export type CatalogVenueDetail = {
   address: string;
   operatingHoursStart: string;
   operatingHoursEnd: string;
+  avgRating?: number | null;
+  photos?: string[];
+  sports?: Array<{ id?: string; name: string; iconUrl?: string | null }>;
   company: { name: string };
   courts: Array<{
     id: string;
@@ -134,7 +137,8 @@ export type CatalogVenueDetail = {
     pricePerHour: number;
     indoor: boolean;
     hasAC: boolean;
-    sport: { name: string };
+    photos?: string[];
+    sport: { name: string; iconUrl?: string | null };
   }>;
 };
 

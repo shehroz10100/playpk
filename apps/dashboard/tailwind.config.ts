@@ -35,10 +35,15 @@ const config: Config = {
         card: '#FFFFFF',
       },
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'Segoe UI', 'sans-serif'],
+        sans: ['var(--font-outfit)', 'Segoe UI', 'sans-serif'],
+        display: ['var(--font-syne)', 'var(--font-outfit)', 'sans-serif'],
       },
       boxShadow: {
-        panel: '0 1px 2px rgba(11, 31, 58, 0.06), 0 8px 24px rgba(11, 31, 58, 0.06)',
+        panel: '0 8px 24px rgba(11, 31, 58, 0.08)',
+      },
+      backgroundImage: {
+        'pitch-mesh':
+          'radial-gradient(ellipse at top left, rgba(0,166,81,0.14), transparent 50%), radial-gradient(ellipse at top right, rgba(11,31,58,0.1), transparent 45%)',
       },
     },
   },

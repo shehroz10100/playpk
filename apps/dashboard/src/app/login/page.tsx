@@ -1,15 +1,16 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { AuthTokensResponse } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { clearSession, saveSession } from '@/lib/auth';
 import { homePathForRole } from '@/lib/roles';
+import { LOGIN_HERO_IMAGE } from '@/lib/venue-cover';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 type DemoAccount = {
   label: string;
@@ -23,25 +24,25 @@ const DEMOS: DemoAccount[] = [
     label: 'Customer',
     email: 'player@playpk.demo',
     password: 'PlayPK@player1',
-    opens: 'Opens customer book app',
+    opens: 'Book courts & play',
   },
   {
     label: 'Company · GameOn',
     email: 'owner@playpk.demo',
     password: 'PlayPK@demo1',
-    opens: 'Opens company dashboard',
+    opens: 'Manage venues',
   },
   {
     label: 'Company · 360 Arena',
     email: 'owner360@playpk.demo',
     password: 'PlayPK@3601',
-    opens: 'Opens company dashboard',
+    opens: 'Manage venues',
   },
   {
     label: 'Admin',
     email: 'admin@playpk.demo',
     password: 'PlayPK@admin1',
-    opens: 'Opens admin dashboard',
+    opens: 'Platform admin',
   },
 ];
 
@@ -52,7 +53,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Always start at Sign in — clear any previous session so this page is first.
   useEffect(() => {
     clearSession();
   }, []);
@@ -75,7 +75,6 @@ export default function LoginPage() {
       }
 
       saveSession(data);
-      // Customer → /discover · Company → /companies · Admin → /admin
       router.replace(homePathForRole(String(data.user.role)));
     } catch (err) {
       if (err instanceof ApiError) {
@@ -93,23 +92,40 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-navy px-4 py-10">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(0,166,81,0.28),transparent_42%),radial-gradient(circle_at_85%_10%,rgba(255,255,255,0.08),transparent_35%)]" />
-      <Card className="relative w-full max-w-md border-0 shadow-panel">
-        <CardHeader>
-          <div className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-brand">
-            PlayPK
-          </div>
-          <CardTitle className="text-2xl">Sign in first</CardTitle>
-          <CardDescription>
-            Use your customer, company, or admin email and password. After Sign in you open that
-            account&apos;s dashboard only.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-4" onSubmit={onSubmit}>
+    <div className="relative min-h-screen lg:grid lg:grid-cols-2">
+      {/* Full-bleed sports hero (PlayPro-style) */}
+      <div className="relative hidden min-h-screen overflow-hidden lg:block">
+        <Image src={LOGIN_HERO_IMAGE} alt="" fill priority sizes="50vw" className="object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/70 to-navy/30" />
+        <div className="relative z-10 flex h-full flex-col justify-end p-10 xl:p-14">
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand">PlayPK</p>
+          <h1 className="font-display mt-3 max-w-md text-4xl font-extrabold leading-tight text-white xl:text-5xl">
+            Your sports community in Pakistan
+          </h1>
+          <p className="mt-3 max-w-sm text-base text-white/70">
+            Book courts, join open matches, and climb the ranks — all in one place.
+          </p>
+        </div>
+      </div>
+
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-navy px-4 py-10 lg:bg-[#F4F8F6]">
+        <div className="pointer-events-none absolute inset-0 lg:hidden">
+          <Image src={LOGIN_HERO_IMAGE} alt="" fill priority sizes="100vw" className="object-cover opacity-40" />
+          <div className="absolute inset-0 bg-navy/85" />
+        </div>
+
+        <div className="relative w-full max-w-md animate-rise rounded-3xl bg-white p-6 shadow-panel sm:p-8">
+          <p className="font-display text-2xl font-extrabold text-navy">
+            Play<span className="text-brand">PK</span>
+          </p>
+          <h2 className="font-display mt-4 text-2xl font-bold text-navy sm:text-3xl">Welcome back</h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Sign in to book courts or manage your venues.
+          </p>
+
+          <form className="mt-6 space-y-4" onSubmit={onSubmit}>
             <div className="space-y-2">
-              <Label htmlFor="email">Email / username</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -118,6 +134,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="h-11 rounded-xl"
               />
             </div>
             <div className="space-y-2">
@@ -129,40 +146,37 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="h-11 rounded-xl"
               />
             </div>
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            <Button className="w-full" disabled={loading} type="submit">
+            <Button className="h-11 w-full rounded-xl text-base font-semibold" disabled={loading} type="submit">
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
 
-          <div className="mt-5 space-y-2">
-            <p className="text-xs text-muted-foreground">
-              Tap a demo to fill email + password, then Sign in:
-            </p>
+          <div className="mt-6 space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Quick demo accounts</p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {DEMOS.map((demo) => (
-                <Button
+                <button
                   key={demo.email}
                   type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-auto flex-col items-start gap-0.5 py-2.5 text-left"
+                  className="rounded-xl border border-border bg-muted/60 px-3 py-2.5 text-left transition hover:border-brand/40 hover:bg-brand/5"
                   onClick={() => {
                     setEmail(demo.email);
                     setPassword(demo.password);
                     setError(null);
                   }}
                 >
-                  <span className="font-semibold text-navy">{demo.label}</span>
-                  <span className="text-[10px] font-normal text-muted-foreground">{demo.opens}</span>
-                </Button>
+                  <span className="block text-sm font-semibold text-navy">{demo.label}</span>
+                  <span className="block text-[11px] text-muted-foreground">{demo.opens}</span>
+                </button>
               ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

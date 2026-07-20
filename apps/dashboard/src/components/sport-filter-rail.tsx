@@ -23,9 +23,9 @@ type Props = {
 };
 
 const sizeMap = {
-  sm: 'h-28 w-16 sm:h-32 sm:w-[4.5rem]',
-  md: 'h-36 w-[4.75rem] sm:h-40 sm:w-20 md:h-44 md:w-[5.5rem] lg:h-48 lg:w-24',
-  lg: 'h-40 w-20 sm:h-48 sm:w-24 md:h-52 md:w-28 lg:h-56 lg:w-32',
+  sm: 'h-28 w-[4.25rem] sm:h-32 sm:w-[4.75rem]',
+  md: 'h-36 w-[5rem] sm:h-40 sm:w-[5.5rem] md:h-44 md:w-24 lg:h-48 lg:w-[6.5rem]',
+  lg: 'h-40 w-[5.5rem] sm:h-48 sm:w-28 md:h-52 md:w-32',
 };
 
 export function SportFilterRail({
@@ -53,8 +53,7 @@ export function SportFilterRail({
   return (
     <div
       className={cn(
-        '-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 pt-1 sm:gap-2.5',
-        '[scrollbar-width:thin] [scrollbar-color:rgba(11,31,58,0.25)_transparent]',
+        'sport-rail -mx-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto overscroll-x-contain px-1 pb-2 pt-1 sm:gap-3',
         className,
       )}
     >
@@ -104,12 +103,12 @@ function SportChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'relative shrink-0 snap-start overflow-hidden rounded-full border-2 transition duration-200',
+        'relative shrink-0 snap-start overflow-hidden rounded-2xl border-2 transition duration-300',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2',
         chipClass,
         active
-          ? 'border-brand shadow-lg shadow-brand/30 scale-[1.02]'
-          : 'border-white/40 hover:border-brand/50 hover:scale-[1.01]',
+          ? 'border-brand scale-[1.03]'
+          : 'border-transparent hover:border-brand/40 hover:scale-[1.01]',
       )}
       aria-pressed={active}
     >
