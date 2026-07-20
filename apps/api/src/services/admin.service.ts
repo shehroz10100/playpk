@@ -322,6 +322,8 @@ export async function platformReports(input: { from?: string; to?: string }) {
       id: b.id,
       status: b.status,
       paymentStatus: b.paymentStatus,
+      paymentMethod: b.paymentMethod,
+      paymentProofUrl: b.paymentProofUrl,
       totalAmount: Number(b.totalAmount),
       createdAt: b.createdAt,
       user: b.user,

@@ -1,6 +1,7 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Heart, MessageCircle, Send } from 'lucide-react';
 import type { PlayerSearchHitDto, SocialCommentDto, SocialPostDto } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
@@ -12,6 +13,8 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 export default function SocialPage() {
+  const query = useSearchParams();
+  const composeRef = useRef<HTMLInputElement>(null);
   const [posts, setPosts] = useState<SocialPostDto[]>([]);
   const [likedOnly, setLikedOnly] = useState(false);
   const [body, setBody] = useState('');
@@ -39,6 +42,13 @@ export default function SocialPage() {
   useEffect(() => {
     void loadFeed();
   }, [loadFeed]);
+
+  useEffect(() => {
+    if (query.get('compose') === '1') {
+      composeRef.current?.focus();
+      composeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [query]);
 
   async function publish(e: FormEvent) {
     e.preventDefault();
@@ -271,6 +281,7 @@ export default function SocialPage() {
         <CardContent className="space-y-4">
           <form className="flex gap-2" onSubmit={publish}>
             <Input
+              ref={composeRef}
               placeholder="Share an update…"
               value={body}
               onChange={(e) => setBody(e.target.value)}

@@ -23,6 +23,9 @@ type Company = {
   id: string;
   name: string;
   description: string | null;
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
+  bankName?: string | null;
   branches: Branch[];
 };
 
@@ -36,6 +39,10 @@ export default function CompanyOverviewPage() {
   const [saving, setSaving] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [companyDescription, setCompanyDescription] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [showBank, setShowBank] = useState(false);
   const [form, setForm] = useState({
     name: '',
     city: 'Lahore',
@@ -49,12 +56,37 @@ export default function CompanyOverviewPage() {
     setCompany(data);
     setCompanyName(data.name);
     setCompanyDescription(data.description ?? '');
+    setBankAccountName(data.bankAccountName ?? '');
+    setBankAccountNumber(data.bankAccountNumber ?? '');
+    setBankName(data.bankName ?? '');
   }
 
   useEffect(() => {
     load().catch((err: Error) => setError(err.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
+
+  async function onSaveBank(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await api(`/api/companies/${companyId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          bankAccountName: bankAccountName.trim() || null,
+          bankAccountNumber: bankAccountNumber.trim() || null,
+          bankName: bankName.trim() || null,
+        }),
+      });
+      setShowBank(false);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save bank details');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function onRenameCompany(e: FormEvent) {
     e.preventDefault();
@@ -119,8 +151,22 @@ export default function CompanyOverviewPage() {
           <Button
             variant="outline"
             onClick={() => {
+              setShowBank((v) => !v);
+              setShowRename(false);
+              setShowForm(false);
+              setBankAccountName(company.bankAccountName ?? '');
+              setBankAccountNumber(company.bankAccountNumber ?? '');
+              setBankName(company.bankName ?? '');
+            }}
+          >
+            {showBank ? 'Cancel' : 'Bank account'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
               setShowRename((v) => !v);
               setShowForm(false);
+              setShowBank(false);
               setCompanyName(company.name);
               setCompanyDescription(company.description ?? '');
             }}
@@ -131,6 +177,7 @@ export default function CompanyOverviewPage() {
             onClick={() => {
               setShowForm((v) => !v);
               setShowRename(false);
+              setShowBank(false);
             }}
           >
             {showForm ? 'Cancel' : 'Add branch'}
@@ -139,6 +186,61 @@ export default function CompanyOverviewPage() {
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      {showBank ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Bank account for advances</CardTitle>
+            <CardDescription>
+              Customers see these details when paying booking advance by bank transfer.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-4 md:grid-cols-2" onSubmit={onSaveBank}>
+              <div className="space-y-2">
+                <Label>Account name</Label>
+                <Input
+                  value={bankAccountName}
+                  onChange={(e) => setBankAccountName(e.target.value)}
+                  placeholder="GameOn Sports Pvt Ltd"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Account no.</Label>
+                <Input
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  placeholder="0123456789"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Bank name</Label>
+                <Input
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  placeholder="HBL / Meezan / MCB"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Button type="submit" disabled={saving}>
+                  {saving ? 'Saving…' : 'Save bank details'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Advance bank details</CardTitle>
+            <CardDescription>
+              {company.bankAccountNumber
+                ? `${company.bankName ?? 'Bank'} · ${company.bankAccountName ?? '—'} · ${company.bankAccountNumber}`
+                : 'Not set — add account name, number, and bank so customers can transfer advances.'}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
       {showRename ? (
         <Card>

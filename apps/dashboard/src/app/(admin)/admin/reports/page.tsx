@@ -42,6 +42,8 @@ type Report = {
     id: string;
     status: string;
     paymentStatus: string;
+    paymentMethod?: string | null;
+    paymentProofUrl?: string | null;
     totalAmount: number;
     createdAt: string;
     user: { name: string };
@@ -182,6 +184,7 @@ export default function AdminReportsPage() {
                     <th className="px-4 py-3">Venue</th>
                     <th className="px-4 py-3">Amount</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Proof</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -203,6 +206,23 @@ export default function AdminReportsPage() {
                       <td className="px-4 py-3">
                         <Badge variant="muted">{b.status}</Badge>{' '}
                         <Badge variant="success">{b.paymentStatus}</Badge>
+                        {b.paymentMethod ? (
+                          <div className="mt-1 text-[10px] text-muted-foreground">{b.paymentMethod}</div>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        {b.paymentProofUrl ? (
+                          <a href={b.paymentProofUrl} target="_blank" rel="noreferrer">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={b.paymentProofUrl}
+                              alt="Proof"
+                              className="h-12 w-16 rounded border border-border object-cover"
+                            />
+                          </a>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

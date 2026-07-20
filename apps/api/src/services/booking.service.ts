@@ -29,9 +29,18 @@ import { BOOKING_ADVANCE_PKR } from '@playpk/shared-types';
 export async function createBooking(input: {
   userId: string;
   slotId: string;
-  paymentMethod?: 'mock' | 'wallet' | 'jazzcash' | 'easypaisa' | 'card';
+  paymentMethod?: 'mock' | 'wallet' | 'jazzcash' | 'easypaisa' | 'card' | 'bank_transfer';
+  paymentProofUrl?: string;
 }) {
   const method = input.paymentMethod ?? 'mock';
+  const bankMethods = new Set(['jazzcash', 'easypaisa', 'bank_transfer', 'card']);
+  if (bankMethods.has(method) && !input.paymentProofUrl) {
+    throw new AppError('Upload a payment screenshot for bank / wallet transfer advance.', {
+      statusCode: 400,
+      code: 'PAYMENT_PROOF_REQUIRED',
+    });
+  }
+
   const lockToken = await acquireSlotLock(input.slotId);
   if (!lockToken) {
     throw new AppError('Slot is being booked by another user. Try again.', {
@@ -71,6 +80,9 @@ export async function createBooking(input: {
           status: BookingStatus.PENDING,
           totalAmount: advanceAmount,
           paymentStatus: PaymentStatus.PENDING,
+          paymentMethod: method,
+          paymentProofUrl: input.paymentProofUrl,
+          paymentProofUploadedAt: input.paymentProofUrl ? new Date() : null,
           qrCode: `playpk://booking/${randomUUID()}`,
         },
       });
@@ -88,7 +100,6 @@ export async function createBooking(input: {
         });
       }
 
-      // Remove waitlist entry for this user if they were waiting
       await tx.waitlist.deleteMany({
         where: { userId: input.userId, slotId: slot.id },
       });
@@ -97,46 +108,137 @@ export async function createBooking(input: {
     });
 
     let paymentIntentId: string | null = null;
-    if (method !== 'wallet') {
+    const awaitsProof = bankMethods.has(method);
+
+    if (method === 'wallet') {
+      paymentIntentId = `wallet_${booking.id}`;
+    } else if (!awaitsProof) {
       const payment = getPaymentProvider();
       const intent = await payment.createPaymentIntent({
         amount: Number(booking.totalAmount),
         currency: 'PKR',
         bookingId: booking.id,
         userId: input.userId,
-        method,
+        method: method === 'bank_transfer' ? 'card' : method,
       });
       paymentIntentId = intent.id;
     } else {
-      paymentIntentId = `wallet_${booking.id}`;
+      paymentIntentId = `proof_${booking.id}`;
     }
 
     const confirmed = await prisma.booking.update({
       where: { id: booking.id },
       data: {
         status: BookingStatus.CONFIRMED,
-        paymentStatus: PaymentStatus.PAID,
+        // Bank transfer with screenshot awaits company/admin verification
+        paymentStatus: awaitsProof ? PaymentStatus.PENDING : PaymentStatus.PAID,
         paymentIntentId,
       },
       include: {
-        slot: { include: { court: { include: { branch: true, sport: true } } } },
+        slot: {
+          include: {
+            court: {
+              include: {
+                branch: { include: { company: true } },
+                sport: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    // Loyalty for paid confirmed bookings (acts as "completed spend" for MVP)
-    await awardLoyaltyForBooking(prisma, {
-      userId: input.userId,
-      bookingId: confirmed.id,
-      amount: Number(confirmed.totalAmount),
-    });
+    if (!awaitsProof) {
+      await awardLoyaltyForBooking(prisma, {
+        userId: input.userId,
+        bookingId: confirmed.id,
+        amount: Number(confirmed.totalAmount),
+      });
+    }
 
-    // Notify company owner + branch manager so the dashboard lights up immediately
     await notifyBranchStaffOfNewBooking(confirmed.id);
 
     return serializeBooking(confirmed);
   } finally {
     await releaseSlotLock(input.slotId, lockToken);
   }
+}
+
+export async function getPaymentInfoForSlot(slotId: string) {
+  const slot = await prisma.slot.findUnique({
+    where: { id: slotId },
+    include: {
+      court: {
+        include: {
+          branch: {
+            include: {
+              company: {
+                select: {
+                  id: true,
+                  name: true,
+                  bankAccountName: true,
+                  bankAccountNumber: true,
+                  bankName: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!slot) {
+    throw new AppError('Slot not found', { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  const company = slot.court.branch.company;
+  return {
+    advanceAmount: BOOKING_ADVANCE_PKR,
+    company: {
+      id: company.id,
+      name: company.name,
+      bankAccountName: company.bankAccountName,
+      bankAccountNumber: company.bankAccountNumber,
+      bankName: company.bankName,
+    },
+    branch: {
+      id: slot.court.branch.id,
+      name: slot.court.branch.name,
+      city: slot.court.branch.city,
+    },
+    court: { id: slot.court.id, name: slot.court.name },
+  };
+}
+
+export async function verifyBookingPayment(bookingId: string) {
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+  if (!booking) {
+    throw new AppError('Booking not found', { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  const updated = await prisma.booking.update({
+    where: { id: bookingId },
+    data: { paymentStatus: PaymentStatus.PAID },
+    include: {
+      user: { select: { id: true, name: true, email: true, phone: true } },
+      slot: {
+        include: {
+          court: {
+            include: {
+              sport: true,
+              branch: { select: { id: true, name: true, city: true, address: true, companyId: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (booking.paymentStatus !== PaymentStatus.PAID) {
+    await awardLoyaltyForBooking(prisma, {
+      userId: updated.userId,
+      bookingId: updated.id,
+      amount: Number(updated.totalAmount),
+    });
+  }
+  return serializeBooking(updated);
 }
 
 export async function cancelBooking(input: { bookingId: string; userId: string; isStaff: boolean }) {
@@ -297,6 +399,9 @@ export function serializeBooking(booking: {
   totalAmount: Prisma.Decimal | number;
   paymentStatus: PaymentStatus;
   paymentIntentId?: string | null;
+  paymentMethod?: string | null;
+  paymentProofUrl?: string | null;
+  paymentProofUploadedAt?: Date | null;
   qrCode?: string | null;
   createdAt: Date;
   cancelledAt?: Date | null;
@@ -319,6 +424,13 @@ export function serializeBooking(booking: {
         city: string;
         companyId?: string;
         address?: string;
+        company?: {
+          id: string;
+          name: string;
+          bankAccountName?: string | null;
+          bankAccountNumber?: string | null;
+          bankName?: string | null;
+        };
       };
     };
   } | null;
@@ -331,6 +443,9 @@ export function serializeBooking(booking: {
     totalAmount: Number(booking.totalAmount),
     paymentStatus: booking.paymentStatus,
     paymentIntentId: booking.paymentIntentId ?? null,
+    paymentMethod: booking.paymentMethod ?? null,
+    paymentProofUrl: booking.paymentProofUrl ?? null,
+    paymentProofUploadedAt: booking.paymentProofUploadedAt ?? null,
     qrCode: booking.qrCode ?? null,
     createdAt: booking.createdAt,
     cancelledAt: booking.cancelledAt ?? null,
@@ -356,6 +471,7 @@ export function serializeBooking(booking: {
                       city: booking.slot.court.branch.city,
                       companyId: booking.slot.court.branch.companyId,
                       address: booking.slot.court.branch.address,
+                      company: booking.slot.court.branch.company,
                     }
                   : undefined,
               }

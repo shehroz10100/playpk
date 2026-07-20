@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { Router } from 'express';
+import multer from 'multer';
+import { randomUUID } from 'node:crypto';
 import { BookingStatus, UserRole } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { authenticate, requireRoles } from '../middleware/auth';
@@ -7,8 +9,15 @@ import { validate } from '../middleware/validate';
 import { AppError, sendSuccess } from '../lib/errors';
 import { param } from '../lib/params';
 import * as bookingService from '../services/booking.service';
+import { getStorageProvider } from '../services/storage/LocalDiskStorageProvider';
+import { assertCanManageBranch } from '../services/access.service';
 
 export const bookingsRouter = Router();
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
 
 bookingsRouter.get('/me', authenticate, async (req, res, next) => {
   try {
@@ -85,13 +94,59 @@ bookingsRouter.get('/:bookingId', authenticate, async (req, res, next) => {
   }
 });
 
+bookingsRouter.get('/payment-info', authenticate, async (req, res, next) => {
+  try {
+    const slotId = typeof req.query.slotId === 'string' ? req.query.slotId : '';
+    if (!slotId) {
+      throw new AppError('slotId is required', { statusCode: 400, code: 'VALIDATION_ERROR' });
+    }
+    sendSuccess(res, await bookingService.getPaymentInfoForSlot(slotId));
+  } catch (error) {
+    next(error);
+  }
+});
+
+bookingsRouter.post(
+  '/payment-proof',
+  authenticate,
+  upload.single('proof'),
+  async (req, res, next) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        throw new AppError('No screenshot uploaded', { statusCode: 400, code: 'VALIDATION_ERROR' });
+      }
+      if (!file.mimetype.startsWith('image/')) {
+        throw new AppError('Payment proof must be an image', {
+          statusCode: 400,
+          code: 'VALIDATION_ERROR',
+        });
+      }
+      const storage = getStorageProvider();
+      const ext = file.mimetype.split('/')[1] ?? 'jpg';
+      const key = `payment-proofs/${req.user!.id}/${randomUUID()}.${ext}`;
+      const stored = await storage.putObject({
+        key,
+        body: file.buffer,
+        contentType: file.mimetype,
+      });
+      sendSuccess(res, { url: stored.url }, 201);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 bookingsRouter.post(
   '/',
   authenticate,
   validate(
     z.object({
       slotId: z.string().min(1),
-      paymentMethod: z.enum(['mock', 'wallet', 'jazzcash', 'easypaisa', 'card']).optional(),
+      paymentMethod: z
+        .enum(['mock', 'wallet', 'jazzcash', 'easypaisa', 'card', 'bank_transfer'])
+        .optional(),
+      paymentProofUrl: z.string().min(1).optional(),
     }),
   ),
   async (req, res, next) => {
@@ -100,8 +155,30 @@ bookingsRouter.post(
         userId: req.user!.id,
         slotId: req.body.slotId,
         paymentMethod: req.body.paymentMethod,
+        paymentProofUrl: req.body.paymentProofUrl,
       });
       sendSuccess(res, booking, 201);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+bookingsRouter.post(
+  '/:bookingId/verify-payment',
+  authenticate,
+  requireRoles(UserRole.COMPANY_OWNER, UserRole.BRANCH_MANAGER, UserRole.ADMIN),
+  async (req, res, next) => {
+    try {
+      const booking = await prisma.booking.findUnique({
+        where: { id: param(req, 'bookingId') },
+        include: { slot: { include: { court: true } } },
+      });
+      if (!booking) {
+        throw new AppError('Booking not found', { statusCode: 404, code: 'NOT_FOUND' });
+      }
+      await assertCanManageBranch(req.user!, booking.slot.court.branchId);
+      sendSuccess(res, await bookingService.verifyBookingPayment(booking.id));
     } catch (error) {
       next(error);
     }

@@ -111,6 +111,9 @@ companiesRouter.patch(
       name: z.string().min(2).optional(),
       description: z.string().optional(),
       logoUrl: z.string().url().nullable().optional(),
+      bankAccountName: z.string().min(2).max(120).nullable().optional(),
+      bankAccountNumber: z.string().min(5).max(64).nullable().optional(),
+      bankName: z.string().min(2).max(120).nullable().optional(),
     }),
   ),
   async (req, res, next) => {

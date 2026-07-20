@@ -14,6 +14,8 @@ type Booking = {
   id: string;
   status: string;
   paymentStatus: string;
+  paymentMethod?: string | null;
+  paymentProofUrl?: string | null;
   totalAmount: number;
   createdAt: string;
   user: { name: string; email: string | null; phone: string | null };
@@ -95,6 +97,19 @@ export default function BookingsPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not complete booking');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function verifyPayment(id: string) {
+    setBusyId(id);
+    setError(null);
+    try {
+      await api(`/api/bookings/${id}/verify-payment`, { method: 'POST' });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verify failed');
     } finally {
       setBusyId(null);
     }
@@ -207,21 +222,54 @@ export default function BookingsPage() {
                         {booking.status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {booking.paymentStatus}
-                    </td>
                     <td className="px-4 py-3">
+                      <div className="text-xs text-muted-foreground">
+                        {booking.paymentStatus}
+                        {booking.paymentMethod ? ` · ${booking.paymentMethod}` : ''}
+                      </div>
+                      {booking.paymentProofUrl ? (
+                        <a
+                          href={booking.paymentProofUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-block"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={booking.paymentProofUrl}
+                            alt="Payment proof"
+                            className="h-14 w-20 rounded object-cover border border-border"
+                          />
+                        </a>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">No screenshot</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 space-y-1">
+                      {booking.paymentStatus === 'PENDING' && booking.paymentProofUrl ? (
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          disabled={busyId === booking.id}
+                          onClick={() => void verifyPayment(booking.id)}
+                        >
+                          {busyId === booking.id ? '…' : 'Verify payment'}
+                        </Button>
+                      ) : null}
                       {booking.status === 'CONFIRMED' ? (
                         <Button
                           size="sm"
                           variant="outline"
+                          className="w-full"
                           disabled={busyId === booking.id}
                           onClick={() => completeBooking(booking.id)}
                         >
                           {busyId === booking.id ? '…' : 'Mark complete'}
                         </Button>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        !booking.paymentProofUrl && (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )
                       )}
                     </td>
                   </tr>

@@ -1,8 +1,8 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type {
   MatchFormat,
   OpenMatchDto,
@@ -26,6 +26,8 @@ const SKILLS: SkillLevel[] = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'PRO'];
 
 export default function PlayPage() {
   const router = useRouter();
+  const search = useSearchParams();
+  const createFormRef = useRef<HTMLFormElement>(null);
   const [profile, setProfile] = useState<PlayerProfileDto | null>(null);
   const [matches, setMatches] = useState<OpenMatchDto[]>([]);
   const [sports, setSports] = useState<SportDto[]>([]);
@@ -70,6 +72,12 @@ export default function PlayPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (search.get('create') === '1') {
+      createFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [search]);
 
   async function submitOnboarding(e: FormEvent) {
     e.preventDefault();
@@ -202,7 +210,7 @@ export default function PlayPage() {
           <CardDescription>Host an open match and fill remaining spots by skill.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-3 sm:grid-cols-2" onSubmit={createMatch}>
+          <form ref={createFormRef} className="grid gap-3 sm:grid-cols-2" onSubmit={createMatch}>
             <div className="space-y-2 sm:col-span-2">
               <Label>Title</Label>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} required className="rounded-xl" />

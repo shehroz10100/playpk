@@ -8,11 +8,14 @@ import {
   CalendarDays,
   Home,
   LogOut,
+  MessageSquarePlus,
+  Plus,
   Swords,
   Ticket,
   Trophy,
   Users,
   UserRound,
+  X,
 } from 'lucide-react';
 import { clearSession, getAccessToken, getStoredUser, type AuthUser } from '@/lib/auth';
 import { homePathForRole, isPlayerRole } from '@/lib/roles';
@@ -48,6 +51,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const { unread } = useNotifications();
 
   useEffect(() => {
@@ -64,6 +68,10 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
     setUser(stored);
     setReady(true);
   }, [router]);
+
+  useEffect(() => {
+    setCreateOpen(false);
+  }, [pathname]);
 
   if (!ready) {
     return (
@@ -127,6 +135,63 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-7">{children}</main>
+
+      {/* PlayPro-style + create menu */}
+      {createOpen ? (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            className="absolute inset-0 bg-navy/50 backdrop-blur-[2px]"
+            aria-label="Close create menu"
+            onClick={() => setCreateOpen(false)}
+          />
+          <div className="absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 w-[min(18rem,calc(100vw-2rem))] animate-rise overflow-hidden rounded-2xl bg-white shadow-panel sm:right-8">
+            <div className="border-b border-border px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Create</p>
+              <p className="text-sm font-semibold text-navy">What do you want to post?</p>
+            </div>
+            <Link
+              href="/play?create=1"
+              className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-brand/5"
+              onClick={() => setCreateOpen(false)}
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                <Swords className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block text-sm font-bold text-navy">Create open match</span>
+                <span className="text-xs text-muted-foreground">Find players for a game</span>
+              </span>
+            </Link>
+            <Link
+              href="/social?compose=1"
+              className="flex items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-brand/5"
+              onClick={() => setCreateOpen(false)}
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy/8 text-navy">
+                <MessageSquarePlus className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block text-sm font-bold text-navy">Create post</span>
+                <span className="text-xs text-muted-foreground">Share with your network</span>
+              </span>
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        aria-label={createOpen ? 'Close create menu' : 'Create match or post'}
+        aria-expanded={createOpen}
+        onClick={() => setCreateOpen((o) => !o)}
+        className={cn(
+          'fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[0_8px_24px_rgba(0,166,81,0.45)] transition hover:bg-brand-600',
+          'right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] sm:right-8',
+        )}
+      >
+        {createOpen ? <X className="h-6 w-6" /> : <Plus className="h-7 w-7" strokeWidth={2.5} />}
+      </button>
 
       <nav
         aria-label="Customer"

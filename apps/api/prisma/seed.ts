@@ -136,37 +136,6 @@ async function main(): Promise<void> {
   });
   console.log(`✓ 360 Arena owner: ${arenaOwner.email}`);
 
-  // If a 360 Arena company already exists (created via dashboard), keep it
-  // owned by the dedicated owner account — do not merge into GameOn.
-  await prisma.company.updateMany({
-    where: { name: '360 Arena' },
-    data: {
-      ownerId: arenaOwner.id,
-      approvalStatus: 'APPROVED',
-      description: '360 Arena sports venues',
-    },
-  });
-  await prisma.branch.updateMany({
-    where: { name: '360 Arena' },
-    data: { approvalStatus: 'APPROVED' },
-  });
-
-  // Keep demo Cricket indoor pricing at Rs 1,000/hr for 360 Arena.
-  const arenaCricket = await prisma.court.findFirst({
-    where: { name: 'Cricket indoor', branch: { name: '360 Arena' } },
-  });
-  if (arenaCricket) {
-    await prisma.court.update({
-      where: { id: arenaCricket.id },
-      data: { pricePerHour: 1000 },
-    });
-    await prisma.slot.updateMany({
-      where: { courtId: arenaCricket.id, status: 'AVAILABLE' },
-      data: { price: 1000 },
-    });
-    console.log('✓ 360 Arena Cricket indoor priced at Rs 1,000/hr');
-  }
-
   // ── Demo player ─────────────────────────────────────────────────────────
   const playerHash = await bcrypt.hash('PlayPK@player1', 10);
   const player = await prisma.user.upsert({
@@ -215,6 +184,9 @@ async function main(): Promise<void> {
         approvedAt: new Date(),
         approvedById: admin.id,
         commissionPercent: 10,
+        bankAccountName: 'GameOn Sports Pvt Ltd',
+        bankAccountNumber: '1234567890123',
+        bankName: 'HBL',
       },
     });
   } else {
@@ -225,6 +197,9 @@ async function main(): Promise<void> {
         approvedAt: company.approvedAt ?? new Date(),
         approvedById: company.approvedById ?? admin.id,
         commissionPercent: company.commissionPercent ?? 10,
+        bankAccountName: 'GameOn Sports Pvt Ltd',
+        bankAccountNumber: '1234567890123',
+        bankName: 'HBL',
       },
     });
   }
@@ -373,6 +348,206 @@ async function main(): Promise<void> {
     }
   }
   console.log(`✓ ${slotCount} slots (upserted)`);
+
+  // ── 360 Arena (second demo company — visible to owner + customers) ───────
+  // Reclaim any existing "360 Arena" company (e.g. registered via dashboard)
+  // and ensure it is APPROVED with courts so it shows on the customer list.
+  await prisma.company.updateMany({
+    where: { name: { equals: '360 Arena', mode: 'insensitive' } },
+    data: {
+      ownerId: arenaOwner.id,
+      approvalStatus: 'APPROVED',
+      approvedAt: new Date(),
+      approvedById: admin.id,
+      description: '360 Arena sports venues — cricket, padel, and more.',
+    },
+  });
+
+  let arenaCompany = await prisma.company.findFirst({
+    where: { ownerId: arenaOwner.id, name: { equals: '360 Arena', mode: 'insensitive' } },
+  });
+  if (!arenaCompany) {
+    arenaCompany = await prisma.company.findFirst({
+      where: { ownerId: arenaOwner.id },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+  if (!arenaCompany) {
+    arenaCompany = await prisma.company.create({
+      data: {
+        ownerId: arenaOwner.id,
+        name: '360 Arena',
+        description: '360 Arena sports venues — cricket, padel, and more.',
+        approvalStatus: 'APPROVED',
+        approvedAt: new Date(),
+        approvedById: admin.id,
+        commissionPercent: 10,
+        bankAccountName: '360 Arena',
+        bankAccountNumber: '9876543210987',
+        bankName: 'Meezan Bank',
+      },
+    });
+  } else {
+    arenaCompany = await prisma.company.update({
+      where: { id: arenaCompany.id },
+      data: {
+        name: '360 Arena',
+        ownerId: arenaOwner.id,
+        approvalStatus: 'APPROVED',
+        approvedAt: arenaCompany.approvedAt ?? new Date(),
+        approvedById: arenaCompany.approvedById ?? admin.id,
+        description:
+          arenaCompany.description ?? '360 Arena sports venues — cricket, padel, and more.',
+        commissionPercent: arenaCompany.commissionPercent ?? 10,
+        bankAccountName: '360 Arena',
+        bankAccountNumber: '9876543210987',
+        bankName: 'Meezan Bank',
+      },
+    });
+  }
+  console.log(`✓ company: ${arenaCompany.name} (${arenaCompany.approvalStatus})`);
+
+  // Approve every company/branch owned by the 360 demo owner (covers renamed registrations).
+  await prisma.company.updateMany({
+    where: { ownerId: arenaOwner.id },
+    data: {
+      approvalStatus: 'APPROVED',
+      approvedAt: new Date(),
+      approvedById: admin.id,
+    },
+  });
+  await prisma.branch.updateMany({
+    where: { company: { ownerId: arenaOwner.id } },
+    data: { approvalStatus: 'APPROVED' },
+  });
+
+  let arenaBranch = await prisma.branch.findFirst({
+    where: { companyId: arenaCompany.id, name: { equals: '360 Arena', mode: 'insensitive' } },
+  });
+  if (!arenaBranch) {
+    arenaBranch = await prisma.branch.findFirst({
+      where: { companyId: arenaCompany.id },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+  if (!arenaBranch) {
+    arenaBranch = await prisma.branch.create({
+      data: {
+        companyId: arenaCompany.id,
+        name: '360 Arena',
+        city: 'Lahore',
+        address: 'Main Boulevard, Gulberg III, Lahore',
+        latitude: 31.5102,
+        longitude: 74.3441,
+        operatingHoursStart: '08:00',
+        operatingHoursEnd: '23:00',
+        approvalStatus: 'APPROVED',
+      },
+    });
+  } else {
+    arenaBranch = await prisma.branch.update({
+      where: { id: arenaBranch.id },
+      data: {
+        name: '360 Arena',
+        city: arenaBranch.city || 'Lahore',
+        address: arenaBranch.address || 'Main Boulevard, Gulberg III, Lahore',
+        approvalStatus: 'APPROVED',
+        operatingHoursStart: arenaBranch.operatingHoursStart || '08:00',
+        operatingHoursEnd: arenaBranch.operatingHoursEnd || '23:00',
+      },
+    });
+  }
+  console.log(`✓ branch: ${arenaBranch.name} (${arenaBranch.city})`);
+
+  const arenaCourtDefs = [
+    {
+      name: 'Cricket indoor',
+      sportId: sportByName.Cricket.id,
+      capacity: 12,
+      pricePerHour: 1000,
+      indoor: true,
+      hasAC: true,
+      equipmentAvailable: ['batting pads', 'helmets', 'balls'],
+    },
+    {
+      name: 'Padel Court A',
+      sportId: sportByName.Padel.id,
+      capacity: 4,
+      pricePerHour: 3000,
+      indoor: true,
+      hasAC: true,
+      equipmentAvailable: ['rackets', 'balls'],
+    },
+    {
+      name: 'Futsal Court',
+      sportId: sportByName.Futsal.id,
+      capacity: 10,
+      pricePerHour: 4000,
+      indoor: false,
+      hasAC: false,
+      equipmentAvailable: ['balls'],
+    },
+  ] as const;
+
+  const arenaCourts = [];
+  for (const def of arenaCourtDefs) {
+    const court = await prisma.court.upsert({
+      where: {
+        branchId_name: { branchId: arenaBranch.id, name: def.name },
+      },
+      update: {
+        pricePerHour: def.pricePerHour,
+        capacity: def.capacity,
+        indoor: def.indoor,
+        hasAC: def.hasAC,
+        equipmentAvailable: [...def.equipmentAvailable],
+      },
+      create: {
+        branchId: arenaBranch.id,
+        sportId: def.sportId,
+        name: def.name,
+        capacity: def.capacity,
+        pricePerHour: def.pricePerHour,
+        indoor: def.indoor,
+        hasAC: def.hasAC,
+        equipmentAvailable: [...def.equipmentAvailable],
+        photos: [],
+      },
+    });
+    arenaCourts.push(court);
+  }
+  console.log(`✓ ${arenaCourts.length} 360 Arena courts`);
+
+  let arenaSlotCount = 0;
+  for (const court of arenaCourts) {
+    for (const date of dates) {
+      for (const window of windows) {
+        await prisma.slot.upsert({
+          where: {
+            courtId_date_startTime: {
+              courtId: court.id,
+              date,
+              startTime: window.startTime,
+            },
+          },
+          update: {
+            endTime: window.endTime,
+            price: court.pricePerHour,
+          },
+          create: {
+            courtId: court.id,
+            date,
+            startTime: window.startTime,
+            endTime: window.endTime,
+            status: SlotStatus.AVAILABLE,
+            price: court.pricePerHour,
+          },
+        });
+        arenaSlotCount += 1;
+      }
+    }
+  }
+  console.log(`✓ ${arenaSlotCount} 360 Arena slots (upserted)`);
 
   // ── Demo open tournament (customer Events tab) ───────────────────────────
   const padelSport = sportByName.Padel;
