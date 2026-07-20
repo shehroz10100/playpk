@@ -36,11 +36,18 @@
     "rimraf": "6.1.2",
     "uuid": "11.1.0",
     "text-encoding": "npm:fast-text-encoding@1.0.6",
+    "fast-text-encoding": "1.0.6",
     "xcode": {
       "uuid": "11.1.0"
     },
     "react-native-qrcode-svg": {
       "text-encoding": "npm:fast-text-encoding@1.0.6"
+    },
+    "@expo/code-signing-certificates": {
+      "uuid": "11.1.0"
+    },
+    "ioredis": {
+      "uuid": "11.1.0"
     }
   },
   "devDependencies": {
