@@ -39,24 +39,44 @@ export default function MyTournamentsPage() {
   const [description, setDescription] = useState('Player-hosted tournament — join and compete!');
 
   const load = useCallback(async () => {
-    try {
-      const [mineRes, venueList, sportList] = await Promise.all([
-        api<TournamentDto[]>('/api/tournaments/mine'),
-        fetchVenuesCatalog({ city: 'Lahore', sport: '', minPrice: '', maxPrice: '', minRating: '' }),
-        fetchSportsCatalog(),
-      ]);
-      setMine(mineRes.data);
-      setVenues(venueList);
-      setSports(sportList);
-      if (!branchId && venueList[0]) setBranchId(venueList[0].id);
-      if (!sportId && sportList[0]) {
-        const padel = sportList.find((s) => s.name.toLowerCase() === 'padel') ?? sportList[0];
-        setSportId(padel.id);
-      }
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load tournaments');
+    setError(null);
+
+    const [mineResult, venueList, sportList] = await Promise.all([
+      api<TournamentDto[]>('/api/tournaments/mine')
+        .then((res) => ({ ok: true as const, data: res.data }))
+        .catch((err) => ({
+          ok: false as const,
+          message: err instanceof ApiError ? err.message : 'Failed to load your tournaments',
+        })),
+      fetchVenuesCatalog({ city: 'Lahore', sport: '', minPrice: '', maxPrice: '', minRating: '' }),
+      fetchSportsCatalog(),
+    ]);
+
+    setVenues(venueList);
+    setSports(sportList);
+    setBranchId((prev) => prev || venueList[0]?.id || '');
+    setSportId((prev) => {
+      if (prev) return prev;
+      const padel = sportList.find((s) => s.name.toLowerCase() === 'padel');
+      return padel?.id ?? sportList[0]?.id ?? '';
+    });
+
+    if (mineResult.ok) {
+      setMine(mineResult.data);
+    } else {
+      setMine([]);
+      setError(mineResult.message);
     }
-  }, [branchId, sportId]);
+
+    if (venueList.length === 0 || sportList.length === 0) {
+      setError((prev) =>
+        prev ??
+        (venueList.length === 0
+          ? 'No approved venues found. Try again in a moment.'
+          : 'No sports found. Try again in a moment.'),
+      );
+    }
+  }, []);
 
   useEffect(() => {
     void load();
@@ -130,11 +150,15 @@ export default function MyTournamentsPage() {
                 onChange={(e) => setBranchId(e.target.value)}
                 required
               >
-                {venues.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} · {v.city}
-                  </option>
-                ))}
+                {venues.length === 0 ? (
+                  <option value="">Loading venues…</option>
+                ) : (
+                  venues.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} · {v.city}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
             <div className="space-y-2">
@@ -143,12 +167,17 @@ export default function MyTournamentsPage() {
                 className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
                 value={sportId}
                 onChange={(e) => setSportId(e.target.value)}
+                required
               >
-                {sports.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
+                {sports.length === 0 ? (
+                  <option value="">Loading sports…</option>
+                ) : (
+                  sports.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
             <div className="space-y-2">

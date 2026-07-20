@@ -34,7 +34,9 @@ export default function SocialPage() {
         `/api/social/feed${likedOnly ? '?starred=1' : ''}`,
       );
       setPosts(data);
+      setError(null);
     } catch (err) {
+      setPosts([]);
       setError(err instanceof ApiError ? err.message : 'Failed to load feed');
     }
   }, [likedOnly]);
