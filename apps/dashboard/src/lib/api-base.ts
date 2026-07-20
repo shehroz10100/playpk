@@ -1,9 +1,10 @@
 /**
- * Browser uses same-origin (`''`) so fetch goes to `/api/...` on the Vercel host.
- * Next.js rewrites proxy those to the real API (see next.config.ts).
- * That way phones never call localhost — only the Vercel origin.
+ * API base URL for dashboard fetch calls.
  *
- * Server-side code still calls the backend directly via API_URL / NEXT_PUBLIC_API_URL.
+ * - Local browser → http://localhost:4000 (or NEXT_PUBLIC_API_URL)
+ * - Deployed browser (Vercel) → Railway HTTPS API directly
+ *   (CORS is open on the API; avoids broken Vercel /api rewrites)
+ * - Server-side on Vercel → Railway (never localhost)
  */
 
 const RAILWAY_API = 'https://api-production-2057.up.railway.app';
@@ -17,19 +18,34 @@ function isLoopback(url: string): boolean {
   }
 }
 
-export function getApiBase(): string {
-  if (typeof window !== 'undefined') {
-    return '';
-  }
-
+function firstPublicApiUrl(): string | null {
   const candidates = [process.env.API_URL, process.env.NEXT_PUBLIC_API_URL];
   for (const raw of candidates) {
     if (!raw) continue;
     const cleaned = raw.replace(/\/$/, '');
-    if (process.env.VERCEL && isLoopback(cleaned)) continue;
-    return cleaned;
+    if (isLoopback(cleaned)) continue;
+    if (cleaned.startsWith('https://') || cleaned.startsWith('http://')) return cleaned;
+  }
+  return null;
+}
+
+export function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      const local =
+        process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000';
+      return local;
+    }
+    return firstPublicApiUrl() ?? RAILWAY_API;
   }
 
-  if (process.env.VERCEL) return RAILWAY_API;
+  const publicUrl = firstPublicApiUrl();
+  if (publicUrl) return publicUrl;
+
+  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+    return RAILWAY_API;
+  }
+
   return 'http://localhost:4000';
 }

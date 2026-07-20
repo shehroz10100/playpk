@@ -21,10 +21,13 @@ function resolveApiOrigin(): string {
   for (const raw of candidates) {
     if (!raw) continue;
     const cleaned = raw.replace(/\/$/, '');
-    if (process.env.VERCEL && isLoopback(cleaned)) continue;
+    // Never bake localhost into a Vercel/production build.
+    if (isLoopback(cleaned)) continue;
     return cleaned;
   }
-  if (process.env.VERCEL) return RAILWAY_API;
+  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+    return RAILWAY_API;
+  }
   return 'http://localhost:4000';
 }
 
