@@ -43,6 +43,43 @@ tournamentsRouter.get('/', async (req, res, next) => {
   }
 });
 
+tournamentsRouter.get('/mine', authenticate, async (req, res, next) => {
+  try {
+    sendSuccess(res, await tournamentService.listMyTournaments(req.user!.id));
+  } catch (error) {
+    next(error);
+  }
+});
+
+const tournamentBodySchema = z.object({
+  branchId: z.string().min(1),
+  name: z.string().min(2).max(120),
+  sportId: z.string().min(1),
+  format: z.nativeEnum(TournamentFormat),
+  entryFee: z.number().min(0),
+  prizePool: z.number().min(0).optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  maxParticipants: z.number().int().positive().optional(),
+  description: z.string().max(2000).optional(),
+  status: z.nativeEnum(TournamentStatus).optional(),
+});
+
+tournamentsRouter.post(
+  '/community',
+  authenticate,
+  requireRoles(UserRole.PLAYER, UserRole.ADMIN),
+  validate(tournamentBodySchema.omit({ status: true })),
+  async (req, res, next) => {
+    try {
+      const data = await tournamentService.createCommunityTournament(req.user!.id, req.body);
+      sendSuccess(res, data, 201);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 tournamentsRouter.get('/:tournamentId', async (req, res, next) => {
   try {
     const data = await tournamentService.getTournament(param(req, 'tournamentId'));

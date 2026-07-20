@@ -23,13 +23,21 @@ export default function EventsPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-navy">Events</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Tournaments near {city}. Open an event to register solo or with a team and pay the entry
-          fee.
-        </p>
+    <div className="space-y-6 animate-rise">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Compete</p>
+          <h1 className="font-display mt-1 text-3xl font-extrabold text-navy">Events</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Tournaments near {city}. Open an event to register — or host your own.
+          </p>
+        </div>
+        <Link
+          href="/my-tournaments"
+          className="inline-flex h-10 items-center rounded-xl bg-navy px-4 text-sm font-semibold text-white hover:bg-brand"
+        >
+          My tournaments
+        </Link>
       </div>
 
       {loading ? <p className="text-sm text-muted-foreground">Loading events…</p> : null}

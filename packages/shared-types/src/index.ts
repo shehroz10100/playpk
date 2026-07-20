@@ -535,6 +535,7 @@ export interface ChatbotResponse {
 export interface TournamentDto {
   id: string;
   branchId: string;
+  hostUserId?: string | null;
   name: string;
   sportId: string;
   format: TournamentFormat | string;
@@ -548,6 +549,8 @@ export interface TournamentDto {
   createdAt?: string | Date;
   sport?: SportDto;
   branch?: BranchSummary;
+  host?: { id: string; name: string } | null;
+  isCommunity?: boolean;
   registrationCount?: number;
   matchCount?: number;
 }
@@ -648,7 +651,12 @@ export interface LeaderboardEntryDto {
 export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'PRO';
 export type MatchVisibility = 'PUBLIC' | 'PRIVATE';
 export type CasualMatchType = 'COMPETITIVE' | 'FRIENDLY';
-export type MatchFormat = 'SINGLES' | 'DOUBLES';
+export type MatchFormat =
+  | 'SINGLES'
+  | 'DOUBLES'
+  | 'EIGHT_A_SIDE'
+  | 'TEN_A_SIDE'
+  | 'FOURTEEN_A_SIDE';
 export type OpenMatchStatus = 'OPEN' | 'FULL' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
 export interface PlayerProfileDto {
@@ -714,6 +722,16 @@ export interface SocialPostDto {
   author: { id: string; name: string; skillLevel: SkillLevel | null };
   starCount: number;
   starredByMe: boolean;
+  likeCount?: number;
+  likedByMe?: boolean;
+  commentCount?: number;
+}
+
+export interface SocialCommentDto {
+  id: string;
+  body: string;
+  createdAt: string | Date;
+  author: { id: string; name: string; skillLevel: SkillLevel | null };
 }
 
 export interface PerformanceLeaderboardEntryDto {

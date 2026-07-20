@@ -26,7 +26,12 @@ const headerTabs = [
     icon: Ticket,
     match: (p: string) => p.startsWith('/my-bookings') || p.startsWith('/book'),
   },
-  { href: '/events', label: 'Events', icon: CalendarDays, match: (p: string) => p.startsWith('/events') },
+  {
+    href: '/events',
+    label: 'Events',
+    icon: CalendarDays,
+    match: (p: string) => p.startsWith('/events') || p.startsWith('/my-tournaments'),
+  },
   { href: '/ai', label: 'AI', icon: Bot, match: (p: string) => p.startsWith('/ai') },
 ] as const;
 

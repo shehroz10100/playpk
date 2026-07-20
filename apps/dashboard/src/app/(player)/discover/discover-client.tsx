@@ -1,14 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { ChevronDown, SlidersHorizontal } from 'lucide-react';
-import type { SportDto, VenueListItem } from '@playpk/shared-types';
+import Link from 'next/link';
+import { ChevronDown, SlidersHorizontal, Swords, Trophy } from 'lucide-react';
+import type { OpenMatchDto, SportDto, TournamentDto, VenueListItem } from '@playpk/shared-types';
+import { resolveSportCover } from '@playpk/shared-types';
 import { SportFilterRail } from '@/components/sport-filter-rail';
 import { VenueCard } from '@/components/venue-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { api } from '@/lib/api';
+import { formatLabel } from '@/lib/match-formats';
+import { formatPkr, cn } from '@/lib/utils';
 import { DISCOVER_HERO_IMAGE } from '@/lib/venue-cover';
 import {
   DEFAULT_VENUE_FILTERS,
@@ -16,7 +21,6 @@ import {
   useVenues,
   type VenueFilters,
 } from '@/hooks/use-venues';
-import { cn } from '@/lib/utils';
 
 type Props = {
   initialVenues: VenueListItem[];
@@ -27,6 +31,8 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
   const [draft, setDraft] = useState<VenueFilters>(DEFAULT_VENUE_FILTERS);
   const [applied, setApplied] = useState<VenueFilters>(DEFAULT_VENUE_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [tournaments, setTournaments] = useState<TournamentDto[]>([]);
+  const [matches, setMatches] = useState<OpenMatchDto[]>([]);
 
   const { data: sports = initialSports } = useSports(initialSports);
   const {
@@ -34,6 +40,16 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
     isFetching,
     error,
   } = useVenues(applied, { initialData: initialVenues });
+
+  useEffect(() => {
+    const city = applied.city || 'Lahore';
+    api<TournamentDto[]>(`/api/tournaments?city=${encodeURIComponent(city)}`, { auth: false })
+      .then(({ data }) => setTournaments(data.slice(0, 6)))
+      .catch(() => setTournaments([]));
+    api<OpenMatchDto[]>(`/api/social/matches?city=${encodeURIComponent(city)}`)
+      .then(({ data }) => setMatches(data.slice(0, 4)))
+      .catch(() => setMatches([]));
+  }, [applied.city]);
 
   function applyFilters() {
     setApplied({ ...draft });
@@ -55,7 +71,6 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      {/* PlayPro-style hero */}
       <section className="relative -mx-4 overflow-hidden sm:-mx-6 sm:rounded-3xl animate-fade-in">
         <div className="relative min-h-[200px] sm:min-h-[240px]">
           <Image
@@ -187,6 +202,107 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
           </div>
         </section>
       ) : null}
+
+      <section className="space-y-3 animate-rise" style={{ animationDelay: '90ms' }}>
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Compete</p>
+            <h2 className="font-display text-lg font-bold text-navy sm:text-xl">Tournaments</h2>
+          </div>
+          <div className="flex gap-2">
+            <Link href="/my-tournaments" className="text-sm font-semibold text-navy hover:text-brand">
+              My tournaments
+            </Link>
+            <Link href="/events" className="text-sm font-semibold text-brand hover:underline">
+              See all →
+            </Link>
+          </div>
+        </div>
+        {tournaments.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-navy/15 bg-white/70 px-4 py-6 text-sm text-muted-foreground">
+            No open tournaments in {applied.city} yet. Companies and players can create one — it
+            appears here.
+          </div>
+        ) : (
+          <div className="sport-rail flex gap-3 overflow-x-auto pb-1">
+            {tournaments.map((t) => {
+              const cover = resolveSportCover(t.sport?.name ?? 'All', t.sport?.iconUrl);
+              return (
+                <Link
+                  key={t.id}
+                  href={`/events/${t.id}`}
+                  className="relative w-[220px] shrink-0 overflow-hidden rounded-2xl bg-navy shadow-panel sm:w-[240px]"
+                >
+                  <div className="relative h-28">
+                    <Image src={cover} alt="" fill sizes="240px" className="object-cover opacity-80" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/40 to-transparent" />
+                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-brand px-2 py-0.5 text-[10px] font-bold text-white">
+                      <Trophy className="h-3 w-3" />
+                      {t.isCommunity ? 'Community' : 'Venue'}
+                    </span>
+                  </div>
+                  <div className="space-y-1 p-3 text-white">
+                    <p className="line-clamp-1 text-sm font-bold">{t.name}</p>
+                    <p className="text-[11px] text-white/65">
+                      {t.sport?.name} · {t.branch?.name}
+                    </p>
+                    <p className="text-xs font-semibold text-brand-100">
+                      {formatPkr(t.entryFee)} entry · {t.registrationCount ?? 0} joined
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3 animate-rise" style={{ animationDelay: '120ms' }}>
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Match &amp; Play</p>
+            <h2 className="font-display text-lg font-bold text-navy sm:text-xl">Open matches</h2>
+          </div>
+          <Link href="/play" className="text-sm font-semibold text-brand hover:underline">
+            Play hub →
+          </Link>
+        </div>
+        {matches.length === 0 ? (
+          <Link
+            href="/play"
+            className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-panel transition hover:-translate-y-0.5"
+          >
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand/10 text-brand">
+              <Swords className="h-6 w-6" />
+            </span>
+            <span>
+              <span className="block font-semibold text-navy">Host or join an open match</span>
+              <span className="text-sm text-muted-foreground">
+                Public/private · friendly/competitive · cricket 8/10/14
+              </span>
+            </span>
+          </Link>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {matches.map((m) => (
+              <Link
+                key={m.id}
+                href={`/play/${m.id}`}
+                className="rounded-2xl bg-white p-4 shadow-panel transition hover:-translate-y-0.5"
+              >
+                <p className="text-[11px] font-bold uppercase tracking-wider text-brand">
+                  {m.sport.name} · {formatLabel(m.format)}
+                </p>
+                <p className="mt-1 font-semibold text-navy">{m.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {m.joinedCount}/{m.maxPlayers} players · {m.matchType.toLowerCase()} ·{' '}
+                  {m.city ?? applied.city}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="space-y-4">
         <div className="flex items-baseline justify-between gap-2">

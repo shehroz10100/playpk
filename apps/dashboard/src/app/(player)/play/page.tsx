@@ -4,12 +4,18 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type {
+  MatchFormat,
   OpenMatchDto,
   PlayerProfileDto,
   SkillLevel,
   SportDto,
 } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
+import {
+  defaultFormatForSport,
+  formatLabel,
+  formatOptionsForSport,
+} from '@/lib/match-formats';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,9 +40,12 @@ export default function PlayPage() {
   const [title, setTitle] = useState('Open padel hit');
   const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
   const [matchType, setMatchType] = useState<'FRIENDLY' | 'COMPETITIVE'>('FRIENDLY');
-  const [format, setFormat] = useState<'SINGLES' | 'DOUBLES'>('DOUBLES');
+  const [format, setFormat] = useState<MatchFormat>('DOUBLES');
   const [createSportId, setCreateSportId] = useState('');
   const [city, setCity] = useState('Lahore');
+
+  const selectedSport = sports.find((s) => s.id === createSportId);
+  const formatOptions = formatOptionsForSport(selectedSport?.name);
 
   const load = useCallback(async () => {
     try {
@@ -187,7 +196,7 @@ export default function PlayPage() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <Card>
+      <Card className="rounded-2xl border-0 shadow-panel">
         <CardHeader>
           <CardTitle className="text-lg">Create match</CardTitle>
           <CardDescription>Host an open match and fill remaining spots by skill.</CardDescription>
@@ -196,14 +205,22 @@ export default function PlayPage() {
           <form className="grid gap-3 sm:grid-cols-2" onSubmit={createMatch}>
             <div className="space-y-2 sm:col-span-2">
               <Label>Title</Label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} required className="rounded-xl" />
             </div>
             <div className="space-y-2">
               <Label>Sport</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
+                className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
                 value={createSportId}
-                onChange={(e) => setCreateSportId(e.target.value)}
+                onChange={(e) => {
+                  const nextId = e.target.value;
+                  setCreateSportId(nextId);
+                  const sport = sports.find((s) => s.id === nextId);
+                  setFormat(defaultFormatForSport(sport?.name));
+                  if (sport && sport.name.toLowerCase() === 'cricket') {
+                    setTitle((t) => (t.toLowerCase().includes('padel') ? 'Open cricket match' : t));
+                  }
+                }}
               >
                 {sports.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -214,12 +231,12 @@ export default function PlayPage() {
             </div>
             <div className="space-y-2">
               <Label>City</Label>
-              <Input value={city} onChange={(e) => setCity(e.target.value)} />
+              <Input value={city} onChange={(e) => setCity(e.target.value)} className="rounded-xl" />
             </div>
             <div className="space-y-2">
               <Label>Visibility</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
+                className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as 'PUBLIC' | 'PRIVATE')}
               >
@@ -230,7 +247,7 @@ export default function PlayPage() {
             <div className="space-y-2">
               <Label>Match type</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
+                className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
                 value={matchType}
                 onChange={(e) => setMatchType(e.target.value as 'FRIENDLY' | 'COMPETITIVE')}
               >
@@ -241,16 +258,24 @@ export default function PlayPage() {
             <div className="space-y-2">
               <Label>Format</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
+                className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
                 value={format}
-                onChange={(e) => setFormat(e.target.value as 'SINGLES' | 'DOUBLES')}
+                onChange={(e) => setFormat(e.target.value as MatchFormat)}
               >
-                <option value="SINGLES">Singles (2)</option>
-                <option value="DOUBLES">Doubles (4)</option>
+                {formatOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
+              <p className="text-[11px] text-muted-foreground">
+                {selectedSport?.name?.toLowerCase() === 'cricket'
+                  ? 'Cricket sides: 8, 10, or 14 players (PlayPro-style).'
+                  : 'Singles or doubles for racket sports.'}
+              </p>
             </div>
             <div className="sm:col-span-2">
-              <Button type="submit" disabled={busy}>
+              <Button type="submit" disabled={busy} className="rounded-xl">
                 {busy ? 'Creating…' : 'Create open match'}
               </Button>
             </div>
@@ -258,20 +283,35 @@ export default function PlayPage() {
         </CardContent>
       </Card>
 
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/my-tournaments"
+          className="inline-flex h-10 items-center rounded-xl bg-navy px-4 text-sm font-semibold text-white hover:bg-brand"
+        >
+          My tournaments
+        </Link>
+        <Link
+          href="/events"
+          className="inline-flex h-10 items-center rounded-xl border border-border bg-white px-4 text-sm font-semibold text-navy hover:border-brand/40"
+        >
+          Browse events
+        </Link>
+      </div>
+
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold text-navy">Matches near your level</h2>
+        <h2 className="font-display text-lg font-bold text-navy">Matches near your level</h2>
         {matches.length === 0 ? (
           <p className="text-sm text-muted-foreground">No open matches yet — create one above.</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {matches.map((m) => (
               <Link key={m.id} href={`/play/${m.id}`}>
-                <Card className="h-full transition hover:border-brand/40">
+                <Card className="h-full rounded-2xl border-0 shadow-panel transition hover:-translate-y-0.5">
                   <CardHeader className="pb-2">
                     <div className="flex flex-wrap gap-1">
                       <Badge variant="secondary">{m.visibility}</Badge>
                       <Badge variant="secondary">{m.matchType}</Badge>
-                      <Badge variant="secondary">{m.format}</Badge>
+                      <Badge variant="secondary">{formatLabel(m.format)}</Badge>
                     </div>
                     <CardTitle className="text-base">{m.title}</CardTitle>
                     <CardDescription>

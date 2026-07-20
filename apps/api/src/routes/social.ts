@@ -216,6 +216,38 @@ socialRouter.post('/feed/:postId/star', async (req, res, next) => {
   }
 });
 
+socialRouter.post('/feed/:postId/like', async (req, res, next) => {
+  try {
+    sendSuccess(res, await social.toggleStar(req.user!.id, param(req, 'postId')));
+  } catch (e) {
+    next(e);
+  }
+});
+
+socialRouter.get('/feed/:postId/comments', async (req, res, next) => {
+  try {
+    sendSuccess(res, await social.listComments(param(req, 'postId')));
+  } catch (e) {
+    next(e);
+  }
+});
+
+socialRouter.post(
+  '/feed/:postId/comments',
+  validate(z.object({ body: z.string().min(1).max(500) })),
+  async (req, res, next) => {
+    try {
+      sendSuccess(
+        res,
+        await social.addComment(req.user!.id, param(req, 'postId'), req.body.body),
+        201,
+      );
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
 socialRouter.post(
   '/contacts/sync',
   validate(z.object({ phones: z.array(z.string()).max(500) })),

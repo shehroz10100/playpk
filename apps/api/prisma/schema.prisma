@@ -133,6 +133,9 @@ enum CasualMatchType {
 enum MatchFormat {
   SINGLES
   DOUBLES
+  EIGHT_A_SIDE
+  TEN_A_SIDE
+  FOURTEEN_A_SIDE
 }
 
 enum OpenMatchStatus {
@@ -191,8 +194,10 @@ model User {
   followers           Follow[]             @relation("FollowFollowing")
   socialPosts         SocialPost[]
   socialStars         SocialStar[]
+  socialComments      SocialComment[]
   contactHashes       ContactHash[]
   resultsReported     OpenMatchResult[]    @relation("ResultReporter")
+  hostedTournaments   Tournament[]         @relation("TournamentHost")
 
   @@index([role])
   @@index([loyaltyTier])
@@ -484,6 +489,7 @@ model SupportTicket {
 model Tournament {
   id              String           @id @default(cuid())
   branchId        String
+  hostUserId      String?
   name            String
   sportId         String
   format          TournamentFormat
@@ -498,11 +504,13 @@ model Tournament {
   updatedAt       DateTime         @updatedAt
 
   branch         Branch                   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  host           User?                    @relation("TournamentHost", fields: [hostUserId], references: [id], onDelete: SetNull)
   sport          Sport                    @relation(fields: [sportId], references: [id], onDelete: Restrict)
   registrations  TournamentRegistration[]
   matches        TournamentMatch[]
 
   @@index([branchId])
+  @@index([hostUserId])
   @@index([sportId])
   @@index([status])
   @@index([startDate, endDate])
@@ -715,8 +723,9 @@ model SocialPost {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  stars  SocialStar[]
+  author   User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  stars    SocialStar[]
+  comments SocialComment[]
 
   @@index([createdAt])
   @@index([authorId])
@@ -732,6 +741,21 @@ model SocialStar {
   user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
+  @@index([userId])
+}
+
+model SocialComment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
   @@index([userId])
 }
 

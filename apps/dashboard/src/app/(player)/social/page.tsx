@@ -1,17 +1,19 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import type { PlayerSearchHitDto, SocialPostDto } from '@playpk/shared-types';
+import { Heart, MessageCircle, Send } from 'lucide-react';
+import type { PlayerSearchHitDto, SocialCommentDto, SocialPostDto } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 export default function SocialPage() {
   const [posts, setPosts] = useState<SocialPostDto[]>([]);
-  const [starredOnly, setStarredOnly] = useState(false);
+  const [likedOnly, setLikedOnly] = useState(false);
   const [body, setBody] = useState('');
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<PlayerSearchHitDto[]>([]);
@@ -19,17 +21,20 @@ export default function SocialPage() {
   const [phoneList, setPhoneList] = useState('+923009876543\n+923001112233');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
+  const [comments, setComments] = useState<Record<string, SocialCommentDto[]>>({});
+  const [draftComment, setDraftComment] = useState<Record<string, string>>({});
 
   const loadFeed = useCallback(async () => {
     try {
       const { data } = await api<SocialPostDto[]>(
-        `/api/social/feed${starredOnly ? '?starred=1' : ''}`,
+        `/api/social/feed${likedOnly ? '?starred=1' : ''}`,
       );
       setPosts(data);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load feed');
     }
-  }, [starredOnly]);
+  }, [likedOnly]);
 
   useEffect(() => {
     void loadFeed();
@@ -54,12 +59,48 @@ export default function SocialPage() {
     }
   }
 
-  async function toggleStar(postId: string) {
+  async function toggleLike(postId: string) {
     try {
-      await api(`/api/social/feed/${postId}/star`, { method: 'POST' });
+      await api(`/api/social/feed/${postId}/like`, { method: 'POST' });
       await loadFeed();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Star failed');
+      setError(err instanceof ApiError ? err.message : 'Like failed');
+    }
+  }
+
+  async function toggleComments(postId: string) {
+    const next = !openComments[postId];
+    setOpenComments((prev) => ({ ...prev, [postId]: next }));
+    if (next && !comments[postId]) {
+      try {
+        const { data } = await api<SocialCommentDto[]>(`/api/social/feed/${postId}/comments`);
+        setComments((prev) => ({ ...prev, [postId]: data }));
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Could not load comments');
+      }
+    }
+  }
+
+  async function submitComment(postId: string) {
+    const text = (draftComment[postId] ?? '').trim();
+    if (!text) return;
+    try {
+      const { data } = await api<SocialCommentDto>(`/api/social/feed/${postId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ body: text }),
+      });
+      setComments((prev) => ({
+        ...prev,
+        [postId]: [...(prev[postId] ?? []), data],
+      }));
+      setDraftComment((prev) => ({ ...prev, [postId]: '' }));
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, commentCount: (p.commentCount ?? 0) + 1 } : p,
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Comment failed');
     }
   }
 
@@ -115,39 +156,53 @@ export default function SocialPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-rise">
       <div>
-        <h1 className="text-2xl font-semibold text-navy">Social</h1>
-        <p className="text-sm text-muted-foreground">
-          Follow players, star posts, and find friends from your contacts.
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Community</p>
+        <h1 className="font-display mt-1 text-3xl font-extrabold text-navy">Social</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Follow players, like &amp; comment on posts — just like PlayPro.
         </p>
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="rounded-2xl border-0 shadow-panel">
           <CardHeader>
             <CardTitle className="text-lg">Find players</CardTitle>
-            <CardDescription>Search by name, email, or phone — then follow or add later in Play.</CardDescription>
+            <CardDescription>Search by name, email, or phone — then follow.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex gap-2">
-              <Input placeholder="Search players" value={q} onChange={(e) => setQ(e.target.value)} />
-              <Button type="button" variant="outline" onClick={() => void search()}>
+              <Input
+                placeholder="Search players"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="rounded-xl"
+              />
+              <Button type="button" variant="outline" className="rounded-xl" onClick={() => void search()}>
                 Search
               </Button>
             </div>
             <ul className="space-y-2">
               {hits.map((h) => (
-                <li key={h.userId} className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm">
+                <li
+                  key={h.userId}
+                  className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2 text-sm"
+                >
                   <div>
                     <div className="font-medium text-navy">{h.name}</div>
                     <div className="text-xs text-muted-foreground">
                       {h.skillLevel ?? 'No skill yet'} · {h.points} pts
                     </div>
                   </div>
-                  <Button size="sm" variant={h.isFollowing ? 'secondary' : 'outline'} onClick={() => void follow(h.userId, h.isFollowing)}>
+                  <Button
+                    size="sm"
+                    variant={h.isFollowing ? 'secondary' : 'outline'}
+                    className="rounded-xl"
+                    onClick={() => void follow(h.userId, h.isFollowing)}
+                  >
                     {h.isFollowing ? 'Following' : 'Follow'}
                   </Button>
                 </li>
@@ -156,33 +211,39 @@ export default function SocialPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-2xl border-0 shadow-panel">
           <CardHeader>
             <CardTitle className="text-lg">Contacts sync</CardTitle>
-            <CardDescription>
-              Paste phone numbers (demo). We hash them and match PlayPK players — never store raw lists in feed.
-            </CardDescription>
+            <CardDescription>Paste phones to find friends already on PlayPK.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-2">
               <Label>Phone numbers</Label>
               <textarea
-                className="min-h-24 w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
+                className="min-h-24 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm"
                 value={phoneList}
                 onChange={(e) => setPhoneList(e.target.value)}
               />
             </div>
-            <Button type="button" disabled={busy} onClick={() => void syncContacts()}>
+            <Button type="button" disabled={busy} className="rounded-xl" onClick={() => void syncContacts()}>
               {busy ? 'Syncing…' : 'Find friends in contacts'}
             </Button>
             <ul className="space-y-2">
               {contacts.map((h) => (
-                <li key={h.userId} className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm">
+                <li
+                  key={h.userId}
+                  className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2 text-sm"
+                >
                   <div>
                     <div className="font-medium text-navy">{h.name}</div>
                     <Badge variant="secondary">From contacts</Badge>
                   </div>
-                  <Button size="sm" variant={h.isFollowing ? 'secondary' : 'outline'} onClick={() => void follow(h.userId, h.isFollowing)}>
+                  <Button
+                    size="sm"
+                    variant={h.isFollowing ? 'secondary' : 'outline'}
+                    className="rounded-xl"
+                    onClick={() => void follow(h.userId, h.isFollowing)}
+                  >
                     {h.isFollowing ? 'Following' : 'Follow'}
                   </Button>
                 </li>
@@ -192,18 +253,19 @@ export default function SocialPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="rounded-2xl border-0 shadow-panel">
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
           <div>
             <CardTitle className="text-lg">Activity feed</CardTitle>
-            <CardDescription>Posts from you and people you follow. Match results appear here automatically.</CardDescription>
+            <CardDescription>Like and comment on updates from your network.</CardDescription>
           </div>
           <Button
             size="sm"
-            variant={starredOnly ? 'default' : 'outline'}
-            onClick={() => setStarredOnly((v) => !v)}
+            variant={likedOnly ? 'default' : 'outline'}
+            className="rounded-xl"
+            onClick={() => setLikedOnly((v) => !v)}
           >
-            {starredOnly ? 'Starred only' : 'All posts'}
+            {likedOnly ? 'Liked only' : 'All posts'}
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -212,33 +274,95 @@ export default function SocialPage() {
               placeholder="Share an update…"
               value={body}
               onChange={(e) => setBody(e.target.value)}
+              className="rounded-xl"
             />
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy} className="rounded-xl">
               Post
             </Button>
           </form>
           <ul className="space-y-3">
-            {posts.map((p) => (
-              <li key={p.id} className="rounded-lg border border-border bg-white px-4 py-3">
-                <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span>
-                    {p.author.name}
-                    {p.author.skillLevel ? ` · ${p.author.skillLevel}` : ''}
-                  </span>
-                  <span>{new Date(p.createdAt).toLocaleString()}</span>
-                </div>
-                <p className="text-sm text-navy">{p.body}</p>
-                <button
-                  type="button"
-                  className="mt-2 text-xs font-semibold text-brand"
-                  onClick={() => void toggleStar(p.id)}
-                >
-                  {p.starredByMe ? '★ Starred' : '☆ Star'} · {p.starCount}
-                </button>
-              </li>
-            ))}
+            {posts.map((p) => {
+              const liked = p.likedByMe ?? p.starredByMe;
+              const likes = p.likeCount ?? p.starCount;
+              const commentCount = p.commentCount ?? 0;
+              return (
+                <li key={p.id} className="rounded-2xl border border-border/70 bg-white px-4 py-3">
+                  <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="font-semibold text-navy">
+                      {p.author.name}
+                      {p.author.skillLevel ? (
+                        <span className="font-normal text-muted-foreground">
+                          {' '}
+                          · {p.author.skillLevel}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span>{new Date(p.createdAt).toLocaleString()}</span>
+                  </div>
+                  <p className="text-sm leading-relaxed text-navy">{p.body}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition',
+                        liked ? 'bg-brand/10 text-brand' : 'bg-muted text-navy/70 hover:bg-brand/5',
+                      )}
+                      onClick={() => void toggleLike(p.id)}
+                    >
+                      <Heart className={cn('h-3.5 w-3.5', liked && 'fill-brand')} />
+                      Like · {likes}
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-muted px-3 py-1.5 text-xs font-bold text-navy/70 hover:bg-brand/5"
+                      onClick={() => void toggleComments(p.id)}
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      Comment · {commentCount}
+                    </button>
+                  </div>
+
+                  {openComments[p.id] ? (
+                    <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
+                      {(comments[p.id] ?? []).map((c) => (
+                        <div key={c.id} className="rounded-xl bg-muted/50 px-3 py-2 text-sm">
+                          <div className="text-xs font-semibold text-navy">{c.author.name}</div>
+                          <p className="text-navy/80">{c.body}</p>
+                        </div>
+                      ))}
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Write a comment…"
+                          value={draftComment[p.id] ?? ''}
+                          onChange={(e) =>
+                            setDraftComment((prev) => ({ ...prev, [p.id]: e.target.value }))
+                          }
+                          className="rounded-xl"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void submitComment(p.id);
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="rounded-xl"
+                          onClick={() => void submitComment(p.id)}
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
             {posts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No posts yet — follow players or share something.</p>
+              <p className="text-sm text-muted-foreground">
+                No posts yet — follow players or share something.
+              </p>
             ) : null}
           </ul>
         </CardContent>

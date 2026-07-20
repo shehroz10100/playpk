@@ -24,7 +24,20 @@ function skillRank(level: SkillLevel): number {
 }
 
 function maxPlayersForFormat(format: MatchFormat): number {
-  return format === MatchFormat.SINGLES ? 2 : 4;
+  switch (format) {
+    case MatchFormat.SINGLES:
+      return 2;
+    case MatchFormat.DOUBLES:
+      return 4;
+    case MatchFormat.EIGHT_A_SIDE:
+      return 8;
+    case MatchFormat.TEN_A_SIDE:
+      return 10;
+    case MatchFormat.FOURTEEN_A_SIDE:
+      return 14;
+    default:
+      return 4;
+  }
 }
 
 function hashPhone(phone: string): string {
@@ -541,7 +554,7 @@ export async function listFeed(userId: string, starredOnly = false) {
         },
       },
       stars: { select: { userId: true } },
-      _count: { select: { stars: true } },
+      _count: { select: { stars: true, comments: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: 50,
@@ -559,6 +572,9 @@ export async function listFeed(userId: string, starredOnly = false) {
     },
     starCount: p._count.stars,
     starredByMe: p.stars.some((s) => s.userId === userId),
+    likeCount: p._count.stars,
+    likedByMe: p.stars.some((s) => s.userId === userId),
+    commentCount: p._count.comments,
   }));
 }
 
@@ -588,6 +604,9 @@ export async function createPost(userId: string, body: string, matchId?: string)
     },
     starCount: 0,
     starredByMe: false,
+    likeCount: 0,
+    likedByMe: false,
+    commentCount: 0,
   };
 }
 
@@ -597,10 +616,70 @@ export async function toggleStar(userId: string, postId: string) {
   });
   if (existing) {
     await prisma.socialStar.delete({ where: { id: existing.id } });
-    return { starred: false };
+    return { starred: false, liked: false };
   }
   await prisma.socialStar.create({ data: { postId, userId } });
-  return { starred: true };
+  return { starred: true, liked: true };
+}
+
+export async function listComments(postId: string) {
+  const post = await prisma.socialPost.findUnique({ where: { id: postId } });
+  if (!post) throw new AppError('Post not found', { statusCode: 404, code: 'NOT_FOUND' });
+
+  const comments = await prisma.socialComment.findMany({
+    where: { postId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          playerProfile: { select: { skillLevel: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+    take: 100,
+  });
+
+  return comments.map((c) => ({
+    id: c.id,
+    body: c.body,
+    createdAt: c.createdAt,
+    author: {
+      id: c.user.id,
+      name: c.user.name,
+      skillLevel: c.user.playerProfile?.skillLevel ?? null,
+    },
+  }));
+}
+
+export async function addComment(userId: string, postId: string, body: string) {
+  const post = await prisma.socialPost.findUnique({ where: { id: postId } });
+  if (!post) throw new AppError('Post not found', { statusCode: 404, code: 'NOT_FOUND' });
+
+  const comment = await prisma.socialComment.create({
+    data: { postId, userId, body: body.trim() },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          playerProfile: { select: { skillLevel: true } },
+        },
+      },
+    },
+  });
+
+  return {
+    id: comment.id,
+    body: comment.body,
+    createdAt: comment.createdAt,
+    author: {
+      id: comment.user.id,
+      name: comment.user.name,
+      skillLevel: comment.user.playerProfile?.skillLevel ?? null,
+    },
+  };
 }
 
 export async function syncContacts(userId: string, phones: string[]) {

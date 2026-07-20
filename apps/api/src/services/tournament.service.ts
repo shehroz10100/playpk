@@ -32,6 +32,7 @@ export function serializeTournament(
   t: {
     id: string;
     branchId: string;
+    hostUserId?: string | null;
     name: string;
     sportId: string;
     format: TournamentFormat;
@@ -43,8 +44,9 @@ export function serializeTournament(
     startDate: Date;
     endDate: Date;
     createdAt: Date;
-    sport?: { id: string; name: string };
+    sport?: { id: string; name: string; iconUrl?: string | null };
     branch?: { id: string; name: string; city: string };
+    host?: { id: string; name: string } | null;
     _count?: { registrations?: number; matches?: number };
     registrations?: unknown[];
   },
@@ -52,6 +54,7 @@ export function serializeTournament(
   return {
     id: t.id,
     branchId: t.branchId,
+    hostUserId: t.hostUserId ?? null,
     name: t.name,
     sportId: t.sportId,
     format: t.format,
@@ -65,6 +68,8 @@ export function serializeTournament(
     createdAt: t.createdAt,
     sport: t.sport,
     branch: t.branch,
+    host: t.host ?? null,
+    isCommunity: Boolean(t.hostUserId),
     registrationCount: t._count?.registrations ?? t.registrations?.length ?? 0,
     matchCount: t._count?.matches ?? 0,
   };
@@ -72,6 +77,7 @@ export function serializeTournament(
 
 export async function createTournament(input: {
   branchId: string;
+  hostUserId?: string;
   name: string;
   sportId: string;
   format: TournamentFormat;
@@ -100,6 +106,7 @@ export async function createTournament(input: {
   const tournament = await prisma.tournament.create({
     data: {
       branchId: input.branchId,
+      hostUserId: input.hostUserId,
       name: input.name,
       sportId: input.sportId,
       format: input.format,
@@ -114,6 +121,7 @@ export async function createTournament(input: {
     include: {
       sport: true,
       branch: { select: { id: true, name: true, city: true } },
+      host: { select: { id: true, name: true } },
       _count: { select: { registrations: true, matches: true } },
     },
   });
@@ -124,6 +132,60 @@ export async function createTournament(input: {
   }
 
   return serializeTournament(tournament);
+}
+
+/** Player-hosted tournament at an approved venue (PlayPro-style community event). */
+export async function createCommunityTournament(
+  hostUserId: string,
+  input: {
+    branchId: string;
+    name: string;
+    sportId: string;
+    format: TournamentFormat;
+    entryFee: number;
+    prizePool?: number;
+    startDate: string;
+    endDate: string;
+    maxParticipants?: number;
+    description?: string;
+  },
+) {
+  const branch = await prisma.branch.findFirst({
+    where: {
+      id: input.branchId,
+      approvalStatus: 'APPROVED',
+      company: { approvalStatus: 'APPROVED' },
+    },
+  });
+  if (!branch) {
+    throw new AppError('Venue not found or not approved', { statusCode: 404, code: 'NOT_FOUND' });
+  }
+
+  return createTournament({
+    ...input,
+    hostUserId,
+    status: TournamentStatus.OPEN,
+  });
+}
+
+export async function listMyTournaments(userId: string) {
+  const items = await prisma.tournament.findMany({
+    where: {
+      OR: [
+        { hostUserId: userId },
+        { registrations: { some: { userId } } },
+      ],
+    },
+    include: {
+      sport: true,
+      branch: { select: { id: true, name: true, city: true } },
+      host: { select: { id: true, name: true } },
+      _count: { select: { registrations: true, matches: true } },
+    },
+    orderBy: { startDate: 'asc' },
+    take: 50,
+  });
+  return items.map(serializeTournament);
 }
 
 export async function updateTournament(
@@ -225,6 +287,7 @@ export async function listTournaments(filter: {
     include: {
       sport: true,
       branch: { select: { id: true, name: true, city: true } },
+      host: { select: { id: true, name: true } },
       _count: { select: { registrations: true, matches: true } },
     },
     orderBy: [{ startDate: 'asc' }, { createdAt: 'desc' }],
