@@ -701,7 +701,7 @@ export interface OpenMatchDto {
   joinedCount: number;
   scheduledAt: string | Date | null;
   city: string | null;
-  sport: { id: string; name: string };
+  sport: SportDto;
   host: { id: string; name: string };
   branch: { id: string; name: string; city: string } | null;
   players: OpenMatchPlayerDto[];

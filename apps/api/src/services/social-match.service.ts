@@ -54,7 +54,7 @@ async function ensureProfile(userId: string): Promise<PlayerProfile> {
 }
 
 const matchInclude = {
-  sport: { select: { id: true, name: true } },
+  sport: { select: { id: true, name: true, iconUrl: true } },
   host: { select: { id: true, name: true } },
   branch: { select: { id: true, name: true, city: true } },
   players: {

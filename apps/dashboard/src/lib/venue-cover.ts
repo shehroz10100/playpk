@@ -47,7 +47,7 @@ export function resolveVenueCover(venue: {
 }): string {
   const photo = venue.photos
     ?.map(mediaUrl)
-    .find((p): p is string => Boolean(p) && !isUnusableUploadUrl(p));
+    .find((p): p is string => typeof p === 'string' && !isUnusableUploadUrl(p));
   if (photo) return photo;
 
   const named = namedFallback(venue.name);
