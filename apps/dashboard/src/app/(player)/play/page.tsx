@@ -1,8 +1,10 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Calendar, MapPin, Swords, Trophy, Users } from 'lucide-react';
 import type {
   MatchFormat,
   OpenMatchDto,
@@ -10,12 +12,15 @@ import type {
   SkillLevel,
   SportDto,
 } from '@playpk/shared-types';
+import { resolveSportCover } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import {
   defaultFormatForSport,
   formatLabel,
   formatOptionsForSport,
 } from '@/lib/match-formats';
+import { AmbientPromo } from '@/components/ambient-gradient';
+import { MotionPress, MotionReveal } from '@/components/motion/motion-reveal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -131,24 +136,29 @@ export default function PlayPage() {
 
   if (profile && !profile.onboardingComplete) {
     return (
-      <div className="mx-auto max-w-lg space-y-4 animate-rise">
+      <div className="mx-auto max-w-lg space-y-5 animate-rise">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Play hub</p>
-          <h1 className="font-display mt-1 text-3xl font-extrabold text-navy">Skill setup</h1>
+          <h1 className="font-display mt-1 text-3xl font-bold uppercase tracking-tight text-navy">
+            Skill setup
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Quick questionnaire so we can match you with players at your level.
+          </p>
         </div>
         <Card className="rounded-2xl border-0 shadow-panel">
           <CardHeader>
-            <CardTitle>Tell us how you play</CardTitle>
-            <CardDescription>
-              Quick questionnaire so we can match you with players at your level.
-            </CardDescription>
+            <CardTitle className="font-display text-lg font-bold uppercase tracking-tight">
+              Tell us how you play
+            </CardTitle>
+            <CardDescription>Primary sport, experience, and how often you compete.</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={submitOnboarding}>
               <div className="space-y-2">
                 <Label>Primary sport</Label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
+                  className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm"
                   value={sportId}
                   onChange={(e) => setSportId(e.target.value)}
                 >
@@ -161,18 +171,34 @@ export default function PlayPage() {
               </div>
               <div className="space-y-2">
                 <Label>Years playing</Label>
-                <Input value={years} onChange={(e) => setYears(e.target.value)} type="number" min={0} />
+                <Input
+                  value={years}
+                  onChange={(e) => setYears(e.target.value)}
+                  type="number"
+                  min={0}
+                  className="h-11 rounded-xl"
+                />
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={playsWeekly} onChange={(e) => setPlaysWeekly(e.target.checked)} />
+              <label className="flex items-center gap-2 text-sm text-navy">
+                <input
+                  type="checkbox"
+                  checked={playsWeekly}
+                  onChange={(e) => setPlaysWeekly(e.target.checked)}
+                  className="rounded border-border"
+                />
                 I play at least weekly
               </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={competes} onChange={(e) => setCompetes(e.target.checked)} />
+              <label className="flex items-center gap-2 text-sm text-navy">
+                <input
+                  type="checkbox"
+                  checked={competes}
+                  onChange={(e) => setCompetes(e.target.checked)}
+                  className="rounded border-border"
+                />
                 I play competitive matches / tournaments
               </label>
               {error ? <p className="text-sm text-red-600">{error}</p> : null}
-              <Button type="submit" disabled={busy} className="w-full">
+              <Button type="submit" disabled={busy} className="h-11 w-full rounded-xl">
                 {busy ? 'Saving…' : 'Continue to Play'}
               </Button>
             </form>
@@ -184,41 +210,205 @@ export default function PlayPage() {
 
   return (
     <div className="space-y-6 animate-rise">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Community</p>
-          <h1 className="font-display mt-1 text-3xl font-extrabold text-navy">Open matches</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Public or private · Friendly or Competitive · Singles or Doubles
-          </p>
+      <AmbientPromo className="p-5 sm:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Community</p>
+            <h1 className="font-display mt-2 text-3xl font-bold uppercase tracking-tight text-white sm:text-4xl">
+              Open matches
+            </h1>
+            <p className="mt-2 max-w-md text-sm text-white/75">
+              Public or private · Friendly or Competitive · Singles or Doubles
+            </p>
+          </div>
+          <MotionPress>
+            <button
+              type="button"
+              onClick={() =>
+                createFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-accent px-4 text-sm font-bold text-navy"
+            >
+              <Swords className="h-4 w-4" />
+              Create match
+            </button>
+          </MotionPress>
         </div>
-        {profile ? (
-          <div className="rounded-2xl bg-white px-4 py-3 text-xs shadow-panel">
-            <div className="font-semibold text-navy">{profile.name}</div>
-            <div className="text-muted-foreground">
-              {profile.skillLevel} · {profile.wins}W–{profile.losses}L · {profile.points} pts
+      </AmbientPromo>
+
+      {profile ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-panel">
+          <div>
+            <p className="font-display text-sm font-bold uppercase tracking-tight text-navy">
+              {profile.name}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {profile.skillLevel}
+              {profile.primarySportName ? ` · ${profile.primarySportName}` : ''}
+            </p>
+          </div>
+          <div className="flex gap-4 text-center">
+            <div>
+              <p className="font-display text-lg font-bold tabular-nums text-navy">
+                {profile.wins}–{profile.losses}
+              </p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                W–L
+              </p>
+            </div>
+            <div>
+              <p className="font-display text-lg font-bold tabular-nums text-navy">{profile.points}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Pts
+              </p>
             </div>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
+      <div className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <h2 className="font-display text-lg font-bold uppercase tracking-tight text-navy sm:text-xl">
+            Matches near your level
+          </h2>
+          <Link href="/rank" className="text-xs font-semibold text-brand hover:underline">
+            View rank
+          </Link>
+        </div>
+
+        {matches.length === 0 ? (
+          <button
+            type="button"
+            onClick={() =>
+              createFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+            className="flex w-full items-center gap-3 rounded-2xl bg-white p-4 text-left shadow-panel"
+          >
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand/10 text-brand">
+              <Swords className="h-6 w-6" />
+            </span>
+            <span>
+              <span className="block font-semibold text-navy">No open matches yet</span>
+              <span className="text-sm text-muted-foreground">Create one below to get started</span>
+            </span>
+          </button>
+        ) : (
+          <div className="space-y-3">
+            {matches.map((m, index) => {
+              const spotsLeft = Math.max(0, m.maxPlayers - m.joinedCount);
+              const when = m.scheduledAt
+                ? new Date(m.scheduledAt).toLocaleString(undefined, {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : 'Flexible time';
+              return (
+                <MotionReveal key={m.id} index={index}>
+                  <MotionPress>
+                    <Link
+                      href={`/play/${m.id}`}
+                      className="flex items-stretch gap-3 overflow-hidden rounded-2xl bg-white shadow-panel"
+                    >
+                      <div className="relative hidden w-24 shrink-0 sm:block">
+                        <Image
+                          src={resolveSportCover(m.sport.name, m.sport.iconUrl)}
+                          alt=""
+                          fill
+                          sizes="96px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex flex-1 flex-col justify-center gap-1 px-3 py-3 sm:pr-2">
+                        <div className="flex flex-wrap gap-1">
+                          <span className="rounded-md bg-brand/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
+                            {m.visibility === 'PUBLIC' ? 'Open' : 'Private'}
+                          </span>
+                          <Badge variant="secondary" className="text-[10px]">
+                            {m.matchType}
+                          </Badge>
+                          <Badge variant="secondary" className="text-[10px]">
+                            {formatLabel(m.format)}
+                          </Badge>
+                        </div>
+                        <p className="font-bold text-navy">
+                          {m.sport.name} · {formatLabel(m.format)}
+                        </p>
+                        <p className="line-clamp-1 text-xs text-muted-foreground">{m.title}</p>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-brand" />
+                            {m.city ?? 'Any city'}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-brand" />
+                            {when}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <Users className="h-3 w-3 text-brand" />
+                            {spotsLeft} spots left
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end justify-center gap-2 px-3 py-3">
+                        <span className="font-display text-sm font-bold tabular-nums text-navy">
+                          {m.joinedCount}/{m.maxPlayers}
+                        </span>
+                        <span className="inline-flex h-9 items-center rounded-xl bg-accent px-3 text-xs font-bold text-navy">
+                          Join
+                        </span>
+                      </div>
+                    </Link>
+                  </MotionPress>
+                </MotionReveal>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/my-tournaments"
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-navy px-4 text-sm font-semibold text-white hover:bg-brand"
+        >
+          <Trophy className="h-4 w-4" />
+          My tournaments
+        </Link>
+        <Link
+          href="/events"
+          className="inline-flex h-10 items-center rounded-xl border border-border bg-white px-4 text-sm font-semibold text-navy hover:border-brand/40"
+        >
+          Browse events
+        </Link>
+      </div>
+
       <Card className="rounded-2xl border-0 shadow-panel">
         <CardHeader>
-          <CardTitle className="text-lg">Create match</CardTitle>
+          <CardTitle className="font-display text-lg font-bold uppercase tracking-tight">
+            Create match
+          </CardTitle>
           <CardDescription>Host an open match and fill remaining spots by skill.</CardDescription>
         </CardHeader>
         <CardContent>
           <form ref={createFormRef} className="grid gap-3 sm:grid-cols-2" onSubmit={createMatch}>
             <div className="space-y-2 sm:col-span-2">
               <Label>Title</Label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} required className="rounded-xl" />
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                className="h-11 rounded-xl"
+              />
             </div>
             <div className="space-y-2">
               <Label>Sport</Label>
               <select
-                className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
+                className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm"
                 value={createSportId}
                 onChange={(e) => {
                   const nextId = e.target.value;
@@ -239,12 +429,16 @@ export default function PlayPage() {
             </div>
             <div className="space-y-2">
               <Label>City</Label>
-              <Input value={city} onChange={(e) => setCity(e.target.value)} className="rounded-xl" />
+              <Input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="h-11 rounded-xl"
+              />
             </div>
             <div className="space-y-2">
               <Label>Visibility</Label>
               <select
-                className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
+                className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm"
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as 'PUBLIC' | 'PRIVATE')}
               >
@@ -255,7 +449,7 @@ export default function PlayPage() {
             <div className="space-y-2">
               <Label>Match type</Label>
               <select
-                className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
+                className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm"
                 value={matchType}
                 onChange={(e) => setMatchType(e.target.value as 'FRIENDLY' | 'COMPETITIVE')}
               >
@@ -263,10 +457,10 @@ export default function PlayPage() {
                 <option value="COMPETITIVE">Competitive</option>
               </select>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 sm:col-span-2">
               <Label>Format</Label>
               <select
-                className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm"
+                className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm"
                 value={format}
                 onChange={(e) => setFormat(e.target.value as MatchFormat)}
               >
@@ -283,7 +477,7 @@ export default function PlayPage() {
               </p>
             </div>
             <div className="sm:col-span-2">
-              <Button type="submit" disabled={busy} className="rounded-xl">
+              <Button type="submit" disabled={busy} className="h-11 rounded-xl bg-navy hover:bg-brand">
                 {busy ? 'Creating…' : 'Create open match'}
               </Button>
             </div>
@@ -291,54 +485,7 @@ export default function PlayPage() {
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href="/my-tournaments"
-          className="inline-flex h-10 items-center rounded-xl bg-navy px-4 text-sm font-semibold text-white hover:bg-brand"
-        >
-          My tournaments
-        </Link>
-        <Link
-          href="/events"
-          className="inline-flex h-10 items-center rounded-xl border border-border bg-white px-4 text-sm font-semibold text-navy hover:border-brand/40"
-        >
-          Browse events
-        </Link>
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="font-display text-lg font-bold text-navy">Matches near your level</h2>
-        {matches.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No open matches yet — create one above.</p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {matches.map((m) => (
-              <Link key={m.id} href={`/play/${m.id}`}>
-                <Card className="h-full rounded-2xl border-0 shadow-panel transition hover:-translate-y-0.5">
-                  <CardHeader className="pb-2">
-                    <div className="flex flex-wrap gap-1">
-                      <Badge variant="secondary">{m.visibility}</Badge>
-                      <Badge variant="secondary">{m.matchType}</Badge>
-                      <Badge variant="secondary">{formatLabel(m.format)}</Badge>
-                    </div>
-                    <CardTitle className="text-base">{m.title}</CardTitle>
-                    <CardDescription>
-                      {m.sport.name} · {m.city ?? 'Any city'} · {m.joinedCount}/{m.maxPlayers} players
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="text-xs text-muted-foreground">
-                    Host {m.host.name} · Skill {m.skillMin}–{m.skillMax} · {m.status}
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        Skill bands: {SKILLS.join(' · ')}
-      </p>
+      <p className="text-xs text-muted-foreground">Skill bands: {SKILLS.join(' · ')}</p>
     </div>
   );
 }

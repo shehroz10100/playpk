@@ -1,18 +1,18 @@
 import type { Metadata } from 'next';
-import { Outfit, Syne } from 'next/font/google';
+import { Barlow, Barlow_Condensed } from 'next/font/google';
 import { QueryProvider } from '@/components/query-provider';
 import './globals.css';
 
-const outfit = Outfit({
-  variable: '--font-outfit',
+const barlow = Barlow({
+  variable: '--font-barlow',
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+  weight: ['400', '500', '600', '700'],
 });
 
-const syne = Syne({
-  variable: '--font-syne',
+const barlowCondensed = Barlow_Condensed({
+  variable: '--font-barlow-condensed',
   subsets: ['latin'],
-  weight: ['600', '700', '800'],
+  weight: ['600', '700'],
 });
 
 export const metadata: Metadata = {
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${outfit.variable} ${syne.variable} font-sans antialiased`}>
+      <body className={`${barlow.variable} ${barlowCondensed.variable} font-sans antialiased`}>
         <QueryProvider>{children}</QueryProvider>
       </body>
     </html>

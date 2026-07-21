@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { formatPkr } from '@/lib/utils';
+import { useVisibilityPoll } from '@/hooks/use-visibility-poll';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ type Booking = {
   paymentStatus: string;
   paymentMethod?: string | null;
   paymentProofUrl?: string | null;
+  paymentProofUploadedAt?: string | null;
   totalAmount: number;
   createdAt: string;
   user: { name: string; email: string | null; phone: string | null };
@@ -33,8 +35,6 @@ const statusVariant: Record<string, 'success' | 'warn' | 'danger' | 'muted'> = {
   CANCELLED: 'danger',
   COMPLETED: 'muted',
 };
-
-import { useVisibilityPoll } from '@/hooks/use-visibility-poll';
 
 export default function BookingsPage() {
   const params = useParams<{ branchId: string }>();
@@ -90,6 +90,21 @@ export default function BookingsPage() {
     { intervalMs: 20000 },
   );
 
+  const pendingProofs = useMemo(
+    () =>
+      bookings.filter(
+        (b) =>
+          Boolean(b.paymentProofUrl) &&
+          (b.paymentStatus === 'PENDING' || b.status === 'PENDING'),
+      ),
+    [bookings],
+  );
+
+  const allProofs = useMemo(
+    () => bookings.filter((b) => Boolean(b.paymentProofUrl)),
+    [bookings],
+  );
+
   async function completeBooking(bookingId: string) {
     setBusyId(bookingId);
     try {
@@ -120,7 +135,8 @@ export default function BookingsPage() {
       <div>
         <h1 className="text-2xl font-semibold text-navy">Bookings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Live list for this branch — refreshes automatically when customers book.
+          Live list for this branch — advance payment screenshots appear below when customers upload
+          them at checkout.
         </p>
       </div>
 
@@ -129,6 +145,75 @@ export default function BookingsPage() {
           {liveBanner}
         </p>
       ) : null}
+
+      {pendingProofs.length > 0 ? (
+        <Card className="border-accent/40">
+          <CardHeader>
+            <CardTitle>Advance payment screenshots to verify</CardTitle>
+            <CardDescription>
+              {pendingProofs.length} pending — open the photo, confirm the transfer, then verify.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {pendingProofs.map((booking) => (
+              <div
+                key={booking.id}
+                className="overflow-hidden rounded-xl border border-border bg-white shadow-sm"
+              >
+                <a
+                  href={booking.paymentProofUrl!}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block bg-muted"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={booking.paymentProofUrl!}
+                    alt={`Payment proof from ${booking.user.name}`}
+                    className="h-44 w-full object-contain bg-[#F4F6F8]"
+                  />
+                </a>
+                <div className="space-y-2 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-navy">{booking.user.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {booking.slot.court.name} · {String(booking.slot.date).slice(0, 10)} ·{' '}
+                        {booking.slot.startTime}–{booking.slot.endTime}
+                      </p>
+                    </div>
+                    <Badge variant="warn">{booking.paymentStatus}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {booking.paymentMethod ?? 'bank'} · {formatPkr(booking.totalAmount)}
+                    {booking.paymentProofUploadedAt
+                      ? ` · uploaded ${new Date(booking.paymentProofUploadedAt).toLocaleString()}`
+                      : ''}
+                  </p>
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    disabled={busyId === booking.id}
+                    onClick={() => void verifyPayment(booking.id)}
+                  >
+                    {busyId === booking.id ? '…' : 'Verify payment'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : allProofs.length > 0 ? (
+        <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          {allProofs.length} payment screenshot{allProofs.length === 1 ? '' : 's'} on file — none
+          waiting for verification right now. See thumbnails in the table below.
+        </p>
+      ) : (
+        <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
+          No advance payment screenshots yet. When a customer pays by bank transfer and uploads a
+          photo, it shows here and in the Payment column below.
+        </p>
+      )}
 
       <Card>
         <CardHeader>
@@ -178,7 +263,7 @@ export default function BookingsPage() {
                 <th className="px-4 py-3 font-medium">Slot</th>
                 <th className="px-4 py-3 font-medium">Amount</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Payment</th>
+                <th className="px-4 py-3 font-medium">Payment proof</th>
                 <th className="px-4 py-3 font-medium">Actions</th>
               </tr>
             </thead>
@@ -233,19 +318,23 @@ export default function BookingsPage() {
                           target="_blank"
                           rel="noreferrer"
                           className="mt-1 inline-block"
+                          title="Open payment screenshot"
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={booking.paymentProofUrl}
                             alt="Payment proof"
-                            className="h-14 w-20 rounded object-cover border border-border"
+                            className="h-20 w-28 rounded-md border border-border object-cover"
                           />
+                          <span className="mt-1 block text-[10px] font-semibold text-brand">
+                            View screenshot
+                          </span>
                         </a>
                       ) : (
                         <span className="text-[10px] text-muted-foreground">No screenshot</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 space-y-1">
+                    <td className="space-y-1 px-4 py-3">
                       {booking.paymentStatus === 'PENDING' && booking.paymentProofUrl ? (
                         <Button
                           size="sm"

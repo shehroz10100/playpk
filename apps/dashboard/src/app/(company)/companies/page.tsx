@@ -39,14 +39,16 @@ export default function CompaniesIndexPage() {
         </p>
       </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
         {companies.map((company) => (
-          <Card key={company.id}>
-            <CardHeader>
-              <CardTitle>{company.name}</CardTitle>
-              <CardDescription>{company.description ?? 'No description'}</CardDescription>
+          <Card key={company.id} className="flex h-full flex-col">
+            <CardHeader className="flex-1">
+              <CardTitle className="line-clamp-2">{company.name}</CardTitle>
+              <CardDescription className="line-clamp-3">
+                {company.description ?? 'No description'}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center justify-between gap-3">
+            <CardContent className="mt-auto flex items-center justify-between gap-3">
               <Badge variant="muted">{company.branches.length} branches</Badge>
               <Link
                 href={`/companies/${company.id}`}

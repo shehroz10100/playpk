@@ -43,6 +43,7 @@ export default function CompanyOverviewPage() {
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankName, setBankName] = useState('');
   const [showBank, setShowBank] = useState(false);
+  const [bankSaved, setBankSaved] = useState(false);
   const [form, setForm] = useState({
     name: '',
     city: 'Lahore',
@@ -68,17 +69,39 @@ export default function CompanyOverviewPage() {
 
   async function onSaveBank(e: FormEvent) {
     e.preventDefault();
+    const name = bankAccountName.trim();
+    const number = bankAccountNumber.trim();
+    const bank = bankName.trim();
+    if (name.length < 2 || number.length < 5 || bank.length < 2) {
+      setError('Enter account name, account number (min 5 chars), and bank name before saving.');
+      return;
+    }
     setSaving(true);
     setError(null);
+    setBankSaved(false);
     try {
-      await api(`/api/companies/${companyId}`, {
+      const { data } = await api<Company>(`/api/companies/${companyId}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          bankAccountName: bankAccountName.trim() || null,
-          bankAccountNumber: bankAccountNumber.trim() || null,
-          bankName: bankName.trim() || null,
+          bankAccountName: name,
+          bankAccountNumber: number,
+          bankName: bank,
         }),
       });
+      setCompany((prev) =>
+        prev
+          ? {
+              ...prev,
+              bankAccountName: data.bankAccountName,
+              bankAccountNumber: data.bankAccountNumber,
+              bankName: data.bankName,
+            }
+          : prev,
+      );
+      setBankAccountName(data.bankAccountName ?? name);
+      setBankAccountNumber(data.bankAccountNumber ?? number);
+      setBankName(data.bankName ?? bank);
+      setBankSaved(true);
       setShowBank(false);
       await load();
     } catch (err) {
@@ -186,6 +209,11 @@ export default function CompanyOverviewPage() {
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {bankSaved ? (
+        <p className="rounded-md border border-brand/30 bg-brand-50 px-3 py-2 text-sm text-brand-700">
+          Bank details saved. Customers will see account name, number, and bank on checkout.
+        </p>
+      ) : null}
 
       {showBank ? (
         <Card>
@@ -200,6 +228,8 @@ export default function CompanyOverviewPage() {
               <div className="space-y-2">
                 <Label>Account name</Label>
                 <Input
+                  required
+                  minLength={2}
                   value={bankAccountName}
                   onChange={(e) => setBankAccountName(e.target.value)}
                   placeholder="GameOn Sports Pvt Ltd"
@@ -208,6 +238,8 @@ export default function CompanyOverviewPage() {
               <div className="space-y-2">
                 <Label>Account no.</Label>
                 <Input
+                  required
+                  minLength={5}
                   value={bankAccountNumber}
                   onChange={(e) => setBankAccountNumber(e.target.value)}
                   placeholder="0123456789"
@@ -216,6 +248,8 @@ export default function CompanyOverviewPage() {
               <div className="space-y-2 md:col-span-2">
                 <Label>Bank name</Label>
                 <Input
+                  required
+                  minLength={2}
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
                   placeholder="HBL / Meezan / MCB"
@@ -239,6 +273,24 @@ export default function CompanyOverviewPage() {
                 : 'Not set — add account name, number, and bank so customers can transfer advances.'}
             </CardDescription>
           </CardHeader>
+          {company.bankAccountNumber ? (
+            <CardContent className="grid gap-2 text-sm sm:grid-cols-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Account name</p>
+                <p className="font-semibold text-navy">{company.bankAccountName ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Account no.</p>
+                <p className="font-semibold tabular-nums text-navy">
+                  {company.bankAccountNumber}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Bank name</p>
+                <p className="font-semibold text-navy">{company.bankName ?? '—'}</p>
+              </div>
+            </CardContent>
+          ) : null}
         </Card>
       )}
 
@@ -342,23 +394,23 @@ export default function CompanyOverviewPage() {
         </Card>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
         {company.branches.map((branch) => (
-          <Card key={branch.id}>
-            <CardHeader>
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle>{branch.name}</CardTitle>
-                <Badge>{branch.city}</Badge>
+          <Card key={branch.id} className="flex h-full flex-col">
+            <CardHeader className="flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="line-clamp-2">{branch.name}</CardTitle>
+                <Badge className="shrink-0">{branch.city}</Badge>
               </div>
-              <CardDescription>{branch.address}</CardDescription>
+              <CardDescription className="line-clamp-2">{branch.address}</CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center justify-between">
+            <CardContent className="mt-auto flex items-center justify-between gap-3">
               <span className="text-xs text-muted-foreground">
                 Hours {branch.operatingHoursStart}–{branch.operatingHoursEnd}
               </span>
               <Link
                 href={`/branches/${branch.id}`}
-                className="inline-flex h-9 items-center rounded-md bg-navy px-3 text-sm font-medium text-white hover:bg-navy-700"
+                className="inline-flex h-9 shrink-0 items-center rounded-md bg-navy px-3 text-sm font-medium text-white hover:bg-navy-700"
               >
                 Manage
               </Link>

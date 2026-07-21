@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B1F3A"/>
+      <stop offset="45%" stop-color="#16345A"/>
+      <stop offset="100%" stop-color="#0C6B3E"/>
+    </linearGradient>
+    <radialGradient id="turf" cx="15%" cy="0%" r="55%">
+      <stop offset="0%" stop-color="#00A651" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#00A651" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="flood" cx="90%" cy="10%" r="45%">
+      <stop offset="0%" stop-color="#FFE8A3" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#base)"/>
+  <rect width="1600" height="900" fill="url(#turf)"/>
+  <rect width="1600" height="900" fill="url(#flood)"/>
+</svg>

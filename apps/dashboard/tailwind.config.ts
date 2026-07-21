@@ -9,9 +9,18 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-barlow)', 'Segoe UI', 'sans-serif'],
+        display: ['var(--font-barlow-condensed)', 'var(--font-barlow)', 'sans-serif'],
+      },
       colors: {
         background: 'var(--background)',
         foreground: 'var(--foreground)',
+        accent: {
+          DEFAULT: '#F59E0B',
+          soft: '#FBBF24',
+          foreground: '#0B1F3A',
+        },
         navy: {
           DEFAULT: '#0B1F3A',
           50: '#E8EEF5',
@@ -33,12 +42,7 @@ const config: Config = {
         },
         border: '#E2E8F0',
         card: '#FFFFFF',
-      },
-      fontFamily: {
-        sans: ['var(--font-outfit)', 'Segoe UI', 'sans-serif'],
-        display: ['var(--font-syne)', 'var(--font-outfit)', 'sans-serif'],
-      },
-      boxShadow: {
+      },      boxShadow: {
         panel: '0 8px 24px rgba(11, 31, 58, 0.08)',
       },
       backgroundImage: {

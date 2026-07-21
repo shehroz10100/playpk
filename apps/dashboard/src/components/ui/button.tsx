@@ -1,9 +1,13 @@
+'use client';
+
 import * as React from 'react';
+import { motion } from 'framer-motion';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { useMotionSafe } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
@@ -31,8 +35,27 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {}
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => (
-    <button className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
-  ),
+  ({ className, variant, size, disabled, ...props }, ref) => {
+    const { reduce, spring } = useMotionSafe();
+    const classes = cn(buttonVariants({ variant, size, className }));
+
+    if (reduce || disabled) {
+      return (
+        <button className={classes} ref={ref} disabled={disabled} {...props} />
+      );
+    }
+
+    return (
+      <motion.button
+        className={classes}
+        ref={ref}
+        disabled={disabled}
+        whileHover={{ y: -1 }}
+        whileTap={{ scale: 0.97 }}
+        transition={spring}
+        {...(props as React.ComponentProps<typeof motion.button>)}
+      />
+    );
+  },
 );
 Button.displayName = 'Button';

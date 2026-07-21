@@ -130,7 +130,9 @@ export default function LoginScreen() {
         </View>
       )}
 
-      <Text style={styles.hint}>Demo player: player@playpk.demo / PlayPK@player1</Text>
+      <Text style={styles.hint}>
+        Demo: player@playpk.demo / PlayPK@player1 · player2@playpk.demo / PlayPK@player2
+      </Text>
     </Screen>
   );
 }

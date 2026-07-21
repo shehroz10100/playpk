@@ -8,6 +8,7 @@ import { api, ApiError } from '@/lib/api';
 import { clearSession, saveSession } from '@/lib/auth';
 import { homePathForRole } from '@/lib/roles';
 import { LOGIN_HERO_IMAGE } from '@/lib/venue-cover';
+import { AmbientGradient } from '@/components/ambient-gradient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,10 +22,16 @@ type DemoAccount = {
 
 const DEMOS: DemoAccount[] = [
   {
-    label: 'Customer',
+    label: 'Customer 1',
     email: 'player@playpk.demo',
     password: 'PlayPK@player1',
     opens: 'Book courts & play',
+  },
+  {
+    label: 'Customer 2',
+    email: 'player2@playpk.demo',
+    password: 'PlayPK@player2',
+    opens: 'Join matches & play',
   },
   {
     label: 'Company · GameOn',
@@ -93,9 +100,16 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen lg:grid lg:grid-cols-2">
-      {/* Full-bleed sports hero (PlayPro-style) */}
+      {/* Desktop hero — static image banner (no shader grain) */}
       <div className="relative hidden min-h-screen overflow-hidden lg:block">
-        <Image src={LOGIN_HERO_IMAGE} alt="" fill priority sizes="50vw" className="object-cover" />
+        <Image
+          src={LOGIN_HERO_IMAGE}
+          alt=""
+          fill
+          priority
+          sizes="50vw"
+          className="object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/70 to-navy/30" />
         <div className="relative z-10 flex h-full flex-col justify-end p-10 xl:p-14">
           <p className="text-sm font-bold uppercase tracking-[0.22em] text-brand">PlayPK</p>
@@ -108,10 +122,10 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-navy px-4 py-10 lg:bg-[#F4F8F6]">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-navy px-4 py-10 lg:bg-[#EEF3F0]">
         <div className="pointer-events-none absolute inset-0 lg:hidden">
-          <Image src={LOGIN_HERO_IMAGE} alt="" fill priority sizes="100vw" className="object-cover opacity-40" />
-          <div className="absolute inset-0 bg-navy/85" />
+          <AmbientGradient intensity="subtle" />
+          <div className="absolute inset-0 bg-navy/80" />
         </div>
 
         <div className="relative w-full max-w-md animate-rise rounded-3xl bg-white p-6 shadow-panel sm:p-8">
@@ -150,19 +164,25 @@ export default function LoginPage() {
               />
             </div>
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            <Button className="h-11 w-full rounded-xl text-base font-semibold" disabled={loading} type="submit">
+            <Button
+              className="h-11 w-full rounded-xl bg-navy text-base font-bold hover:bg-brand"
+              disabled={loading}
+              type="submit"
+            >
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
 
           <div className="mt-6 space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">Quick demo accounts</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+              Quick demo accounts
+            </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {DEMOS.map((demo) => (
                 <button
                   key={demo.email}
                   type="button"
-                  className="rounded-xl border border-border bg-muted/60 px-3 py-2.5 text-left transition hover:border-brand/40 hover:bg-brand/5"
+                  className="rounded-xl border border-border bg-[#EEF3F0] px-3 py-2.5 text-left transition hover:border-brand/40 hover:bg-brand/5"
                   onClick={() => {
                     setEmail(demo.email);
                     setPassword(demo.password);

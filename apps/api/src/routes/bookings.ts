@@ -57,43 +57,8 @@ bookingsRouter.get('/me', authenticate, async (req, res, next) => {
   }
 });
 
-bookingsRouter.get('/:bookingId', authenticate, async (req, res, next) => {
-  try {
-    const booking = await prisma.booking.findUnique({
-      where: { id: param(req, 'bookingId') },
-      include: {
-        slot: {
-          include: {
-            court: {
-              include: {
-                sport: true,
-                branch: { select: { id: true, name: true, city: true, address: true } },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!booking) {
-      throw new AppError('Booking not found', { statusCode: 404, code: 'NOT_FOUND' });
-    }
-
-    const staffRoles: UserRole[] = [
-      UserRole.COMPANY_OWNER,
-      UserRole.BRANCH_MANAGER,
-      UserRole.ADMIN,
-    ];
-    if (booking.userId !== req.user!.id && !staffRoles.includes(req.user!.role)) {
-      throw new AppError('Forbidden', { statusCode: 403, code: 'FORBIDDEN' });
-    }
-
-    sendSuccess(res, bookingService.serializeBooking(booking));
-  } catch (error) {
-    next(error);
-  }
-});
-
+// Static paths must be registered before `/:bookingId` or Express treats
+// e.g. "payment-info" as a booking id and the player checkout never loads bank details.
 bookingsRouter.get('/payment-info', authenticate, async (req, res, next) => {
   try {
     const slotId = typeof req.query.slotId === 'string' ? req.query.slotId : '';
@@ -136,6 +101,43 @@ bookingsRouter.post(
     }
   },
 );
+
+bookingsRouter.get('/:bookingId', authenticate, async (req, res, next) => {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: param(req, 'bookingId') },
+      include: {
+        slot: {
+          include: {
+            court: {
+              include: {
+                sport: true,
+                branch: { select: { id: true, name: true, city: true, address: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      throw new AppError('Booking not found', { statusCode: 404, code: 'NOT_FOUND' });
+    }
+
+    const staffRoles: UserRole[] = [
+      UserRole.COMPANY_OWNER,
+      UserRole.BRANCH_MANAGER,
+      UserRole.ADMIN,
+    ];
+    if (booking.userId !== req.user!.id && !staffRoles.includes(req.user!.role)) {
+      throw new AppError('Forbidden', { statusCode: 403, code: 'FORBIDDEN' });
+    }
+
+    sendSuccess(res, bookingService.serializeBooking(booking));
+  } catch (error) {
+    next(error);
+  }
+});
 
 bookingsRouter.post(
   '/',

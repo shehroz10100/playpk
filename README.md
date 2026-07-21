@@ -68,7 +68,8 @@ One sign-in at `/login` routes by role:
 
 | Role | Demo email | Password | Lands on |
 |------|------------|----------|----------|
-| Customer | player@playpk.demo | PlayPK@player1 | `/discover` |
+| Customer 1 | player@playpk.demo | PlayPK@player1 | `/discover` |
+| Customer 2 | player2@playpk.demo | PlayPK@player2 | `/discover` |
 | GameOn owner | owner@playpk.demo | PlayPK@demo1 | `/companies` |
 | 360 Arena owner | owner360@playpk.demo | PlayPK@3601 | `/companies` |
 | Admin | admin@playpk.demo | PlayPK@admin1 | `/admin` |
@@ -158,7 +159,8 @@ Log in as `admin@playpk.demo` → redirects to `/admin`:
 
 | Role | Email | Password |
 |------|-------|----------|
-| Customer (player) | player@playpk.demo | PlayPK@player1 |
+| Customer 1 (player) | player@playpk.demo | PlayPK@player1 |
+| Customer 2 (player) | player2@playpk.demo | PlayPK@player2 |
 | GameOn Sports owner | owner@playpk.demo | PlayPK@demo1 |
 | 360 Arena owner | owner360@playpk.demo | PlayPK@3601 |
 | Platform admin | admin@playpk.demo | PlayPK@admin1 |

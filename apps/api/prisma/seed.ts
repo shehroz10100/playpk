@@ -152,6 +152,26 @@ async function main(): Promise<void> {
   });
   console.log(`✓ demo player: ${player.email}`);
 
+  // ── Demo player 2 (join-match testing) ──────────────────────────────────
+  const player2Hash = await bcrypt.hash('PlayPK@player2', 10);
+  const player2 = await prisma.user.upsert({
+    where: { email: 'player2@playpk.demo' },
+    update: {
+      name: 'Ali Raza',
+      passwordHash: player2Hash,
+      role: UserRole.PLAYER,
+    },
+    create: {
+      name: 'Ali Raza',
+      email: 'player2@playpk.demo',
+      phone: '+923009876544',
+      passwordHash: player2Hash,
+      role: UserRole.PLAYER,
+      loyaltyPoints: 40,
+    },
+  });
+  console.log(`✓ demo player 2: ${player2.email}`);
+
   // ── Platform admin ──────────────────────────────────────────────────────
   const adminHash = await bcrypt.hash('PlayPK@admin1', 10);
   const admin = await prisma.user.upsert({
@@ -606,6 +626,26 @@ async function main(): Promise<void> {
     },
   });
 
+  await prisma.playerProfile.upsert({
+    where: { userId: player2.id },
+    create: {
+      userId: player2.id,
+      skillLevel: 'INTERMEDIATE',
+      primarySportId: padelSport.id,
+      onboardingComplete: true,
+      wins: 1,
+      losses: 1,
+      points: 30,
+      matchesPlayed: 2,
+      bio: 'Free evenings for open matches',
+    },
+    update: {
+      skillLevel: 'INTERMEDIATE',
+      primarySportId: padelSport.id,
+      onboardingComplete: true,
+    },
+  });
+
   const openCount = await prisma.openMatch.count({
     where: { hostId: player.id, status: { in: ['OPEN', 'FULL'] } },
   });
@@ -651,7 +691,8 @@ async function main(): Promise<void> {
   console.log('  Admin:         admin@playpk.demo       / PlayPK@admin1');
   console.log('  GameOn owner:  owner@playpk.demo       / PlayPK@demo1');
   console.log('  360 Arena:     owner360@playpk.demo    / PlayPK@3601');
-  console.log('  Player:        player@playpk.demo      / PlayPK@player1');
+  console.log('  Player 1:      player@playpk.demo      / PlayPK@player1');
+  console.log('  Player 2:      player2@playpk.demo     / PlayPK@player2');
 }
 
 main()

@@ -6,9 +6,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { BOOKING_ADVANCE_PKR } from '@playpk/shared-types';
 import { api } from '@/lib/api';
 import { cn, formatPkr } from '@/lib/utils';
+import { BookingStepPanel, BookingStepper } from '@/components/motion/booking-stepper';
+import { StadiumSkeleton } from '@/components/motion/stadium-skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useVisibilityPoll } from '@/hooks/use-visibility-poll';
 
 type Slot = {
   id: string;
@@ -54,8 +57,6 @@ function nextSevenDays(): DayChip[] {
 function toIsoDate(value: string): string {
   return value.slice(0, 10);
 }
-
-import { useVisibilityPoll } from '@/hooks/use-visibility-poll';
 
 export default function CourtBookPage() {
   const params = useParams<{ id: string }>();
@@ -117,22 +118,28 @@ export default function CourtBookPage() {
     .filter((s) => s.date === selectedDate)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-  if (loading && !data) return <p className="text-sm text-muted-foreground">Loading slots…</p>;
+  if (loading && !data) return <StadiumSkeleton className="mt-2" lines={4} />;
   if (error || !data) return <p className="text-sm text-red-600">{error ?? 'Court not found'}</p>;
+
+  const bookingStep = selectedSlot ? 1 : 0;
 
   return (
     <div className="space-y-5 pb-44">
+      <BookingStepper step={bookingStep} calm />
+
       <div>
         <Link
           href={`/venues/${data.court.branch.id}`}
-          className="text-sm font-medium text-brand hover:underline"
+          className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-navy"
         >
           ← {data.court.branch.name}
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-navy">{data.court.name}</h1>
+        <h1 className="mt-2 font-display text-2xl font-bold uppercase tracking-tight text-navy">
+          {data.court.name}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {data.court.sport.name} · {data.court.branch.name} · court rate{' '}
-          {formatPkr(data.court.pricePerHour)}/hr · advance {formatPkr(BOOKING_ADVANCE_PKR)}
+          {data.court.sport.name} · advance {formatPkr(BOOKING_ADVANCE_PKR)} · rate{' '}
+          {formatPkr(data.court.pricePerHour)}/hr
         </p>
         <div className="mt-2 flex gap-2">
           <Badge variant="success">{data.court.indoor ? 'Indoor' : 'Outdoor'}</Badge>
@@ -140,106 +147,121 @@ export default function CourtBookPage() {
         </div>
       </div>
 
-      <div>
-        <h2 className="mb-2 text-sm font-semibold text-navy">Next 7 days</h2>
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-          {days.map((day) => {
-            const active = day.iso === selectedDate;
-            const count = data.slots.filter(
-              (s) => s.date === day.iso && s.status === 'AVAILABLE',
-            ).length;
-            return (
-              <button
-                key={day.iso}
-                type="button"
-                onClick={() => {
-                  setSelectedDate(day.iso);
-                  setSelectedSlot(null);
-                }}
-                className={cn(
-                  'flex min-w-[4.5rem] shrink-0 flex-col items-center rounded-xl border-2 px-3 py-2.5 transition',
-                  active
-                    ? 'border-brand bg-brand text-white shadow-md shadow-brand/25'
-                    : 'border-border bg-white text-navy hover:border-brand/40',
-                )}
-              >
-                <span
-                  className={cn('text-[10px] font-bold uppercase', !active && 'text-muted-foreground')}
+      <BookingStepPanel stepKey={selectedDate}>
+        <div>
+          <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-tight text-navy">
+            1 · Pick a date
+          </h2>
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {days.map((day) => {
+              const active = day.iso === selectedDate;
+              const count = data.slots.filter(
+                (s) => s.date === day.iso && s.status === 'AVAILABLE',
+              ).length;
+              return (
+                <button
+                  key={day.iso}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDate(day.iso);
+                    setSelectedSlot(null);
+                  }}
+                  className={cn(
+                    'flex min-w-[4.5rem] shrink-0 cursor-pointer flex-col items-center rounded-xl border px-3 py-2.5 transition duration-200',
+                    active
+                      ? 'border-navy bg-navy text-white'
+                      : 'border-navy/10 bg-white text-navy hover:border-navy/30',
+                  )}
                 >
-                  {day.weekday}
-                </span>
-                <span className="text-xl font-extrabold leading-none">{day.dayNum}</span>
-                <span className="text-xs font-semibold">{day.month}</span>
-                <span
-                  className={cn('mt-1 text-[10px]', active ? 'text-white/90' : 'text-muted-foreground')}
-                >
-                  {count > 0 ? `${count} open` : '—'}
-                </span>
-              </button>
-            );
-          })}
+                  <span
+                    className={cn(
+                      'text-[10px] font-bold uppercase',
+                      !active && 'text-muted-foreground',
+                    )}
+                  >
+                    {day.weekday}
+                  </span>
+                  <span className="text-xl font-extrabold leading-none">{day.dayNum}</span>
+                  <span className="text-xs font-semibold">{day.month}</span>
+                  <span
+                    className={cn(
+                      'mt-1 text-[10px]',
+                      active ? 'text-white/90' : 'text-muted-foreground',
+                    )}
+                  >
+                    {count > 0 ? `${count} open` : '—'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      <div className="space-y-2">
-        {daySlots.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No slots for this day.</p>
-        ) : (
-          daySlots.map((slot) => {
-            const available = slot.status === 'AVAILABLE';
-            const selected = selectedSlot?.id === slot.id;
-            return (
-              <button
-                key={slot.id}
-                type="button"
-                disabled={!available}
-                onClick={() => setSelectedSlot(slot)}
-                className={cn(
-                  'flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition',
-                  selected
-                    ? 'border-brand bg-brand-50'
-                    : available
-                      ? 'border-border bg-white hover:border-brand/40'
-                      : 'cursor-not-allowed border-border bg-white opacity-45',
-                )}
-              >
-                <div>
-                  <div className="font-semibold text-navy">
-                    {slot.startTime} – {slot.endTime}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Advance {formatPkr(BOOKING_ADVANCE_PKR)}
-                    <span className="text-xs"> · rate {formatPkr(slot.price)}/hr</span>
-                  </div>
-                </div>
-                <Badge
-                  variant={
-                    slot.status === 'AVAILABLE'
-                      ? 'success'
-                      : slot.status === 'BOOKED'
-                        ? 'danger'
-                        : 'warn'
-                  }
+        <div className="mt-5 space-y-2">
+          <h2 className="font-display text-sm font-bold uppercase tracking-tight text-navy">
+            2 · Pick a slot
+          </h2>
+          {daySlots.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-navy/15 bg-white px-4 py-5 text-sm text-muted-foreground">
+              No slots for this day.
+            </p>
+          ) : (
+            daySlots.map((slot) => {
+              const available = slot.status === 'AVAILABLE';
+              const selected = selectedSlot?.id === slot.id;
+              return (
+                <button
+                  key={slot.id}
+                  type="button"
+                  disabled={!available}
+                  onClick={() => setSelectedSlot(slot)}
+                  className={cn(
+                    'flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition duration-200',
+                    selected
+                      ? 'border-navy bg-navy/[0.04]'
+                      : available
+                        ? 'cursor-pointer border-navy/10 bg-white hover:border-navy/25'
+                        : 'cursor-not-allowed border-navy/5 bg-white opacity-45',
+                  )}
                 >
-                  {slot.status}
-                </Badge>
-              </button>
-            );
-          })
-        )}
-      </div>
+                  <div>
+                    <div className="font-semibold text-navy">
+                      {slot.startTime} – {slot.endTime}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Advance {formatPkr(BOOKING_ADVANCE_PKR)}
+                      <span className="text-xs"> · rate {formatPkr(slot.price)}/hr</span>
+                    </div>
+                  </div>
+                  <Badge
+                    variant={
+                      slot.status === 'AVAILABLE'
+                        ? 'success'
+                        : slot.status === 'BOOKED'
+                          ? 'danger'
+                          : 'warn'
+                    }
+                  >
+                    {slot.status}
+                  </Badge>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </BookingStepPanel>
 
-      <div className="fixed inset-x-0 bottom-[4.75rem] z-50 border-t border-border bg-white/95 p-4 shadow-[0_-8px_24px_rgba(11,31,58,0.08)] backdrop-blur sm:bottom-[5rem]">
+      <div className="fixed inset-x-0 bottom-[4.75rem] z-50 border-t border-navy/10 bg-white/95 p-4 shadow-[0_-8px_24px_rgba(11,31,58,0.06)] backdrop-blur sm:bottom-[5rem]">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Card className="border-0 bg-transparent shadow-none sm:flex-1">
             <CardContent className="p-0 text-sm text-muted-foreground">
               {selectedSlot
-                ? `${selectedDate} · ${selectedSlot.startTime}-${selectedSlot.endTime} · advance ${formatPkr(BOOKING_ADVANCE_PKR)}`
-                : 'Tap an available time slot to continue'}
+                ? `${selectedDate} · ${selectedSlot.startTime}–${selectedSlot.endTime} · advance ${formatPkr(BOOKING_ADVANCE_PKR)}`
+                : 'Select a date and available slot'}
             </CardContent>
           </Card>
           <Button
-            className="w-full sm:w-auto"
+            className="h-11 w-full rounded-xl bg-navy font-bold text-white hover:bg-navy-700 sm:w-auto"
             disabled={!selectedSlot}
             onClick={() =>
               router.push(
@@ -247,7 +269,7 @@ export default function CourtBookPage() {
               )
             }
           >
-            Continue to payment
+            Continue to pay
           </Button>
         </div>
       </div>

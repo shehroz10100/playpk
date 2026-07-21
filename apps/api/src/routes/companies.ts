@@ -111,9 +111,18 @@ companiesRouter.patch(
       name: z.string().min(2).optional(),
       description: z.string().optional(),
       logoUrl: z.string().url().nullable().optional(),
-      bankAccountName: z.string().min(2).max(120).nullable().optional(),
-      bankAccountNumber: z.string().min(5).max(64).nullable().optional(),
-      bankName: z.string().min(2).max(120).nullable().optional(),
+      bankAccountName: z
+        .union([z.string().trim().min(2).max(120), z.literal(''), z.null()])
+        .optional()
+        .transform((v) => (v === '' ? null : v)),
+      bankAccountNumber: z
+        .union([z.string().trim().min(5).max(64), z.literal(''), z.null()])
+        .optional()
+        .transform((v) => (v === '' ? null : v)),
+      bankName: z
+        .union([z.string().trim().min(2).max(120), z.literal(''), z.null()])
+        .optional()
+        .transform((v) => (v === '' ? null : v)),
     }),
   ),
   async (req, res, next) => {
@@ -121,7 +130,18 @@ companiesRouter.patch(
       await assertCanManageCompany(req.user!, param(req, 'companyId'));
       const company = await prisma.company.update({
         where: { id: param(req, 'companyId') },
-        data: req.body,
+        data: {
+          ...(req.body.name !== undefined ? { name: req.body.name } : {}),
+          ...(req.body.description !== undefined ? { description: req.body.description } : {}),
+          ...(req.body.logoUrl !== undefined ? { logoUrl: req.body.logoUrl } : {}),
+          ...(req.body.bankAccountName !== undefined
+            ? { bankAccountName: req.body.bankAccountName }
+            : {}),
+          ...(req.body.bankAccountNumber !== undefined
+            ? { bankAccountNumber: req.body.bankAccountNumber }
+            : {}),
+          ...(req.body.bankName !== undefined ? { bankName: req.body.bankName } : {}),
+        },
       });
       sendSuccess(res, company);
     } catch (error) {

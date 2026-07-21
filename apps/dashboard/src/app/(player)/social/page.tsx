@@ -171,7 +171,9 @@ export default function SocialPage() {
     <div className="space-y-6 animate-rise">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Community</p>
-        <h1 className="font-display mt-1 text-3xl font-extrabold text-navy">Social</h1>
+        <h1 className="font-display mt-1 text-3xl font-bold uppercase tracking-tight text-navy">
+          Social
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Follow players, like &amp; comment on posts — just like PlayPro.
         </p>

@@ -7,6 +7,8 @@ import {
   resolveSportCover,
   type SportDto,
 } from '@playpk/shared-types';
+import { HoverLoopMedia } from '@/components/media/hover-loop-media';
+import { resolveSportClip } from '@/lib/media-assets';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -75,6 +77,7 @@ export function SportFilterRail({
             key={sport.id}
             label={sport.name}
             cover={cover}
+            sportName={sport.name}
             active={active}
             onClick={() => pick(sport)}
             chipClass={chipClass}
@@ -88,49 +91,59 @@ export function SportFilterRail({
 function SportChip({
   label,
   cover,
+  sportName,
   active,
   onClick,
   chipClass,
 }: {
   label: string;
   cover: string;
+  sportName?: string;
   active: boolean;
   onClick: () => void;
   chipClass: string;
 }) {
+  const clip = sportName ? resolveSportClip(sportName, cover) : null;
+
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'relative shrink-0 snap-start overflow-hidden rounded-2xl border-2 transition duration-300',
+        'relative shrink-0 cursor-pointer snap-start overflow-hidden rounded-2xl border-2 transition duration-300',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2',
         chipClass,
         active
-          ? 'border-brand scale-[1.03]'
-          : 'border-transparent hover:border-brand/40 hover:scale-[1.01]',
+          ? 'scale-[1.03] border-brand'
+          : 'border-transparent hover:scale-[1.01] hover:border-brand/40',
       )}
       aria-pressed={active}
     >
-      <Image
-        src={cover}
-        alt=""
-        fill
-        sizes="(max-width:640px) 72px, (max-width:1024px) 88px, 112px"
-        className="object-cover"
-        loading="lazy"
-      />
+      {clip ? (
+        <HoverLoopMedia
+          clip={clip}
+          ambient={active}
+          hoverPlay={!active}
+          sizes="(max-width:640px) 72px, (max-width:1024px) 88px, 112px"
+          className="absolute inset-0"
+        />
+      ) : (
+        <Image
+          src={cover}
+          alt=""
+          fill
+          sizes="(max-width:640px) 72px, (max-width:1024px) 88px, 112px"
+          className="object-cover"
+          loading="lazy"
+        />
+      )}
       <span
         className={cn(
-          'absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/35 to-navy/15',
+          'absolute inset-0 z-[1] bg-gradient-to-t from-navy/85 via-navy/35 to-navy/15',
           active && 'from-brand/90 via-brand/45 to-brand/20',
         )}
       />
-      <span
-        className={cn(
-          'relative z-10 flex h-full items-end justify-center px-1.5 pb-3 text-center text-[10px] font-bold leading-tight text-white drop-shadow sm:text-[11px] md:text-xs',
-        )}
-      >
+      <span className="relative z-10 flex h-full items-end justify-center px-1.5 pb-3 text-center text-[10px] font-bold leading-tight text-white drop-shadow sm:text-[11px] md:text-xs">
         {label}
       </span>
     </button>
