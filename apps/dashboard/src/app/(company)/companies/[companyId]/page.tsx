@@ -171,6 +171,12 @@ export default function CompanyOverviewPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/companies/${companyId}/branding`}
+            className="inline-flex h-9 items-center rounded-md border border-border bg-white px-3 text-sm text-navy hover:bg-muted"
+          >
+            Branding
+          </Link>
           <Button
             variant="outline"
             onClick={() => {

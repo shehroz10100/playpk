@@ -37,6 +37,7 @@ export async function assertCanManageBranch(user: AuthUser, branchId: string) {
 
   if (user.role === UserRole.COMPANY_OWNER && branch.company.ownerId === user.id) return;
   if (user.role === UserRole.BRANCH_MANAGER && branch.managerId === user.id) return;
+  if (user.role === UserRole.FRONT_DESK && branch.managerId === user.id) return;
 
   throw new AppError('Forbidden', { statusCode: 403, code: 'FORBIDDEN' });
 }
@@ -55,17 +56,28 @@ export async function listAccessibleCompanies(user: AuthUser) {
       orderBy: { createdAt: 'desc' },
     });
   }
-  if (user.role === UserRole.BRANCH_MANAGER) {
+  if (user.role === UserRole.BRANCH_MANAGER || user.role === UserRole.FRONT_DESK) {
     const branches = await prisma.branch.findMany({
       where: { managerId: user.id },
       include: {
         company: {
-          include: { branches: true, owner: { select: { id: true, name: true, email: true } } },
+          include: { owner: { select: { id: true, name: true, email: true } } },
         },
       },
     });
-    const map = new Map(branches.map((b) => [b.company.id, b.company]));
-    return [...map.values()];
+    const byCompany = new Map<
+      string,
+      (typeof branches)[number]['company'] & { branches: typeof branches }
+    >();
+    for (const b of branches) {
+      const existing = byCompany.get(b.company.id);
+      if (existing) {
+        existing.branches.push(b);
+      } else {
+        byCompany.set(b.company.id, { ...b.company, branches: [b] });
+      }
+    }
+    return [...byCompany.values()];
   }
   throw new AppError('Forbidden', { statusCode: 403, code: 'FORBIDDEN' });
 }

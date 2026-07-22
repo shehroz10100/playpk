@@ -1,4 +1,5 @@
 import {
+  BookingSource,
   BookingStatus,
   PaymentStatus,
   SlotStatus,
@@ -8,33 +9,70 @@ import { randomUUID } from 'node:crypto';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { acquireSlotLock, releaseSlotLock } from '../lib/slotLock';
+import { publishSlotStatusChanged } from '../lib/slotEvents';
 import { getPaymentProvider } from './payments/MockPaymentProvider';
 import { awardLoyaltyForBooking } from './loyalty.service';
 import { creditWalletRefund, debitWallet } from './wallet.service';
 import { promoteNextWaitlistedUser } from './waitlist.service';
 import { notifyUser } from './notify.service';
 import { BOOKING_ADVANCE_PKR } from '@playpk/shared-types';
+import { resolvePrice } from '../pricing/resolvePrice';
+import { resolveWalkInCustomer } from './walkin-customer.service';
+
+export type CreateBookingPaymentMethod =
+  | 'mock'
+  | 'wallet'
+  | 'jazzcash'
+  | 'easypaisa'
+  | 'card'
+  | 'bank_transfer'
+  | 'CASH'
+  | 'JAZZCASH'
+  | 'EASYPAISA'
+  | 'CARD'
+  | 'WALLET';
+
+export type CreateBookingInput = {
+  slotId: string;
+  /** Registered player / guest user id. Optional when walkInCustomer is provided. */
+  userId?: string;
+  walkInCustomer?: { name?: string | null; phone?: string | null };
+  source?: BookingSource | 'ONLINE' | 'WALK_IN' | 'PHONE';
+  paymentMethod?: CreateBookingPaymentMethod;
+  paymentProofUrl?: string;
+  createdByStaffId?: string | null;
+};
 
 /**
  * Create a booking with Redis slot-locking to prevent double-booking under concurrency.
- *
- * Flow:
- * 1. Acquire short-lived Redis lock for the slot
- * 2. Re-check slot is AVAILABLE inside a transaction
- * 3. Create booking + mark slot BOOKED (+ wallet debit if needed)
- * 4. Charge via PaymentProvider (mock) unless wallet already paid
- * 5. Award loyalty points
- * 6. Always release the Redis lock in finally
+ * Used by BOTH online checkout and walk-in front-desk — do not duplicate this path.
  */
-export async function createBooking(input: {
-  userId: string;
-  slotId: string;
-  paymentMethod?: 'mock' | 'wallet' | 'jazzcash' | 'easypaisa' | 'card' | 'bank_transfer';
-  paymentProofUrl?: string;
-}) {
-  const method = input.paymentMethod ?? 'mock';
+export async function createBooking(input: CreateBookingInput) {
+  const source = (input.source ?? BookingSource.ONLINE) as BookingSource;
+  const method = (input.paymentMethod ?? (source === BookingSource.WALK_IN ? 'CASH' : 'mock')) as string;
+  const isWalkInChannel = source === BookingSource.WALK_IN || source === BookingSource.PHONE;
+
+  let userId = input.userId;
+  let guestName: string | null = null;
+  let guestPhone: string | null = null;
+  if (!userId) {
+    if (!isWalkInChannel || !input.walkInCustomer) {
+      throw new AppError('userId is required for online bookings', {
+        statusCode: 400,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+    const guest = await resolveWalkInCustomer(input.walkInCustomer);
+    userId = guest.userId;
+    guestName = guest.guestName;
+    guestPhone = guest.guestPhone;
+  } else if (input.walkInCustomer) {
+    guestName = input.walkInCustomer.name?.trim() || null;
+    guestPhone = input.walkInCustomer.phone?.trim() || null;
+  }
+
   const bankMethods = new Set(['jazzcash', 'easypaisa', 'bank_transfer', 'card']);
-  if (bankMethods.has(method) && !input.paymentProofUrl) {
+  if (!isWalkInChannel && bankMethods.has(method) && !input.paymentProofUrl) {
     throw new AppError('Upload a payment screenshot for bank / wallet transfer advance.', {
       statusCode: 400,
       code: 'PAYMENT_PROOF_REQUIRED',
@@ -54,6 +92,7 @@ export async function createBooking(input: {
       const slot = await tx.slot.findUnique({
         where: { id: input.slotId },
         include: {
+          court: true,
           bookings: {
             where: { status: { not: BookingStatus.CANCELLED } },
             take: 1,
@@ -64,6 +103,15 @@ export async function createBooking(input: {
       if (!slot) {
         throw new AppError('Slot not found', { statusCode: 404, code: 'NOT_FOUND' });
       }
+      if (
+        slot.status === SlotStatus.BLOCKED ||
+        slot.status === SlotStatus.MAINTENANCE
+      ) {
+        throw new AppError('Slot is blocked or under maintenance', {
+          statusCode: 409,
+          code: 'SLOT_UNAVAILABLE',
+        });
+      }
       if (slot.status !== SlotStatus.AVAILABLE || slot.bookings.length > 0) {
         throw new AppError('Slot is not available', {
           statusCode: 409,
@@ -71,70 +119,114 @@ export async function createBooking(input: {
         });
       }
 
-      const advanceAmount = BOOKING_ADVANCE_PKR;
+      const resolved = await resolvePrice(
+        slot.courtId,
+        slot.date,
+        slot.startTime,
+        isWalkInChannel ? 'WALK_IN' : 'ONLINE',
+      );
+
+      // Online keeps flat advance; walk-in / phone charge resolved court price at counter.
+      const chargeAmount = isWalkInChannel ? resolved.price : BOOKING_ADVANCE_PKR;
+      const paymentStatus = isWalkInChannel ? PaymentStatus.PAID : PaymentStatus.PENDING;
+      const status = isWalkInChannel ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
 
       const created = await tx.booking.create({
         data: {
-          userId: input.userId,
+          userId: userId!,
           slotId: slot.id,
-          status: BookingStatus.PENDING,
-          totalAmount: advanceAmount,
-          paymentStatus: PaymentStatus.PENDING,
+          status,
+          totalAmount: chargeAmount,
+          paymentStatus,
           paymentMethod: method,
           paymentProofUrl: input.paymentProofUrl,
           paymentProofUploadedAt: input.paymentProofUrl ? new Date() : null,
+          bookingSource: source,
+          createdByStaffId: input.createdByStaffId ?? null,
+          guestName,
+          guestPhone,
           qrCode: `playpk://booking/${randomUUID()}`,
+          ...(isWalkInChannel ? { paymentIntentId: `walkin_${randomUUID()}` } : {}),
         },
       });
 
       await tx.slot.update({
         where: { id: slot.id },
-        data: { status: SlotStatus.BOOKED },
+        data: { status: SlotStatus.BOOKED, price: resolved.price },
       });
 
-      if (method === 'wallet') {
+      if (method === 'wallet' || method === 'WALLET') {
         await debitWallet(tx, {
-          userId: input.userId,
-          amount: advanceAmount,
+          userId: userId!,
+          amount: chargeAmount,
           bookingId: created.id,
         });
       }
 
       await tx.waitlist.deleteMany({
-        where: { userId: input.userId, slotId: slot.id },
+        where: { userId: userId!, slotId: slot.id },
       });
 
-      return created;
+      return { created, branchId: slot.court.branchId, courtId: slot.courtId };
     });
+
+    if (isWalkInChannel) {
+      await publishSlotStatusChanged({
+        slotId: input.slotId,
+        branchId: booking.branchId,
+        courtId: booking.courtId,
+        status: SlotStatus.BOOKED,
+        bookingSource: source,
+      });
+
+      const full = await prisma.booking.findUniqueOrThrow({
+        where: { id: booking.created.id },
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } },
+          slot: {
+            include: {
+              court: {
+                include: {
+                  branch: { include: { company: true } },
+                  sport: true,
+                },
+              },
+            },
+          },
+        },
+      });
+      await notifyBranchStaffOfNewBooking(full.id);
+      return serializeBooking(full);
+    }
 
     let paymentIntentId: string | null = null;
     const awaitsProof = bankMethods.has(method);
 
-    if (method === 'wallet') {
-      paymentIntentId = `wallet_${booking.id}`;
+    if (method === 'wallet' || method === 'WALLET') {
+      paymentIntentId = `wallet_${booking.created.id}`;
     } else if (!awaitsProof) {
       const payment = getPaymentProvider();
       const intent = await payment.createPaymentIntent({
-        amount: Number(booking.totalAmount),
+        amount: Number(booking.created.totalAmount),
         currency: 'PKR',
-        bookingId: booking.id,
-        userId: input.userId,
-        method: method === 'bank_transfer' ? 'card' : method,
+        bookingId: booking.created.id,
+        userId: userId!,
+        method: method === 'bank_transfer' ? 'card' : (method as 'mock' | 'card' | 'jazzcash' | 'easypaisa'),
       });
       paymentIntentId = intent.id;
     } else {
-      paymentIntentId = `proof_${booking.id}`;
+      paymentIntentId = `proof_${booking.created.id}`;
     }
 
     const confirmed = await prisma.booking.update({
-      where: { id: booking.id },
+      where: { id: booking.created.id },
       data: {
         status: BookingStatus.CONFIRMED,
-        // Bank transfer with screenshot awaits company/admin verification
         paymentStatus: awaitsProof ? PaymentStatus.PENDING : PaymentStatus.PAID,
         paymentIntentId,
       },
       include: {
+        user: { select: { id: true, name: true, email: true, phone: true } },
         slot: {
           include: {
             court: {
@@ -150,11 +242,19 @@ export async function createBooking(input: {
 
     if (!awaitsProof) {
       await awardLoyaltyForBooking(prisma, {
-        userId: input.userId,
+        userId: userId!,
         bookingId: confirmed.id,
         amount: Number(confirmed.totalAmount),
       });
     }
+
+    await publishSlotStatusChanged({
+      slotId: input.slotId,
+      branchId: booking.branchId,
+      courtId: booking.courtId,
+      status: SlotStatus.BOOKED,
+      bookingSource: source,
+    });
 
     await notifyBranchStaffOfNewBooking(confirmed.id);
 
@@ -307,6 +407,20 @@ export async function cancelBooking(input: { bookingId: string; userId: string; 
     return cancelled;
   });
 
+  const court = await prisma.court.findUnique({
+    where: { id: updated.slot.courtId },
+    select: { id: true, branchId: true },
+  });
+  if (court) {
+    await publishSlotStatusChanged({
+      slotId: updated.slotId,
+      branchId: court.branchId,
+      courtId: court.id,
+      status: SlotStatus.AVAILABLE,
+      bookingSource: updated.bookingSource,
+    });
+  }
+
   // Auto-offer/confirm next waitlisted player for this slot
   const waitlistPromotion = await promoteNextWaitlistedUser(booking.slotId);
 
@@ -402,6 +516,10 @@ export function serializeBooking(booking: {
   paymentMethod?: string | null;
   paymentProofUrl?: string | null;
   paymentProofUploadedAt?: Date | null;
+  bookingSource?: string | null;
+  createdByStaffId?: string | null;
+  guestName?: string | null;
+  guestPhone?: string | null;
   qrCode?: string | null;
   createdAt: Date;
   cancelledAt?: Date | null;
@@ -446,6 +564,10 @@ export function serializeBooking(booking: {
     paymentMethod: booking.paymentMethod ?? null,
     paymentProofUrl: booking.paymentProofUrl ?? null,
     paymentProofUploadedAt: booking.paymentProofUploadedAt ?? null,
+    bookingSource: booking.bookingSource ?? 'ONLINE',
+    createdByStaffId: booking.createdByStaffId ?? null,
+    guestName: booking.guestName ?? null,
+    guestPhone: booking.guestPhone ?? null,
     qrCode: booking.qrCode ?? null,
     createdAt: booking.createdAt,
     cancelledAt: booking.cancelledAt ?? null,

@@ -18,6 +18,7 @@ type Booking = {
   paymentMethod?: string | null;
   paymentProofUrl?: string | null;
   paymentProofUploadedAt?: string | null;
+  cancelledAt?: string | null;
   totalAmount: number;
   createdAt: string;
   user: { name: string; email: string | null; phone: string | null };
@@ -25,6 +26,7 @@ type Booking = {
     date: string;
     startTime: string;
     endTime: string;
+    status?: string;
     court: { name: string; sport: { name: string } };
   };
 };
@@ -125,6 +127,24 @@ export default function BookingsPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Verify failed');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function cancelBooking(id: string, customerName: string) {
+    const ok = window.confirm(
+      `Cancel booking for ${customerName}? The court slot will open again for other players.`,
+    );
+    if (!ok) return;
+    setBusyId(id);
+    setError(null);
+    try {
+      await api(`/api/bookings/${id}/cancel`, { method: 'POST' });
+      setLiveBanner(`Booking cancelled · slot reopened · ID ${id}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cancel failed');
     } finally {
       setBusyId(null);
     }
@@ -306,6 +326,18 @@ export default function BookingsPage() {
                       <Badge variant={statusVariant[booking.status] ?? 'muted'}>
                         {booking.status}
                       </Badge>
+                      {booking.status === 'CANCELLED' ? (
+                        <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
+                          {booking.cancelledAt ? (
+                            <div>Cancelled {new Date(booking.cancelledAt).toLocaleString()}</div>
+                          ) : null}
+                          <div className="font-medium text-brand">Slot reopened</div>
+                        </div>
+                      ) : booking.slot.status ? (
+                        <div className="mt-1 text-[10px] text-muted-foreground">
+                          Slot · {booking.slot.status}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-xs text-muted-foreground">
@@ -355,11 +387,27 @@ export default function BookingsPage() {
                         >
                           {busyId === booking.id ? '…' : 'Mark complete'}
                         </Button>
-                      ) : (
-                        !booking.paymentProofUrl && (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )
-                      )}
+                      ) : null}
+                      {booking.status === 'PENDING' || booking.status === 'CONFIRMED' ? (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          className="w-full"
+                          disabled={busyId === booking.id}
+                          onClick={() => void cancelBooking(booking.id, booking.user.name)}
+                        >
+                          {busyId === booking.id ? '…' : 'Cancel booking'}
+                        </Button>
+                      ) : null}
+                      {booking.status === 'CANCELLED' ? (
+                        <span className="text-xs font-medium text-muted-foreground">Cancelled</span>
+                      ) : null}
+                      {booking.status !== 'PENDING' &&
+                      booking.status !== 'CONFIRMED' &&
+                      booking.status !== 'CANCELLED' &&
+                      !booking.paymentProofUrl ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : null}
                     </td>
                   </tr>
                 ))

@@ -296,6 +296,12 @@ export default function BranchHomePage() {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <Link
+            href={`/branches/${branchId}/pricing`}
+            className="inline-flex h-10 items-center rounded-md border border-border bg-white px-4 text-sm font-medium text-navy hover:bg-muted"
+          >
+            Pricing rules
+          </Link>
+          <Link
             href={`/branches/${branchId}/courts`}
             className="inline-flex h-10 items-center rounded-md bg-brand px-4 text-sm font-medium text-white hover:bg-brand-600"
           >

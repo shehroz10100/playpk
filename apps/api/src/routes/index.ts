@@ -14,6 +14,10 @@ import { aiRouter } from './ai';
 import { tournamentsRouter, teamsRouter, leaderboardRouter } from './tournaments';
 import { adminRouter, supportRouter } from './admin';
 import { socialRouter } from './social';
+import { pricingRouter } from './pricing';
+import { walkinRouter } from './walkin';
+import { brandingRouter } from './branding';
+import { pricingRulesRouter } from './pricing-rules';
 
 /**
  * Versioned API routes under /api
@@ -77,3 +81,7 @@ apiRouter.use('/leaderboard', leaderboardRouter);
 apiRouter.use('/social', socialRouter);
 apiRouter.use('/admin', adminRouter);
 apiRouter.use('/support', supportRouter);
+apiRouter.use('/pricing', pricingRouter);
+apiRouter.use('/walkin', walkinRouter);
+apiRouter.use('/branding', brandingRouter);
+apiRouter.use('/pricing-rules', pricingRulesRouter);

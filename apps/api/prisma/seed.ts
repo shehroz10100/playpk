@@ -1,9 +1,15 @@
 /**
  * PlayPK seed script
  * Seeds: 14 sports + demo company owner, company, branch, courts, and slots.
+ * Optionally mirrors demo logins into Supabase Auth when service role is configured.
  */
-import { PrismaClient, SlotStatus, TournamentFormat, TournamentStatus, UserRole } from '@prisma/client';
+import { config as loadEnv } from 'dotenv';
+import path from 'node:path';
+import { PrismaClient, SlotStatus, TournamentFormat, TournamentStatus, UserRole, PricingDayType, PricingChannel } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { syncDemoUsersToSupabaseAuth } from './sync-supabase-auth';
+
+loadEnv({ path: path.resolve(__dirname, '../.env') });
 
 const prisma = new PrismaClient();
 
@@ -256,7 +262,76 @@ async function main(): Promise<void> {
   }
   console.log(`✓ branch: ${branch.name} (${branch.city})`);
 
-  // ── Courts ──────────────────────────────────────────────────────────────
+  // ── Front-desk staff (walk-in POS) ───────────────────────────────────────
+  const frontDeskHash = await bcrypt.hash('PlayPK@desk1', 10);
+  const frontDesk = await prisma.user.upsert({
+    where: { email: 'frontdesk@playpk.demo' },
+    update: {
+      passwordHash: frontDeskHash,
+      role: UserRole.FRONT_DESK,
+      suspendedAt: null,
+      name: 'GameOn Front Desk',
+      phone: '+923001112233',
+    },
+    create: {
+      name: 'GameOn Front Desk',
+      email: 'frontdesk@playpk.demo',
+      phone: '+923001112233',
+      passwordHash: frontDeskHash,
+      role: UserRole.FRONT_DESK,
+    },
+  });
+  branch = await prisma.branch.update({
+    where: { id: branch.id },
+    data: { managerId: frontDesk.id },
+  });
+  console.log(`✓ front desk: ${frontDesk.email} → ${branch.name}`);
+
+  await prisma.brandingSettings.upsert({
+    where: { companyId: company.id },
+    update: {
+      businessName: 'GameOn Sports',
+      primaryColor: '#00A651',
+      secondaryColor: '#0B1F3A',
+      receiptFooterText: 'Thank you for playing at GameOn. See you next time!',
+      logoUrl: company.logoUrl,
+    },
+    create: {
+      companyId: company.id,
+      businessName: 'GameOn Sports',
+      primaryColor: '#00A651',
+      secondaryColor: '#0B1F3A',
+      receiptFooterText: 'Thank you for playing at GameOn. See you next time!',
+      logoUrl: company.logoUrl,
+    },
+  });
+  console.log('✓ branding settings');
+
+  const existingWeekendRule = await prisma.pricingRule.findFirst({
+    where: {
+      companyId: company.id,
+      dayType: PricingDayType.WEEKEND,
+      channel: PricingChannel.BOTH,
+      timeRangeStart: '17:00',
+      timeRangeEnd: '23:00',
+    },
+  });
+  if (!existingWeekendRule) {
+    await prisma.pricingRule.create({
+      data: {
+        companyId: company.id,
+        branchId: branch.id,
+        dayType: PricingDayType.WEEKEND,
+        timeRangeStart: '17:00',
+        timeRangeEnd: '23:00',
+        channel: PricingChannel.BOTH,
+        priceMultiplier: 1.2,
+        priority: 10,
+        active: true,
+      },
+    });
+    console.log('✓ sample weekend pricing rule (+20%)');
+  }
   const courtDefs = [
     {
       name: 'Padel Court 1',
@@ -687,11 +762,64 @@ async function main(): Promise<void> {
   console.log('✓ social profile + feed seed');
   void SkillLevel;
 
+  // Mirror demo logins into Supabase Auth (Authentication → Users) when configured
+  await syncDemoUsersToSupabaseAuth([
+    {
+      email: 'admin@playpk.demo',
+      password: 'PlayPK@admin1',
+      name: admin.name,
+      role: UserRole.ADMIN,
+      phone: admin.phone,
+      playpkUserId: admin.id,
+    },
+    {
+      email: 'owner@playpk.demo',
+      password: 'PlayPK@demo1',
+      name: owner.name,
+      role: UserRole.COMPANY_OWNER,
+      phone: owner.phone,
+      playpkUserId: owner.id,
+    },
+    {
+      email: 'owner360@playpk.demo',
+      password: 'PlayPK@3601',
+      name: arenaOwner.name,
+      role: UserRole.COMPANY_OWNER,
+      phone: arenaOwner.phone,
+      playpkUserId: arenaOwner.id,
+    },
+    {
+      email: 'player@playpk.demo',
+      password: 'PlayPK@player1',
+      name: player.name,
+      role: UserRole.PLAYER,
+      phone: player.phone,
+      playpkUserId: player.id,
+    },
+    {
+      email: 'player2@playpk.demo',
+      password: 'PlayPK@player2',
+      name: player2.name,
+      role: UserRole.PLAYER,
+      phone: player2.phone,
+      playpkUserId: player2.id,
+    },
+    {
+      email: 'frontdesk@playpk.demo',
+      password: 'PlayPK@desk1',
+      name: frontDesk.name,
+      role: UserRole.FRONT_DESK,
+      phone: frontDesk.phone,
+      playpkUserId: frontDesk.id,
+    },
+  ]);
+
   console.log('\n✅ Seed complete.');
   console.log('Demo accounts:');
   console.log('  Admin:         admin@playpk.demo       / PlayPK@admin1');
   console.log('  GameOn owner:  owner@playpk.demo       / PlayPK@demo1');
   console.log('  360 Arena:     owner360@playpk.demo    / PlayPK@3601');
+  console.log('  Front desk:    frontdesk@playpk.demo   / PlayPK@desk1');
   console.log('  Player 1:      player@playpk.demo      / PlayPK@player1');
   console.log('  Player 2:      player2@playpk.demo     / PlayPK@player2');
 }

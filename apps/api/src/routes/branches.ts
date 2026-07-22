@@ -131,6 +131,7 @@ branchesRouter.get('/:branchId/bookings', async (req, res, next) => {
           date: b.slot.date,
           startTime: b.slot.startTime,
           endTime: b.slot.endTime,
+          status: b.slot.status,
           court: b.slot.court,
         },
       })),

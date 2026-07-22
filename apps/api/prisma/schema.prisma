@@ -14,6 +14,8 @@ enum UserRole {
   COMPANY_OWNER
   BRANCH_MANAGER
   ADMIN
+  FRONT_DESK
+  GUEST
 }
 
 enum LoyaltyTier {
@@ -120,6 +122,24 @@ enum SkillLevel {
   PRO
 }
 
+enum BookingSource {
+  ONLINE
+  WALK_IN
+  PHONE
+}
+
+enum PricingDayType {
+  WEEKDAY
+  WEEKEND
+  HOLIDAY
+}
+
+enum PricingChannel {
+  ONLINE
+  WALK_IN
+  BOTH
+}
+
 enum MatchVisibility {
   PUBLIC
   PRIVATE
@@ -170,7 +190,8 @@ model User {
   updatedAt     DateTime    @updatedAt
 
   ownedCompanies      Company[]
-  bookings            Booking[]
+  bookings            Booking[]            @relation("BookingCustomer")
+  bookingsCreated     Booking[]            @relation("BookingStaff")
   reviews             Review[]
   waitlistEntries     Waitlist[]
   loyaltyTransactions LoyaltyTransaction[]
@@ -239,6 +260,8 @@ model Company {
   branches   Branch[]
   coupons    Coupon[]
   tickets    SupportTicket[]
+  pricingRules PricingRule[]
+  branding   BrandingSettings?
 
   @@index([ownerId])
   @@index([approvalStatus])
@@ -266,6 +289,7 @@ model Branch {
   tournaments Tournament[]
   tickets     SupportTicket[]
   openMatches OpenMatch[]
+  pricingRules PricingRule[]
 
   @@index([companyId])
   @@index([city])
@@ -284,6 +308,7 @@ model Sport {
   teams          Team[]
   playerProfiles PlayerProfile[]
   openMatches    OpenMatch[]
+  pricingRules   PricingRule[]
 }
 
 model Court {
@@ -303,6 +328,7 @@ model Court {
   branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
   sport  Sport  @relation(fields: [sportId], references: [id], onDelete: Restrict)
   slots  Slot[]
+  pricingRules PricingRule[]
 
   @@index([branchId])
   @@index([sportId])
@@ -330,28 +356,82 @@ model Slot {
 }
 
 model Booking {
-  id                    String        @id @default(cuid())
-  userId                String
-  slotId                String
-  status                BookingStatus @default(PENDING)
-  totalAmount           Decimal       @db.Decimal(12, 2)
-  paymentStatus         PaymentStatus @default(PENDING)
-  paymentIntentId       String?
-  paymentMethod         String?
-  paymentProofUrl       String?
+  id                     String         @id @default(cuid())
+  userId                 String
+  slotId                 String
+  status                 BookingStatus  @default(PENDING)
+  totalAmount            Decimal        @db.Decimal(12, 2)
+  paymentStatus          PaymentStatus  @default(PENDING)
+  paymentIntentId        String?
+  /// ONLINE values: mock|wallet|jazzcash|easypaisa|card|bank_transfer
+  /// WALK_IN values: CASH|JAZZCASH|EASYPAISA|CARD|WALLET
+  paymentMethod          String?
+  paymentProofUrl        String?
   paymentProofUploadedAt DateTime?
-  qrCode                String?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-  cancelledAt           DateTime?
+  bookingSource          BookingSource  @default(ONLINE)
+  createdByStaffId       String?
+  guestName              String?
+  guestPhone             String?
+  qrCode                 String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  cancelledAt            DateTime?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
-  slot Slot @relation(fields: [slotId], references: [id], onDelete: Restrict)
+  user           User  @relation("BookingCustomer", fields: [userId], references: [id], onDelete: Restrict)
+  createdByStaff User? @relation("BookingStaff", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  slot           Slot  @relation(fields: [slotId], references: [id], onDelete: Restrict)
 
   @@index([userId])
   @@index([slotId])
   @@index([status])
   @@index([paymentStatus])
+  @@index([bookingSource])
+  @@index([createdByStaffId])
+}
+
+model PricingRule {
+  id              String         @id @default(cuid())
+  companyId       String
+  branchId        String?
+  courtId         String?
+  sportId         String?
+  dayType         PricingDayType
+  timeRangeStart  String // HH:mm
+  timeRangeEnd    String // HH:mm
+  channel         PricingChannel @default(BOTH)
+  priceOverride   Decimal?       @db.Decimal(12, 2)
+  priceMultiplier Decimal?       @db.Decimal(8, 4)
+  priority        Int            @default(0)
+  validFrom       DateTime?
+  validTo         DateTime?
+  active          Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  court   Court?  @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  sport   Sport?  @relation(fields: [sportId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, active, priority])
+  @@index([branchId])
+  @@index([courtId])
+  @@index([sportId])
+  @@index([channel])
+}
+
+model BrandingSettings {
+  id                String   @id @default(cuid())
+  companyId         String   @unique
+  logoUrl           String?
+  primaryColor      String   @default("#00A651")
+  secondaryColor    String   @default("#0B1F3A")
+  businessName      String?
+  receiptFooterText String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 model Review {

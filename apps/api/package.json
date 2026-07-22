@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "db:sync-supabase-auth": "tsx scripts/sync-supabase-auth.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
     "test": "jest --runInBand",
@@ -25,6 +26,7 @@
   "dependencies": {
     "@playpk/shared-types": "*",
     "@prisma/client": "^6.3.1",
+    "@supabase/supabase-js": "^2.110.8",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
