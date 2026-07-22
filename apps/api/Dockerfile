@@ -40,4 +40,5 @@ COPY --from=build /app/apps/api ./apps/api
 COPY --from=build /app/packages ./packages
 WORKDIR /app/apps/api
 EXPOSE 4000
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# Log migrate failures clearly; still fail fast so bad schema never serves traffic.
+CMD ["sh", "-c", "npx prisma migrate deploy && exec node dist/index.js"]

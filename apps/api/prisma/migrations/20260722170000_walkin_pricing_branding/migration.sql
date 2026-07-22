@@ -1,24 +1,31 @@
 -- Walk-in booking + white-label pricing (additive)
+-- ALTER TYPE … ADD VALUE cannot run inside a Prisma transaction on Postgres.
+-- prisma:disable-transaction
 
--- UserRole extensions (commit separately from usage when possible)
+-- UserRole extensions
 ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'FRONT_DESK';
 ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'GUEST';
 
-CREATE TYPE "BookingSource" AS ENUM ('ONLINE', 'WALK_IN', 'PHONE');
-CREATE TYPE "PricingDayType" AS ENUM ('WEEKDAY', 'WEEKEND', 'HOLIDAY');
-CREATE TYPE "PricingChannel" AS ENUM ('ONLINE', 'WALK_IN', 'BOTH');
+DO $$ BEGIN CREATE TYPE "BookingSource" AS ENUM ('ONLINE', 'WALK_IN', 'PHONE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "PricingDayType" AS ENUM ('WEEKDAY', 'WEEKEND', 'HOLIDAY'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "PricingChannel" AS ENUM ('ONLINE', 'WALK_IN', 'BOTH'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-ALTER TABLE "Booking" ADD COLUMN "bookingSource" "BookingSource" NOT NULL DEFAULT 'ONLINE';
-ALTER TABLE "Booking" ADD COLUMN "createdByStaffId" TEXT;
-ALTER TABLE "Booking" ADD COLUMN "guestName" TEXT;
-ALTER TABLE "Booking" ADD COLUMN "guestPhone" TEXT;
 
-CREATE INDEX "Booking_bookingSource_idx" ON "Booking"("bookingSource");
-CREATE INDEX "Booking_createdByStaffId_idx" ON "Booking"("createdByStaffId");
+ALTER TABLE "Booking" ADD COLUMN IF NOT EXISTS "bookingSource" "BookingSource" NOT NULL DEFAULT 'ONLINE';
+ALTER TABLE "Booking" ADD COLUMN IF NOT EXISTS "createdByStaffId" TEXT;
+ALTER TABLE "Booking" ADD COLUMN IF NOT EXISTS "guestName" TEXT;
+ALTER TABLE "Booking" ADD COLUMN IF NOT EXISTS "guestPhone" TEXT;
 
-ALTER TABLE "Booking" ADD CONSTRAINT "Booking_createdByStaffId_fkey" FOREIGN KEY ("createdByStaffId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+CREATE INDEX IF NOT EXISTS "Booking_bookingSource_idx" ON "Booking"("bookingSource");
+CREATE INDEX IF NOT EXISTS "Booking_createdByStaffId_idx" ON "Booking"("createdByStaffId");
 
-CREATE TABLE "PricingRule" (
+DO $$ BEGIN
+  ALTER TABLE "Booking" ADD CONSTRAINT "Booking_createdByStaffId_fkey"
+    FOREIGN KEY ("createdByStaffId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS "PricingRule" (
     "id" TEXT NOT NULL,
     "companyId" TEXT NOT NULL,
     "branchId" TEXT,
@@ -39,18 +46,30 @@ CREATE TABLE "PricingRule" (
     CONSTRAINT "PricingRule_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "PricingRule_companyId_active_priority_idx" ON "PricingRule"("companyId", "active", "priority");
-CREATE INDEX "PricingRule_branchId_idx" ON "PricingRule"("branchId");
-CREATE INDEX "PricingRule_courtId_idx" ON "PricingRule"("courtId");
-CREATE INDEX "PricingRule_sportId_idx" ON "PricingRule"("sportId");
-CREATE INDEX "PricingRule_channel_idx" ON "PricingRule"("channel");
+CREATE INDEX IF NOT EXISTS "PricingRule_companyId_active_priority_idx" ON "PricingRule"("companyId", "active", "priority");
+CREATE INDEX IF NOT EXISTS "PricingRule_branchId_idx" ON "PricingRule"("branchId");
+CREATE INDEX IF NOT EXISTS "PricingRule_courtId_idx" ON "PricingRule"("courtId");
+CREATE INDEX IF NOT EXISTS "PricingRule_sportId_idx" ON "PricingRule"("sportId");
+CREATE INDEX IF NOT EXISTS "PricingRule_channel_idx" ON "PricingRule"("channel");
 
-ALTER TABLE "PricingRule" ADD CONSTRAINT "PricingRule_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "PricingRule" ADD CONSTRAINT "PricingRule_branchId_fkey" FOREIGN KEY ("branchId") REFERENCES "Branch"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "PricingRule" ADD CONSTRAINT "PricingRule_courtId_fkey" FOREIGN KEY ("courtId") REFERENCES "Court"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "PricingRule" ADD CONSTRAINT "PricingRule_sportId_fkey" FOREIGN KEY ("sportId") REFERENCES "Sport"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "PricingRule" ADD CONSTRAINT "PricingRule_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "PricingRule" ADD CONSTRAINT "PricingRule_branchId_fkey" FOREIGN KEY ("branchId") REFERENCES "Branch"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "PricingRule" ADD CONSTRAINT "PricingRule_courtId_fkey" FOREIGN KEY ("courtId") REFERENCES "Court"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "PricingRule" ADD CONSTRAINT "PricingRule_sportId_fkey" FOREIGN KEY ("sportId") REFERENCES "Sport"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE "BrandingSettings" (
+CREATE TABLE IF NOT EXISTS "BrandingSettings" (
     "id" TEXT NOT NULL,
     "companyId" TEXT NOT NULL,
     "logoUrl" TEXT,
@@ -63,5 +82,8 @@ CREATE TABLE "BrandingSettings" (
     CONSTRAINT "BrandingSettings_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "BrandingSettings_companyId_key" ON "BrandingSettings"("companyId");
-ALTER TABLE "BrandingSettings" ADD CONSTRAINT "BrandingSettings_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE UNIQUE INDEX IF NOT EXISTS "BrandingSettings_companyId_key" ON "BrandingSettings"("companyId");
+DO $$ BEGIN
+  ALTER TABLE "BrandingSettings" ADD CONSTRAINT "BrandingSettings_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

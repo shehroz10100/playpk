@@ -1,7 +1,8 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "apps/api/Dockerfile"
-watchPatterns = ["apps/api/**", "packages/**", "package.json", "package-lock.json"]
+watchPatterns = ["apps/api/**", "apps/walkin/package.json", "packages/**", "package.json", "package-lock.json", "railway.toml"]
+
 
 [deploy]
 healthcheckPath = "/health"
