@@ -2,8 +2,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# Drop mobile/Expo from workspaces for Vercel so we never install
-# uuid@7 / text-encoding@0.7 (from xcode + react-native-qrcode-svg).
+# Vercel hosts ONLY the player/company dashboard.
+# Drop mobile + walkin from workspaces so install stays lean and avoids
+# Expo/uuid conflicts (and so a failed walkin build cannot block deploy).
 node <<'NODE'
 const fs = require('fs');
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
