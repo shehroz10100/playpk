@@ -55,6 +55,10 @@ apiRouter.get('/', (_req, res) => {
         social: '/api/social',
         admin: '/api/admin',
         support: '/api/support',
+        pricing: 'GET /api/pricing/resolve',
+        pricingRules: '/api/pricing-rules',
+        branding: '/api/branding',
+        walkin: '/api/walkin',
       },
     },
   });
