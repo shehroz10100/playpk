@@ -78,7 +78,7 @@ export default function BookConfirmPage() {
   useEffect(() => {
     if (!slotId) return;
     setPaymentInfoError(null);
-    api<PaymentInfo>(`/api/bookings/payment-info?slotId=${encodeURIComponent(slotId)}`)
+    api<PaymentInfo>(`/api/slots/${encodeURIComponent(slotId)}/payment-info`)
       .then(({ data }) => {
         setPaymentInfo(data);
         setPaymentInfoError(null);

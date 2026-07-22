@@ -8,6 +8,7 @@ import { AppError, sendSuccess } from '../lib/errors';
 import { param } from '../lib/params';
 import { assertCanManageBranch } from '../services/access.service';
 import * as slotService from '../services/slot.service';
+import { getPaymentInfoForSlot } from '../services/booking.service';
 
 export const slotsRouter = Router();
 
@@ -59,6 +60,15 @@ slotsRouter.get('/search', async (req, res, next) => {
 
     const result = await slotService.searchSlots(q);
     sendSuccess(res, result.data, 200, result.meta);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Company bank details for checkout advance — lives under /slots to avoid /bookings/:id shadowing. */
+slotsRouter.get('/:slotId/payment-info', authenticate, async (req, res, next) => {
+  try {
+    sendSuccess(res, await getPaymentInfoForSlot(param(req, 'slotId')));
   } catch (error) {
     next(error);
   }
