@@ -6,6 +6,7 @@ RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /v
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/dashboard/package.json ./apps/dashboard/
+COPY apps/walkin/package.json ./apps/walkin/
 COPY apps/mobile/package.json ./apps/mobile/
 COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/config/package.json ./packages/config/
