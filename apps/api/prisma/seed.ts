@@ -24,24 +24,25 @@ const SPORTS = [
   'Bowling',
 ] as const;
 
+/** Keep in sync with packages/shared-types SPORT_COVER_IMAGES (visually verified). */
 const SPORT_COVERS: Record<(typeof SPORTS)[number], string> = {
   Cricket:
-    'https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=480&h=720&q=80',
   Padel:
-    'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1767128890576-ecc5c643f9c4?auto=format&fit=crop&w=480&h=720&q=80',
   Futsal:
     'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=480&h=720&q=80',
   Badminton:
-    'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=480&h=720&q=80',
   Snooker:
-    'https://images.unsplash.com/photo-1611293388250-580b08c4a145?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1707916041849-927236f6b4c8?auto=format&fit=crop&w=480&h=720&q=80',
   Gym: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=480&h=720&q=80',
   Pickleball:
-    'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1693142518820-78d7a05f1546?auto=format&fit=crop&w=480&h=720&q=80',
   Tennis:
-    'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=480&h=720&q=80',
   Squash:
-    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1740813416102-5d42f408bc85?auto=format&fit=crop&w=480&h=720&q=80',
   Basketball:
     'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=480&h=720&q=80',
   Volleyball:
@@ -51,7 +52,7 @@ const SPORT_COVERS: Record<(typeof SPORTS)[number], string> = {
   Swimming:
     'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=480&h=720&q=80',
   Bowling:
-    'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1538511059256-46e76f13f071?auto=format&fit=crop&w=480&h=720&q=80',
 };
 
 /** Build HH:mm strings for hourly slots between startHour (inclusive) and endHour (exclusive). */

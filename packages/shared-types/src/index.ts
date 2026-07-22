@@ -157,26 +157,26 @@ export const FEATURED_SPORT_ORDER = [
 
 export type FeaturedSportName = (typeof FEATURED_SPORT_ORDER)[number];
 
-/** Cover images for sport filter cards (verified Unsplash URLs). */
+/** Cover images for sport filter cards (visually verified Unsplash URLs). */
 export const SPORT_COVER_IMAGES: Record<string, string> = {
   Cricket:
-    'https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=480&h=720&q=80',
   Padel:
-    'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1767128890576-ecc5c643f9c4?auto=format&fit=crop&w=480&h=720&q=80',
   Futsal:
     'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=480&h=720&q=80',
   Badminton:
-    'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=480&h=720&q=80',
   Snooker:
-    'https://images.unsplash.com/photo-1611293388250-580b08c4a145?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1707916041849-927236f6b4c8?auto=format&fit=crop&w=480&h=720&q=80',
   Gym: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=480&h=720&q=80',
   All: 'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?auto=format&fit=crop&w=480&h=720&q=80',
   Pickleball:
-    'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1693142518820-78d7a05f1546?auto=format&fit=crop&w=480&h=720&q=80',
   Tennis:
-    'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=480&h=720&q=80',
   Squash:
-    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1740813416102-5d42f408bc85?auto=format&fit=crop&w=480&h=720&q=80',
   Basketball:
     'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=480&h=720&q=80',
   Volleyball:
@@ -186,16 +186,43 @@ export const SPORT_COVER_IMAGES: Record<string, string> = {
   Swimming:
     'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=480&h=720&q=80',
   Bowling:
-    'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=480&h=720&q=80',
+    'https://images.unsplash.com/photo-1538511059256-46e76f13f071?auto=format&fit=crop&w=480&h=720&q=80',
 };
 
-export const DEFAULT_SPORT_COVER =
-  'https://images.unsplash.com/photo-1471295253337-3ceaaedca402?auto=format&fit=crop&w=480&h=720&q=80';
+/** Aliases → canonical sport names used in SPORT_COVER_IMAGES. */
+const SPORT_COVER_ALIASES: Record<string, string> = {
+  football: 'Futsal',
+  soccer: 'Futsal',
+  'table-tennis': 'Table Tennis',
+  tabletennis: 'Table Tennis',
+  pingpong: 'Table Tennis',
+  'ping-pong': 'Table Tennis',
+  'ping pong': 'Table Tennis',
+  pool: 'Snooker',
+  billiards: 'Snooker',
+  paddle: 'Padel',
+  'paddle tennis': 'Padel',
+};
+
+export const DEFAULT_SPORT_COVER = SPORT_COVER_IMAGES.All;
 
 /** Prefer curated covers so stale DB iconUrls cannot break the rail. */
 export function resolveSportCover(name: string, iconUrl?: string | null): string {
-  const curated = SPORT_COVER_IMAGES[name];
-  if (curated) return curated;
+  const raw = name.trim();
+  if (!raw) return DEFAULT_SPORT_COVER;
+
+  const exact = SPORT_COVER_IMAGES[raw];
+  if (exact) return exact;
+
+  const lower = raw.toLowerCase();
+  const aliased = SPORT_COVER_ALIASES[lower];
+  if (aliased && SPORT_COVER_IMAGES[aliased]) return SPORT_COVER_IMAGES[aliased];
+
+  const caseMatch = Object.keys(SPORT_COVER_IMAGES).find((k) => k.toLowerCase() === lower);
+  if (caseMatch) return SPORT_COVER_IMAGES[caseMatch];
+
+  // Curated map wins over stale/wrong DB iconUrls for known sports;
+  // only fall back to iconUrl when the sport name is unknown.
   if (iconUrl && /^https?:\/\//i.test(iconUrl)) return iconUrl;
   return DEFAULT_SPORT_COVER;
 }

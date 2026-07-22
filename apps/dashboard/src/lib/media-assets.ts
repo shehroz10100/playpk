@@ -1,3 +1,4 @@
+import { resolveSportCover } from '@playpk/shared-types';
 import { DISCOVER_HERO_IMAGE, LOGIN_HERO_IMAGE } from '@/lib/venue-cover';
 
 export type MediaClip = {
@@ -21,48 +22,27 @@ export const VENUE_PREVIEW_CLIP: MediaClip = {
   poster: DISCOVER_HERO_IMAGE,
 };
 
-const SPORT_CLIPS: Record<string, MediaClip> = {
-  Futsal: {
-    src: '/media/sport-futsal.mp4',
-    poster:
-      'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&h=1000&q=70',
-  },
-  Football: {
-    src: '/media/sport-futsal.mp4',
-    poster:
-      'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&h=1000&q=70',
-  },
-  Tennis: {
-    src: '/media/sport-tennis.mp4',
-    poster:
-      'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=800&h=1000&q=70',
-  },
-  Padel: {
-    src: '/media/sport-padel.mp4',
-    poster:
-      'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=800&h=1000&q=70',
-  },
-  Cricket: {
-    src: '/media/sport-cricket.mp4',
-    poster:
-      'https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=800&h=1000&q=70',
-  },
-  Badminton: {
-    src: '/media/sport-tennis.mp4',
-    poster:
-      'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=800&h=1000&q=70',
-  },
+const SPORT_CLIP_SRC: Record<string, string> = {
+  Futsal: '/media/sport-futsal.mp4',
+  Football: '/media/sport-futsal.mp4',
+  Tennis: '/media/sport-tennis.mp4',
+  Padel: '/media/sport-padel.mp4',
+  Cricket: '/media/sport-cricket.mp4',
+  // No dedicated badminton loop yet — tennis motion is closer than padel/futsal.
+  Badminton: '/media/sport-tennis.mp4',
 };
 
 export function resolveSportClip(sportName: string, posterFallback?: string): MediaClip {
-  const key = Object.keys(SPORT_CLIPS).find((k) => k.toLowerCase() === sportName.trim().toLowerCase());
+  const key = Object.keys(SPORT_CLIP_SRC).find(
+    (k) => k.toLowerCase() === sportName.trim().toLowerCase(),
+  );
+  const poster = posterFallback ?? resolveSportCover(sportName);
   if (key) {
-    const clip = SPORT_CLIPS[key];
-    return posterFallback ? { ...clip, poster: posterFallback } : clip;
+    return { src: SPORT_CLIP_SRC[key], poster };
   }
   return {
     src: VENUE_PREVIEW_CLIP.src,
-    poster: posterFallback ?? VENUE_PREVIEW_CLIP.poster,
+    poster,
   };
 }
 
