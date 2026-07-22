@@ -34,7 +34,16 @@ function resolveApiOrigin(): string {
 const API_ORIGIN = resolveApiOrigin();
 
 const nextConfig = {
-  transpilePackages: ['@playpk/shared-types'],
+  transpilePackages: ['@playpk/shared-types', '@shadergradient/react'],
+  experimental: {
+    optimizePackageImports: ['@shadergradient/react'],
+  },
+  webpack: (config: { resolve: { conditionNames?: string[] } }) => {
+    // @shadergradient/react only exports the "import" condition — without this,
+    // Next/webpack fails with "Package path . is not exported".
+    config.resolve.conditionNames = ['import', 'require', 'default', 'node', 'browser'];
+    return config;
+  },
   async rewrites() {
     return [
       {
@@ -61,7 +70,7 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '*.up.railway.app',
+        hostname: 'api-production-2057.up.railway.app',
         pathname: '/uploads/**',
       },
       {
