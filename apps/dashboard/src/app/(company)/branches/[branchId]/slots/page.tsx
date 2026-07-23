@@ -151,7 +151,7 @@ export default function SlotsPage() {
         setError('Enter a valid price (PKR) or leave blank for court default.');
         return;
       }
-      await api('/api/slots', {
+      await api('/api/slots/manual', {
         method: 'POST',
         body: JSON.stringify({
           courtId,

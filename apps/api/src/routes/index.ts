@@ -37,6 +37,7 @@ apiRouter.get('/', (_req, res) => {
         venues: '/api/venues',
         courts: '/api/branches/:branchId/courts',
         slots: '/api/slots',
+        slotsManual: 'POST /api/slots/manual',
         bookings: '/api/bookings',
         sports: '/api/sports',
         loyalty: '/api/loyalty',

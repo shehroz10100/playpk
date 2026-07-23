@@ -42,27 +42,27 @@ slotsRouter.post(
   },
 );
 
+const createManualSchema = z.object({
+  courtId: z.string().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/)
+    .transform((t) => t.slice(0, 5)),
+  endTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/)
+    .transform((t) => t.slice(0, 5)),
+  price: z.number().positive().optional(),
+  status: z.nativeEnum(SlotStatus).optional(),
+});
+
 /** Create one slot with custom start/end times for the selected court + date. */
 slotsRouter.post(
-  '/',
+  '/manual',
   authenticate,
   requireRoles(UserRole.COMPANY_OWNER, UserRole.BRANCH_MANAGER, UserRole.ADMIN),
-  validate(
-    z.object({
-      courtId: z.string().min(1),
-      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      startTime: z
-        .string()
-        .regex(/^\d{2}:\d{2}(:\d{2})?$/)
-        .transform((t) => t.slice(0, 5)),
-      endTime: z
-        .string()
-        .regex(/^\d{2}:\d{2}(:\d{2})?$/)
-        .transform((t) => t.slice(0, 5)),
-      price: z.number().positive().optional(),
-      status: z.nativeEnum(SlotStatus).optional(),
-    }),
-  ),
+  validate(createManualSchema),
   async (req, res, next) => {
     try {
       const court = await prisma.court.findUnique({ where: { id: req.body.courtId } });
