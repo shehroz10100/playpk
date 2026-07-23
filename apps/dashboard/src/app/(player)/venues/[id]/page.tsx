@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Clock, MapPin, Star } from 'lucide-react';
@@ -14,14 +13,13 @@ import { Button } from '@/components/ui/button';
 import { fetchVenueDetail, type CatalogVenueDetail } from '@/lib/catalog';
 import { resolveVenuePreviewClip } from '@/lib/media-assets';
 import { googleMapsUrl } from '@/lib/google-maps';
-import { formatPkr, cn } from '@/lib/utils';
+import { formatPkr } from '@/lib/utils';
 import { mediaUrl, resolveVenueCover } from '@/lib/venue-cover';
 
 export default function VenueDetailPage() {
   const params = useParams<{ id: string }>();
   const [venue, setVenue] = useState<CatalogVenueDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [galleryIndex, setGalleryIndex] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,19 +39,6 @@ export default function VenueDetailPage() {
       cancelled = true;
     };
   }, [params.id]);
-
-  const gallery = useMemo(() => {
-    if (!venue) return [] as string[];
-    const fromVenue =
-      venue.photos?.map((p) => mediaUrl(p)).filter((p): p is string => Boolean(p)) ?? [];
-    const fromCourts = venue.courts
-      .flatMap((c) => c.photos ?? [])
-      .map((p) => mediaUrl(p))
-      .filter((p): p is string => Boolean(p));
-    const unique = [...new Set([...fromVenue, ...fromCourts])];
-    if (unique.length === 0) return [resolveVenueCover(venue)];
-    return unique.slice(0, 8);
-  }, [venue]);
 
   const sportNames = useMemo(() => {
     if (!venue) return [] as string[];
@@ -201,49 +186,6 @@ export default function VenueDetailPage() {
           ))}
         </div>
       ) : null}
-
-      {/* Static gallery (hero already owns the tour loop) */}
-      <section className="space-y-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="font-display text-xl font-bold uppercase tracking-tight text-navy">
-            Gallery
-          </h2>
-          <p className="text-xs font-semibold text-muted-foreground">
-            {galleryIndex + 1} / {gallery.length}
-          </p>
-        </div>
-        <div className="relative aspect-[16/9] overflow-hidden rounded-2xl bg-navy/10 shadow-panel">
-          <Image
-            src={gallery[galleryIndex] ?? cover}
-            alt=""
-            fill
-            sizes="(max-width:768px) 100vw, 900px"
-            className="object-cover"
-            priority={galleryIndex === 0}
-          />
-        </div>
-        {gallery.length > 1 ? (
-          <div className="sport-rail flex gap-2 overflow-x-auto pb-1">
-            {gallery.map((src, i) => (
-              <button
-                key={`${src}-${i}`}
-                type="button"
-                onClick={() => setGalleryIndex(i)}
-                className={cn(
-                  'relative h-16 w-24 shrink-0 cursor-pointer overflow-hidden rounded-lg border-2 transition duration-200',
-                  i === galleryIndex
-                    ? 'border-accent opacity-100'
-                    : 'border-transparent opacity-75 hover:opacity-100',
-                )}
-                aria-label={`Gallery photo ${i + 1}`}
-                aria-current={i === galleryIndex}
-              >
-                <Image src={src} alt="" fill sizes="96px" className="object-cover" />
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </section>
 
       {/* Courts → booking calendar on court page */}
       <section id="venue-courts" className="scroll-mt-24 space-y-4">
