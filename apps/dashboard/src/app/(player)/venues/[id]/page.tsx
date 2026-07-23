@@ -13,6 +13,7 @@ import { StadiumSkeleton } from '@/components/motion/stadium-skeleton';
 import { Button } from '@/components/ui/button';
 import { fetchVenueDetail, type CatalogVenueDetail } from '@/lib/catalog';
 import { resolveVenuePreviewClip } from '@/lib/media-assets';
+import { googleMapsUrl } from '@/lib/google-maps';
 import { formatPkr, cn } from '@/lib/utils';
 import { mediaUrl, resolveVenueCover } from '@/lib/venue-cover';
 
@@ -98,21 +99,48 @@ export default function VenueDetailPage() {
               <h1 className="font-display mt-1 text-3xl font-bold uppercase tracking-tight text-white sm:text-4xl">
                 {venue.name}
               </h1>
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-white/80">
-                <span className="inline-flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4 text-brand" />
-                  {venue.address}, {venue.city}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Clock className="h-4 w-4 text-brand" />
-                  {venue.operatingHoursStart}–{venue.operatingHoursEnd}
-                </span>
-                {venue.avgRating != null ? (
+              <div className="mt-3 flex flex-col gap-2 text-sm text-white/80">
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  <a
+                    href={googleMapsUrl({
+                      address: venue.address,
+                      city: venue.city,
+                      latitude: venue.latitude,
+                      longitude: venue.longitude,
+                    })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex max-w-full items-start gap-1.5 font-medium text-brand-100 underline decoration-brand/60 underline-offset-2 transition hover:text-white hover:decoration-white"
+                  >
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                    <span>
+                      {venue.address}, {venue.city}
+                    </span>
+                  </a>
                   <span className="inline-flex items-center gap-1.5">
-                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                    {venue.avgRating.toFixed(1)}
+                    <Clock className="h-4 w-4 text-brand" />
+                    {venue.operatingHoursStart}–{venue.operatingHoursEnd}
                   </span>
-                ) : null}
+                  {venue.avgRating != null ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                      {venue.avgRating.toFixed(1)}
+                    </span>
+                  ) : null}
+                </div>
+                <a
+                  href={googleMapsUrl({
+                    address: venue.address,
+                    city: venue.city,
+                    latitude: venue.latitude,
+                    longitude: venue.longitude,
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-fit items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-brand underline decoration-brand/50 underline-offset-4 transition hover:text-brand-100 hover:decoration-brand-100"
+                >
+                  Open in Google Maps
+                </a>
               </div>
             </div>
 

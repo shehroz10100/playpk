@@ -125,6 +125,8 @@ export type CatalogVenueDetail = {
   name: string;
   city: string;
   address: string;
+  latitude?: number | null;
+  longitude?: number | null;
   operatingHoursStart: string;
   operatingHoursEnd: string;
   avgRating?: number | null;
@@ -178,6 +180,8 @@ export async function fetchVenueDetail(branchId: string): Promise<CatalogVenueDe
     name: branch.name,
     city: branch.city,
     address: branch.address,
+    latitude: branch.latitude ?? null,
+    longitude: branch.longitude ?? null,
     operatingHoursStart: branch.operatingHoursStart ?? '06:00',
     operatingHoursEnd: branch.operatingHoursEnd ?? '23:00',
     company: { name: branch.Company.name },

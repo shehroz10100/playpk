@@ -6,6 +6,7 @@ import type { VenueListItem } from '@playpk/shared-types';
 import { HoverLoopMedia } from '@/components/media/hover-loop-media';
 import { MotionPress, MotionReveal } from '@/components/motion/motion-reveal';
 import { resolveVenuePreviewClip } from '@/lib/media-assets';
+import { googleMapsUrl } from '@/lib/google-maps';
 import { cn, formatPkr } from '@/lib/utils';
 import { resolveVenueCover } from '@/lib/venue-cover';
 
@@ -65,9 +66,36 @@ export function VenueCard({ venue, index = 0, compact = false }: Props) {
           </HoverLoopMedia>
 
           <div className={cn('flex min-h-0 flex-1 flex-col gap-2.5', compact ? 'p-3.5' : 'gap-3 p-4')}>
-            <p className="flex min-h-[2.25rem] items-start gap-1.5 text-sm text-muted-foreground">
+            <p className="flex min-h-[2.25rem] items-start gap-1.5 text-sm">
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
-              <span className="line-clamp-2">{venue.address}</span>
+              <span
+                role="link"
+                tabIndex={0}
+                className="line-clamp-2 cursor-pointer font-medium text-brand underline-offset-2 hover:underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.open(
+                    googleMapsUrl({ address: venue.address, city: venue.city }),
+                    '_blank',
+                    'noopener,noreferrer',
+                  );
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.open(
+                      googleMapsUrl({ address: venue.address, city: venue.city }),
+                      '_blank',
+                      'noopener,noreferrer',
+                    );
+                  }
+                }}
+              >
+                {venue.address}
+                {venue.city ? `, ${venue.city}` : ''}
+              </span>
             </p>
 
             <div className="flex min-h-[2.75rem] flex-wrap content-start items-start gap-2">
