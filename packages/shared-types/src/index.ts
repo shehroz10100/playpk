@@ -162,7 +162,7 @@ export type FeaturedSportName = (typeof FEATURED_SPORT_ORDER)[number];
 /** Cover images for sport cards & venue heroes — landscape, mobile-optimized (1080×608). */
 export const SPORT_COVER_IMAGES: Record<string, string> = {
   Cricket:
-    'https://images.unsplash.com/photo-1459865264687-595d652de67e?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1540747916307-1bbbedbf8134?auto=format&fit=crop&w=1080&h=608&q=85',
   Padel:
     'https://images.unsplash.com/photo-1767128890576-ecc5c643f9c4?auto=format&fit=crop&w=1080&h=608&q=85',
   Futsal:

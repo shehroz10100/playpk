@@ -1,9 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { MediaClip } from '@/lib/media-assets';
-import { DISCOVER_HERO_IMAGE } from '@/lib/venue-cover';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -27,20 +26,14 @@ export function HoverLoopMedia({
   ambient = false,
   children,
 }: Props) {
-  const [src, setSrc] = useState(clip.poster);
-
   return (
     <div className={cn('relative overflow-hidden bg-navy/10', className)}>
       <Image
-        src={src}
+        src={clip.poster}
         alt={alt}
         fill
         sizes={sizes}
-        quality={85}
-        className={cn('object-cover object-center', ambient ? 'opacity-90' : 'opacity-100')}
-        onError={() => {
-          if (src !== DISCOVER_HERO_IMAGE) setSrc(DISCOVER_HERO_IMAGE);
-        }}
+        className={cn('object-cover', ambient ? 'opacity-90' : 'opacity-100')}
       />
       {children}
     </div>
