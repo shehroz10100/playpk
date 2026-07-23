@@ -173,6 +173,13 @@ enum OpenMatchPlayerStatus {
   DECLINED
 }
 
+enum MatchGenderPreference {
+  MEN
+  WOMEN
+  MIXED
+  ANY
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
@@ -740,6 +747,8 @@ model OpenMatch {
   format      MatchFormat       @default(DOUBLES)
   skillMin    SkillLevel        @default(BEGINNER)
   skillMax    SkillLevel        @default(PRO)
+  genderPreference MatchGenderPreference @default(ANY)
+  pricePerPlayer   Decimal?     @db.Decimal(10, 2)
   status      OpenMatchStatus   @default(OPEN)
   maxPlayers  Int
   scheduledAt DateTime?

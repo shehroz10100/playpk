@@ -1,12 +1,14 @@
 import {
   CasualMatchType,
   MatchFormat,
+  MatchGenderPreference,
   MatchVisibility,
   OpenMatchPlayerStatus,
   OpenMatchStatus,
   SkillLevel,
   type OpenMatch,
   type PlayerProfile,
+  type Prisma,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { prisma } from '../lib/prisma';
@@ -55,8 +57,17 @@ async function ensureProfile(userId: string): Promise<PlayerProfile> {
 
 const matchInclude = {
   sport: { select: { id: true, name: true, iconUrl: true } },
-  host: { select: { id: true, name: true } },
-  branch: { select: { id: true, name: true, city: true } },
+  host: { select: { id: true, name: true, phone: true, email: true } },
+  branch: {
+    select: {
+      id: true,
+      name: true,
+      city: true,
+      address: true,
+      latitude: true,
+      longitude: true,
+    },
+  },
   players: {
     where: { status: { in: [OpenMatchPlayerStatus.JOINED, OpenMatchPlayerStatus.INVITED] } },
     include: {
@@ -64,6 +75,7 @@ const matchInclude = {
         select: {
           id: true,
           name: true,
+          phone: true,
           playerProfile: { select: { skillLevel: true } },
         },
       },
@@ -71,28 +83,40 @@ const matchInclude = {
     orderBy: { createdAt: 'asc' as const },
   },
   result: true,
+} satisfies Prisma.OpenMatchInclude;
+
+type SerializedMatchSource = OpenMatch & {
+  sport: { id: string; name: string; iconUrl?: string | null };
+  host: { id: string; name: string; phone: string | null; email: string | null };
+  branch: {
+    id: string;
+    name: string;
+    city: string;
+    address: string;
+    latitude: number | null;
+    longitude: number | null;
+  } | null;
+  players: Array<{
+    id: string;
+    userId: string;
+    status: OpenMatchPlayerStatus;
+    side: string | null;
+    user: {
+      id: string;
+      name: string;
+      phone: string | null;
+      playerProfile: { skillLevel: SkillLevel } | null;
+    };
+  }>;
+  result: {
+    homeScore: number;
+    awayScore: number;
+    winnerSide: string | null;
+    notes: string | null;
+  } | null;
 };
 
-function serializeMatch(
-  match: OpenMatch & {
-    sport: { id: string; name: string };
-    host: { id: string; name: string };
-    branch: { id: string; name: string; city: string } | null;
-    players: Array<{
-      id: string;
-      userId: string;
-      status: OpenMatchPlayerStatus;
-      side: string | null;
-      user: { id: string; name: string; playerProfile: { skillLevel: SkillLevel } | null };
-    }>;
-    result: {
-      homeScore: number;
-      awayScore: number;
-      winnerSide: string | null;
-      notes: string | null;
-    } | null;
-  },
-) {
+function serializeMatch(match: SerializedMatchSource) {
   const joined = match.players.filter((p) => p.status === OpenMatchPlayerStatus.JOINED);
   return {
     id: match.id,
@@ -103,18 +127,35 @@ function serializeMatch(
     format: match.format,
     skillMin: match.skillMin,
     skillMax: match.skillMax,
+    genderPreference: match.genderPreference,
+    pricePerPlayer: match.pricePerPlayer != null ? Number(match.pricePerPlayer) : null,
     status: match.status,
     maxPlayers: match.maxPlayers,
     joinedCount: joined.length,
     scheduledAt: match.scheduledAt,
     city: match.city,
     sport: match.sport,
-    host: match.host,
-    branch: match.branch,
+    host: {
+      id: match.host.id,
+      name: match.host.name,
+      phone: match.host.phone,
+      email: match.host.email,
+    },
+    branch: match.branch
+      ? {
+          id: match.branch.id,
+          name: match.branch.name,
+          city: match.branch.city,
+          address: match.branch.address,
+          latitude: match.branch.latitude,
+          longitude: match.branch.longitude,
+        }
+      : null,
     players: match.players.map((p) => ({
       id: p.id,
       userId: p.userId,
       name: p.user.name,
+      phone: p.user.phone,
       skillLevel: p.user.playerProfile?.skillLevel ?? null,
       status: p.status,
       side: p.side,
@@ -224,7 +265,7 @@ export async function listOpenMatches(input: {
 
   // Prefer matches near user's skill for ordering
   return matches
-    .map(serializeMatch)
+    .map((m) => serializeMatch(m as SerializedMatchSource))
     .sort((a, b) => {
       const aDist = Math.min(
         Math.abs(skillRank(a.skillMin) - skillRank(profile.skillLevel)),
@@ -251,7 +292,7 @@ export async function getOpenMatch(matchId: string, userId: string) {
   ) {
     throw new AppError('Private match — invite required', { statusCode: 403, code: 'FORBIDDEN' });
   }
-  return serializeMatch(match);
+  return serializeMatch(match as SerializedMatchSource);
 }
 
 export async function createOpenMatch(
@@ -264,6 +305,8 @@ export async function createOpenMatch(
     format: MatchFormat;
     skillMin?: SkillLevel;
     skillMax?: SkillLevel;
+    genderPreference?: MatchGenderPreference;
+    pricePerPlayer?: number | null;
     notes?: string;
     city?: string;
     branchId?: string;
@@ -273,6 +316,22 @@ export async function createOpenMatch(
   await ensureProfile(hostId);
   const sport = await prisma.sport.findUnique({ where: { id: input.sportId } });
   if (!sport) throw new AppError('Sport not found', { statusCode: 404, code: 'NOT_FOUND' });
+
+  let city = input.city?.trim() || null;
+  if (input.branchId) {
+    const branch = await prisma.branch.findUnique({ where: { id: input.branchId } });
+    if (!branch) throw new AppError('Venue not found', { statusCode: 404, code: 'NOT_FOUND' });
+    if (!city) city = branch.city;
+  }
+
+  const skillMin = input.skillMin ?? SkillLevel.BEGINNER;
+  const skillMax = input.skillMax ?? SkillLevel.PRO;
+  if (skillRank(skillMax) < skillRank(skillMin)) {
+    throw new AppError('skillMax must be on/above skillMin', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
 
   const maxPlayers = maxPlayersForFormat(input.format);
   const match = await prisma.openMatch.create({
@@ -285,10 +344,12 @@ export async function createOpenMatch(
       visibility: input.visibility,
       matchType: input.matchType,
       format: input.format,
-      skillMin: input.skillMin ?? SkillLevel.BEGINNER,
-      skillMax: input.skillMax ?? SkillLevel.PRO,
+      skillMin,
+      skillMax,
+      genderPreference: input.genderPreference ?? MatchGenderPreference.ANY,
+      pricePerPlayer: input.pricePerPlayer ?? null,
       maxPlayers,
-      city: input.city,
+      city,
       scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
       players: {
         create: { userId: hostId, status: OpenMatchPlayerStatus.JOINED, side: 'HOME' },
@@ -296,7 +357,7 @@ export async function createOpenMatch(
     },
     include: matchInclude,
   });
-  return serializeMatch(match);
+  return serializeMatch(match as SerializedMatchSource);
 }
 
 export async function joinOpenMatch(matchId: string, userId: string) {

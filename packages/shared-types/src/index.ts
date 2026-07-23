@@ -687,6 +687,7 @@ export type MatchFormat =
   | 'TEN_A_SIDE'
   | 'FOURTEEN_A_SIDE';
 export type OpenMatchStatus = 'OPEN' | 'FULL' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type MatchGenderPreference = 'MEN' | 'WOMEN' | 'MIXED' | 'ANY';
 
 export interface PlayerProfileDto {
   userId: string;
@@ -711,6 +712,7 @@ export interface OpenMatchPlayerDto {
   id: string;
   userId: string;
   name: string;
+  phone: string | null;
   skillLevel: SkillLevel | null;
   status: string;
   side: string | null;
@@ -725,14 +727,23 @@ export interface OpenMatchDto {
   format: MatchFormat;
   skillMin: SkillLevel;
   skillMax: SkillLevel;
+  genderPreference: MatchGenderPreference;
+  pricePerPlayer: number | null;
   status: OpenMatchStatus;
   maxPlayers: number;
   joinedCount: number;
   scheduledAt: string | Date | null;
   city: string | null;
   sport: SportDto;
-  host: { id: string; name: string };
-  branch: { id: string; name: string; city: string } | null;
+  host: { id: string; name: string; phone: string | null; email: string | null };
+  branch: {
+    id: string;
+    name: string;
+    city: string;
+    address: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  } | null;
   players: OpenMatchPlayerDto[];
   result: {
     homeScore: number;

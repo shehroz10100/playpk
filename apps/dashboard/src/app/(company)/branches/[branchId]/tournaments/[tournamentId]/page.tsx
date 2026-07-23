@@ -97,10 +97,8 @@ export default function TournamentManagePage() {
       try {
         await api(`/api/tournaments/${tournamentId}/cancel`, { method: 'POST' });
       } catch (err) {
-        const missing =
-          err instanceof Error &&
-          (err.message === 'Resource not found' || /not found/i.test(err.message));
-        if (!missing) throw err;
+        // Older Railway builds may not have POST /cancel yet.
+        if (!(err instanceof ApiError) || err.status !== 404) throw err;
         await api(`/api/tournaments/${tournamentId}`, {
           method: 'PATCH',
           body: JSON.stringify({ status: 'CANCELLED' }),

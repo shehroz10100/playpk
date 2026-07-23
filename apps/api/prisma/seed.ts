@@ -738,6 +738,8 @@ async function main(): Promise<void> {
         format: 'DOUBLES',
         skillMin: 'BEGINNER',
         skillMax: 'ADVANCED',
+        genderPreference: 'MIXED',
+        pricePerPlayer: 800,
         status: 'OPEN',
         maxPlayers: 4,
         city: 'Lahore',

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   CasualMatchType,
   MatchFormat,
+  MatchGenderPreference,
   MatchVisibility,
   OpenMatchStatus,
   SkillLevel,
@@ -99,6 +100,8 @@ socialRouter.post(
       format: z.nativeEnum(MatchFormat),
       skillMin: z.nativeEnum(SkillLevel).optional(),
       skillMax: z.nativeEnum(SkillLevel).optional(),
+      genderPreference: z.nativeEnum(MatchGenderPreference).optional(),
+      pricePerPlayer: z.number().min(0).nullable().optional(),
       notes: z.string().max(500).optional(),
       city: z.string().optional(),
       branchId: z.string().optional(),

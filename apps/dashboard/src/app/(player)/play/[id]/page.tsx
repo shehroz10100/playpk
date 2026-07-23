@@ -1,15 +1,32 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Users } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Phone,
+  Users,
+  Wallet,
+  UserRound,
+  Shield,
+} from 'lucide-react';
 import type { OpenMatchDto, PlayerSearchHitDto } from '@playpk/shared-types';
 import { resolveSportCover } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
+import { googleMapsUrl } from '@/lib/google-maps';
+import {
+  formatMatchWhen,
+  genderLabel,
+  matchVenueLine,
+  skillBandLabel,
+} from '@/lib/match-details';
 import { formatLabel } from '@/lib/match-formats';
+import { formatPkr } from '@/lib/utils';
 import { MotionReveal } from '@/components/motion/motion-reveal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -118,16 +135,101 @@ export default function PlayMatchPage() {
   const canJoin = !alreadyIn && match.status === 'OPEN';
   const spotsLeft = Math.max(0, match.maxPlayers - match.joinedCount);
   const fillPct = Math.min(100, Math.round((match.joinedCount / Math.max(1, match.maxPlayers)) * 100));
+  const when = formatMatchWhen(match.scheduledAt);
+  const venueLine = matchVenueLine(match);
+  const mapsHref = match.branch
+    ? googleMapsUrl({
+        address: match.branch.address,
+        city: match.branch.city,
+        latitude: match.branch.latitude,
+        longitude: match.branch.longitude,
+      })
+    : null;
+
+  const detailRows: Array<{ icon: typeof Calendar; label: string; value: ReactNode }> = [
+    { icon: Calendar, label: 'Time', value: when },
+    {
+      icon: MapPin,
+      label: 'Venue',
+      value: match.branch ? (
+        <span className="space-y-1">
+          <Link href={`/venues/${match.branch.id}`} className="font-semibold text-brand hover:underline">
+            {match.branch.name}
+          </Link>
+          <span className="block text-xs text-muted-foreground">
+            {match.branch.address}, {match.branch.city}
+          </span>
+          {mapsHref ? (
+            <a
+              href={mapsHref}
+              target="_blank"
+              rel="noreferrer"
+              className="block text-xs font-semibold text-brand hover:underline"
+            >
+              Open in Google Maps
+            </a>
+          ) : null}
+        </span>
+      ) : (
+        venueLine
+      ),
+    },
+    {
+      icon: Wallet,
+      label: 'Price',
+      value:
+        match.pricePerPlayer != null && match.pricePerPlayer > 0
+          ? `${formatPkr(match.pricePerPlayer)} / player`
+          : 'Free / split later',
+    },
+    {
+      icon: Shield,
+      label: 'Level',
+      value: skillBandLabel(match.skillMin, match.skillMax),
+    },
+    {
+      icon: Users,
+      label: 'Gender',
+      value: genderLabel(match.genderPreference),
+    },
+    {
+      icon: UserRound,
+      label: 'Host',
+      value: (
+        <span className="space-y-1">
+          <span className="block font-semibold text-navy">{match.host.name}</span>
+          {match.host.phone ? (
+            <a href={`tel:${match.host.phone}`} className="flex items-center gap-1 text-brand hover:underline">
+              <Phone className="h-3.5 w-3.5" />
+              {match.host.phone}
+            </a>
+          ) : (
+            <span className="block text-xs text-muted-foreground">Phone not provided</span>
+          )}
+          {match.host.email ? (
+            <a href={`mailto:${match.host.email}`} className="block text-xs text-brand hover:underline">
+              {match.host.email}
+            </a>
+          ) : null}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className={cn('mx-auto max-w-2xl space-y-4', canJoin && 'pb-24 sm:pb-0')}>
-      <Link
-        href="/play"
-        className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Play
-      </Link>
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <Link
+          href="/play"
+          className="inline-flex items-center gap-1.5 font-semibold text-brand hover:underline"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Play
+        </Link>
+        <Link href="/discover" className="font-semibold text-muted-foreground hover:text-brand hover:underline">
+          Discover
+        </Link>
+      </div>
 
       <MotionReveal>
         <div className="overflow-hidden rounded-2xl bg-white shadow-panel">
@@ -155,12 +257,15 @@ export default function PlayMatchPage() {
                 <Badge variant="secondary" className="border-0 bg-white/15 text-[10px] text-white">
                   {formatLabel(match.format)}
                 </Badge>
+                <Badge variant="secondary" className="border-0 bg-white/15 text-[10px] text-white">
+                  {genderLabel(match.genderPreference)}
+                </Badge>
               </div>
               <h1 className="font-display mt-2 text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
                 {match.title}
               </h1>
               <p className="mt-1 text-sm text-white/75">
-                {match.sport.name} · Host {match.host.name}
+                {match.sport.name} · Hosted by {match.host.name}
               </p>
             </div>
           </div>
@@ -173,8 +278,7 @@ export default function PlayMatchPage() {
                   {match.joinedCount}/{match.maxPlayers} players
                 </span>
                 <span className="text-muted-foreground">
-                  {spotsLeft} spot{spotsLeft === 1 ? '' : 's'} left · Skill {match.skillMin}–
-                  {match.skillMax}
+                  {spotsLeft} spot{spotsLeft === 1 ? '' : 's'} left
                 </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -185,7 +289,32 @@ export default function PlayMatchPage() {
               </div>
             </div>
 
-            {match.notes ? <p className="text-sm text-muted-foreground">{match.notes}</p> : null}
+            <section className="rounded-2xl bg-[#EEF3F0] p-3 sm:p-4">
+              <h2 className="font-display mb-3 text-sm font-bold uppercase tracking-tight text-navy">
+                Match details
+              </h2>
+              <dl className="space-y-3">
+                {detailRows.map((row) => (
+                  <div key={row.label} className="flex gap-3">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-brand">
+                      <row.icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <dt className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                        {row.label}
+                      </dt>
+                      <dd className="text-sm text-navy">{row.value}</dd>
+                    </div>
+                  </div>
+                ))}
+              </dl>
+            </section>
+
+            {match.notes ? (
+              <p className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground">
+                {match.notes}
+              </p>
+            ) : null}
 
             <div>
               <h2 className="font-display mb-2 text-sm font-bold uppercase tracking-tight text-navy">
@@ -195,17 +324,30 @@ export default function PlayMatchPage() {
                 {match.players.map((p) => (
                   <li
                     key={p.id}
-                    className="flex items-center justify-between rounded-xl bg-[#EEF3F0] px-3 py-2.5"
+                    className="flex items-center justify-between gap-3 rounded-xl bg-[#EEF3F0] px-3 py-2.5"
                   >
-                    <span className="text-sm font-semibold text-navy">
-                      {p.name}
-                      {p.side ? (
-                        <span className="ml-2 text-xs font-medium text-muted-foreground">
-                          {p.side}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-navy">
+                        {p.name}
+                        {p.userId === match.host.id ? (
+                          <span className="ml-2 text-[10px] font-bold uppercase text-brand">Host</span>
+                        ) : null}
+                        {p.side ? (
+                          <span className="ml-2 text-xs font-medium text-muted-foreground">{p.side}</span>
+                        ) : null}
+                      </p>
+                      {p.phone ? (
+                        <a
+                          href={`tel:${p.phone}`}
+                          className="text-xs font-medium text-brand hover:underline"
+                        >
+                          {p.phone}
+                        </a>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No phone</p>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-xs text-muted-foreground">
                       {p.skillLevel ?? '—'} · {p.status}
                     </span>
                   </li>
