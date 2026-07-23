@@ -109,10 +109,7 @@ companiesRouter.patch(
   validate(
     z.object({
       name: z.string().min(2).optional(),
-      description: z
-        .union([z.string().max(2000), z.literal(''), z.null()])
-        .optional()
-        .transform((v) => (v === '' ? null : v)),
+      description: z.string().optional(),
       logoUrl: z.string().url().nullable().optional(),
       bankAccountName: z
         .union([z.string().trim().min(2).max(120), z.literal(''), z.null()])

@@ -51,8 +51,6 @@ export default function CompanyOverviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showRename, setShowRename] = useState(false);
-  const [showCompanyInfo, setShowCompanyInfo] = useState(false);
-  const [infoSaved, setInfoSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [companyDescription, setCompanyDescription] = useState('');
@@ -135,34 +133,6 @@ export default function CompanyOverviewPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save bank details');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function onSaveCompanyInfo(e: FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    setInfoSaved(false);
-    try {
-      const { data } = await api<Company>(`/api/companies/${companyId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          description: companyDescription.trim() || null,
-        }),
-      });
-      setCompany((prev) =>
-        prev
-          ? { ...prev, description: data.description ?? (companyDescription.trim() || null) }
-          : prev,
-      );
-      setCompanyDescription(data.description ?? '');
-      setShowCompanyInfo(false);
-      setInfoSaved(true);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save company information');
     } finally {
       setSaving(false);
     }
@@ -283,24 +253,9 @@ export default function CompanyOverviewPage() {
           <Button
             variant="outline"
             onClick={() => {
-              setShowCompanyInfo((v) => !v);
-              setShowBank(false);
-              setShowRename(false);
-              setShowForm(false);
-              setEditingBranchId(null);
-              setCompanyDescription(company.description ?? '');
-              setInfoSaved(false);
-            }}
-          >
-            {showCompanyInfo ? 'Cancel' : 'Company information'}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
               setShowBank((v) => !v);
               setShowRename(false);
               setShowForm(false);
-              setShowCompanyInfo(false);
               setEditingBranchId(null);
               setBankAccountName(company.bankAccountName ?? '');
               setBankAccountNumber(company.bankAccountNumber ?? '');
@@ -315,7 +270,6 @@ export default function CompanyOverviewPage() {
               setShowRename((v) => !v);
               setShowForm(false);
               setShowBank(false);
-              setShowCompanyInfo(false);
               setEditingBranchId(null);
               setCompanyName(company.name);
               setCompanyDescription(company.description ?? '');
@@ -328,7 +282,6 @@ export default function CompanyOverviewPage() {
               setShowForm((v) => !v);
               setShowRename(false);
               setShowBank(false);
-              setShowCompanyInfo(false);
               setEditingBranchId(null);
             }}
           >
@@ -338,90 +291,11 @@ export default function CompanyOverviewPage() {
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {infoSaved ? (
-        <p className="rounded-md border border-brand/30 bg-brand-50 px-3 py-2 text-sm text-brand-700">
-          Company information saved. Customers will see it on the venue Home tab.
-        </p>
-      ) : null}
       {bankSaved ? (
         <p className="rounded-md border border-brand/30 bg-brand-50 px-3 py-2 text-sm text-brand-700">
           Bank details saved. Customers will see account name, number, and bank on checkout.
         </p>
       ) : null}
-
-      {showCompanyInfo ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Company information</CardTitle>
-            <CardDescription>
-              Shown to customers under Club information on your venue page (Home tab).
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-4" onSubmit={onSaveCompanyInfo}>
-              <div className="space-y-2">
-                <Label htmlFor="company-info">About your club</Label>
-                <textarea
-                  id="company-info"
-                  value={companyDescription}
-                  onChange={(e) => setCompanyDescription(e.target.value)}
-                  maxLength={2000}
-                  rows={5}
-                  placeholder="Tell players about your facilities, sports, parking, coaching, and house rules…"
-                  className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-navy outline-none ring-brand/30 focus:ring-2"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {companyDescription.length}/2000 characters
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Saving…' : 'OK · Save'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={saving}
-                  onClick={() => {
-                    setShowCompanyInfo(false);
-                    setCompanyDescription(company.description ?? '');
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Company information</CardTitle>
-            <CardDescription>
-              {company.description?.trim()
-                ? company.description
-                : 'Not set yet — add a short description so customers know about your club.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setShowCompanyInfo(true);
-                setShowBank(false);
-                setShowRename(false);
-                setShowForm(false);
-                setEditingBranchId(null);
-                setCompanyDescription(company.description ?? '');
-                setInfoSaved(false);
-              }}
-            >
-              {company.description?.trim() ? 'Edit information' : 'Add information'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
 
       {showBank ? (
         <Card>

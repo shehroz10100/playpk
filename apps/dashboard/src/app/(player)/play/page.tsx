@@ -4,33 +4,21 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Calendar, MapPin, Swords, Trophy, Users, Wallet } from 'lucide-react';
+import { Calendar, MapPin, Swords, Trophy, Users } from 'lucide-react';
 import type {
   MatchFormat,
-  MatchGenderPreference,
   OpenMatchDto,
   PlayerProfileDto,
   SkillLevel,
   SportDto,
-  VenueListItem,
 } from '@playpk/shared-types';
 import { resolveSportCover } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
-import { fetchVenuesCatalog } from '@/lib/catalog';
-import {
-  formatMatchWhen,
-  genderLabel,
-  isUpcomingOpenMatch,
-  matchVenueLine,
-  skillBandLabel,
-  toIsoFromLocalInput,
-} from '@/lib/match-details';
 import {
   defaultFormatForSport,
   formatLabel,
   formatOptionsForSport,
 } from '@/lib/match-formats';
-import { formatPkr } from '@/lib/utils';
 import { AmbientPromo } from '@/components/ambient-gradient';
 import { MotionPress, MotionReveal } from '@/components/motion/motion-reveal';
 import { Badge } from '@/components/ui/badge';
@@ -41,13 +29,6 @@ import { Label } from '@/components/ui/label';
 
 const SKILLS: SkillLevel[] = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'PRO'];
 
-function defaultLocalDateTime(hoursAhead = 24): string {
-  const d = new Date(Date.now() + hoursAhead * 60 * 60 * 1000);
-  d.setMinutes(0, 0, 0);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 export default function PlayPage() {
   const router = useRouter();
   const search = useSearchParams();
@@ -55,7 +36,6 @@ export default function PlayPage() {
   const [profile, setProfile] = useState<PlayerProfileDto | null>(null);
   const [matches, setMatches] = useState<OpenMatchDto[]>([]);
   const [sports, setSports] = useState<SportDto[]>([]);
-  const [venues, setVenues] = useState<VenueListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -70,33 +50,20 @@ export default function PlayPage() {
   const [format, setFormat] = useState<MatchFormat>('DOUBLES');
   const [createSportId, setCreateSportId] = useState('');
   const [city, setCity] = useState('Lahore');
-  const [branchId, setBranchId] = useState('');
-  const [scheduledLocal, setScheduledLocal] = useState(defaultLocalDateTime());
-  const [skillMin, setSkillMin] = useState<SkillLevel>('BEGINNER');
-  const [skillMax, setSkillMax] = useState<SkillLevel>('PRO');
-  const [genderPreference, setGenderPreference] = useState<MatchGenderPreference>('ANY');
-  const [pricePerPlayer, setPricePerPlayer] = useState('500');
-  const [notes, setNotes] = useState('');
 
   const selectedSport = sports.find((s) => s.id === createSportId);
   const formatOptions = formatOptionsForSport(selectedSport?.name);
 
   const load = useCallback(async () => {
     try {
-      const [p, m, s, venueList] = await Promise.all([
+      const [p, m, s] = await Promise.all([
         api<PlayerProfileDto>('/api/social/profile/me'),
         api<OpenMatchDto[]>('/api/social/matches?city=Lahore'),
         api<SportDto[]>('/api/sports'),
-        fetchVenuesCatalog({ city: 'Lahore', sport: '', minPrice: '', maxPrice: '', minRating: '' }),
       ]);
       setProfile(p.data);
-      setMatches(m.data.filter(isUpcomingOpenMatch));
+      setMatches(m.data);
       setSports(s.data);
-      setVenues(venueList);
-      setBranchId((prev) => prev || venueList[0]?.id || '');
-      if (p.data.skillLevel) {
-        setSkillMin((prev) => (prev === 'BEGINNER' ? p.data.skillLevel : prev));
-      }
       if (s.data[0]) {
         const padel = s.data.find((x) => x.name.toLowerCase() === 'padel') ?? s.data[0];
         setCreateSportId((prev) => prev || padel.id);
@@ -146,7 +113,6 @@ export default function PlayPage() {
     setBusy(true);
     setError(null);
     try {
-      const selectedVenue = venues.find((v) => v.id === branchId);
       const { data } = await api<OpenMatchDto>('/api/social/matches', {
         method: 'POST',
         body: JSON.stringify({
@@ -155,14 +121,9 @@ export default function PlayPage() {
           visibility,
           matchType,
           format,
-          city: selectedVenue?.city || city,
-          branchId: branchId || undefined,
-          scheduledAt: toIsoFromLocalInput(scheduledLocal),
-          skillMin,
-          skillMax,
-          genderPreference,
-          pricePerPlayer: Number(pricePerPlayer) || 0,
-          notes: notes.trim() || undefined,
+          city,
+          skillMin: profile?.skillLevel ?? 'BEGINNER',
+          skillMax: 'PRO',
         }),
       });
       router.push(`/play/${data.id}`);
@@ -337,11 +298,15 @@ export default function PlayPage() {
           <div className="space-y-3">
             {matches.map((m, index) => {
               const spotsLeft = Math.max(0, m.maxPlayers - m.joinedCount);
-              const when = formatMatchWhen(m.scheduledAt);
-              const price =
-                m.pricePerPlayer != null && m.pricePerPlayer > 0
-                  ? formatPkr(m.pricePerPlayer)
-                  : 'Free';
+              const when = m.scheduledAt
+                ? new Date(m.scheduledAt).toLocaleString(undefined, {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : 'Flexible time';
               return (
                 <MotionReveal key={m.id} index={index}>
                   <MotionPress>
@@ -369,22 +334,15 @@ export default function PlayPage() {
                           <Badge variant="secondary" className="text-[10px]">
                             {formatLabel(m.format)}
                           </Badge>
-                          <Badge variant="secondary" className="text-[10px]">
-                            {genderLabel(m.genderPreference)}
-                          </Badge>
                         </div>
                         <p className="font-bold text-navy">
                           {m.sport.name} · {formatLabel(m.format)}
                         </p>
                         <p className="line-clamp-1 text-xs text-muted-foreground">{m.title}</p>
-                        <p className="text-[11px] font-medium text-navy/80">
-                          Host {m.host.name}
-                          {m.host.phone ? ` · ${m.host.phone}` : ''}
-                        </p>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
                             <MapPin className="h-3 w-3 text-brand" />
-                            {matchVenueLine(m)}
+                            {m.city ?? 'Any city'}
                           </span>
                           <span className="inline-flex items-center gap-1">
                             <Calendar className="h-3 w-3 text-brand" />
@@ -392,11 +350,7 @@ export default function PlayPage() {
                           </span>
                           <span className="inline-flex items-center gap-1">
                             <Users className="h-3 w-3 text-brand" />
-                            {skillBandLabel(m.skillMin, m.skillMax)} · {spotsLeft} spots
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <Wallet className="h-3 w-3 text-brand" />
-                            {price}
+                            {spotsLeft} spots left
                           </span>
                         </div>
                       </div>
@@ -474,87 +428,12 @@ export default function PlayPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Venue</Label>
-              <select
-                className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm"
-                value={branchId}
-                onChange={(e) => {
-                  setBranchId(e.target.value);
-                  const venue = venues.find((v) => v.id === e.target.value);
-                  if (venue) setCity(venue.city);
-                }}
-                required
-              >
-                {venues.length === 0 ? (
-                  <option value="">Loading venues…</option>
-                ) : (
-                  venues.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} · {v.city}
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Date & time</Label>
+              <Label>City</Label>
               <Input
-                type="datetime-local"
-                value={scheduledLocal}
-                onChange={(e) => setScheduledLocal(e.target.value)}
-                required
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
                 className="h-11 rounded-xl"
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Price per player (PKR)</Label>
-              <Input
-                inputMode="numeric"
-                value={pricePerPlayer}
-                onChange={(e) => setPricePerPlayer(e.target.value)}
-                className="h-11 rounded-xl"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Gender</Label>
-              <select
-                className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm"
-                value={genderPreference}
-                onChange={(e) => setGenderPreference(e.target.value as MatchGenderPreference)}
-              >
-                <option value="ANY">Anyone</option>
-                <option value="MEN">Men&apos;s</option>
-                <option value="WOMEN">Women&apos;s</option>
-                <option value="MIXED">Mixed</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Skill min</Label>
-              <select
-                className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm"
-                value={skillMin}
-                onChange={(e) => setSkillMin(e.target.value as SkillLevel)}
-              >
-                {SKILLS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Skill max</Label>
-              <select
-                className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm"
-                value={skillMax}
-                onChange={(e) => setSkillMax(e.target.value as SkillLevel)}
-              >
-                {SKILLS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
             </div>
             <div className="space-y-2">
               <Label>Visibility</Label>
@@ -575,7 +454,7 @@ export default function PlayPage() {
                 onChange={(e) => setMatchType(e.target.value as 'FRIENDLY' | 'COMPETITIVE')}
               >
                 <option value="FRIENDLY">Friendly</option>
-                <option value="COMPETITIVE">Competitive (challenge)</option>
+                <option value="COMPETITIVE">Competitive</option>
               </select>
             </div>
             <div className="space-y-2 sm:col-span-2">
@@ -597,17 +476,8 @@ export default function PlayPage() {
                   : 'Singles or doubles for racket sports.'}
               </p>
             </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Notes (optional)</Label>
-              <Input
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Court number, bring balls, contact notes…"
-                className="h-11 rounded-xl"
-              />
-            </div>
             <div className="sm:col-span-2">
-              <Button type="submit" disabled={busy || !branchId} className="h-11 rounded-xl bg-navy hover:bg-brand">
+              <Button type="submit" disabled={busy} className="h-11 rounded-xl bg-navy hover:bg-brand">
                 {busy ? 'Creating…' : 'Create open match'}
               </Button>
             </div>

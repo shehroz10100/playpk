@@ -73,12 +73,7 @@ type SbBranch = {
   longitude: number | null;
   operatingHoursStart?: string;
   operatingHoursEnd?: string;
-  Company: {
-    id: string;
-    name: string;
-    logoUrl: string | null;
-    description?: string | null;
-  };
+  Company: { id: string; name: string; logoUrl: string | null };
   Court: Array<{
     id?: string;
     name?: string;
@@ -137,7 +132,7 @@ export type CatalogVenueDetail = {
   avgRating?: number | null;
   photos?: string[];
   sports?: Array<{ id?: string; name: string; iconUrl?: string | null }>;
-  company: { name: string; description?: string | null };
+  company: { name: string };
   courts: Array<{
     id: string;
     name: string;
@@ -145,7 +140,7 @@ export type CatalogVenueDetail = {
     indoor: boolean;
     hasAC: boolean;
     photos?: string[];
-    sport: { id?: string; name: string; iconUrl?: string | null };
+    sport: { name: string; iconUrl?: string | null };
   }>;
 };
 
@@ -159,7 +154,7 @@ export async function fetchVenueDetail(branchId: string): Promise<CatalogVenueDe
   const { data, error } = await supabase
     .from('Branch')
     .select(
-      'id, name, city, address, latitude, longitude, operatingHoursStart, operatingHoursEnd, approvalStatus, Company!inner(id, name, logoUrl, description, approvalStatus), Court(id, name, capacity, pricePerHour, indoor, hasAC, photos, Sport(id, name, iconUrl))',
+      'id, name, city, address, latitude, longitude, operatingHoursStart, operatingHoursEnd, approvalStatus, Company!inner(id, name, logoUrl, approvalStatus), Court(id, name, capacity, pricePerHour, indoor, hasAC, photos, Sport(id, name, iconUrl))',
     )
     .eq('id', branchId)
     .eq('approvalStatus', 'APPROVED')
@@ -177,8 +172,7 @@ export async function fetchVenueDetail(branchId: string): Promise<CatalogVenueDe
       pricePerHour: Number(c.pricePerHour),
       indoor: Boolean(c.indoor),
       hasAC: Boolean(c.hasAC),
-      photos: c.photos ?? undefined,
-      sport: { id: c.Sport.id, name: c.Sport.name, iconUrl: c.Sport.iconUrl },
+      sport: { name: c.Sport.name },
     }));
 
   return {
@@ -190,13 +184,7 @@ export async function fetchVenueDetail(branchId: string): Promise<CatalogVenueDe
     longitude: branch.longitude ?? null,
     operatingHoursStart: branch.operatingHoursStart ?? '06:00',
     operatingHoursEnd: branch.operatingHoursEnd ?? '23:00',
-    company: {
-      name: branch.Company.name,
-      description: branch.Company.description ?? null,
-    },
-    sports: [
-      ...new Map(courts.map((c) => [c.sport.id ?? c.sport.name, c.sport])).values(),
-    ],
+    company: { name: branch.Company.name },
     courts,
   };
 }

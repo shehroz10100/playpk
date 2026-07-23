@@ -19,13 +19,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api } from '@/lib/api';
-import {
-  formatMatchWhen,
-  genderLabel,
-  isUpcomingOpenMatch,
-  matchVenueLine,
-  skillBandLabel,
-} from '@/lib/match-details';
 import { formatLabel } from '@/lib/match-formats';
 import { formatPkr, cn } from '@/lib/utils';
 import { HERO_CLIP } from '@/lib/media-assets';
@@ -35,7 +28,6 @@ import { CountUp } from '@/components/motion/count-up';
 import { MotionPress, MotionReveal } from '@/components/motion/motion-reveal';
 import { StadiumSkeleton } from '@/components/motion/stadium-skeleton';
 import { PlayerEmptyState } from '@/components/player-empty-state';
-import { Badge } from '@/components/ui/badge';
 import { VenueCard } from '@/components/venue-card';
 import {
   DEFAULT_VENUE_FILTERS,
@@ -72,7 +64,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
       .then(({ data }) => setTournaments(data.slice(0, 8)))
       .catch(() => setTournaments([]));
     api<OpenMatchDto[]>(`/api/social/matches?city=${encodeURIComponent(city)}`)
-      .then(({ data }) => setMatches(data.filter(isUpcomingOpenMatch).slice(0, 6)))
+      .then(({ data }) => setMatches(data.slice(0, 6)))
       .catch(() => setMatches([]));
   }, [applied.city]);
 
@@ -517,11 +509,15 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
           <div className="space-y-3">
             {matches.map((m, index) => {
               const spotsLeft = Math.max(0, m.maxPlayers - m.joinedCount);
-              const when = formatMatchWhen(m.scheduledAt);
-              const price =
-                m.pricePerPlayer != null && m.pricePerPlayer > 0
-                  ? formatPkr(m.pricePerPlayer)
-                  : 'Free';
+              const when = m.scheduledAt
+                ? new Date(m.scheduledAt).toLocaleString(undefined, {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : 'Flexible time';
               return (
                 <MotionReveal key={m.id} index={index}>
                   <MotionPress>
@@ -539,26 +535,17 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                         />
                       </div>
                       <div className="flex flex-1 flex-col justify-center gap-1 px-3 py-3 sm:pr-2">
-                        <div className="flex flex-wrap gap-1">
-                          <span className="w-fit rounded-md bg-brand/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
-                            {m.matchType === 'COMPETITIVE' ? 'Challenge' : 'Open Match'}
-                          </span>
-                          <Badge variant="secondary" className="text-[10px]">
-                            {genderLabel(m.genderPreference)}
-                          </Badge>
-                        </div>
+                        <span className="w-fit rounded-md bg-brand/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
+                          Open Match
+                        </span>
                         <p className="font-bold text-navy">
                           {m.sport.name} · {formatLabel(m.format)}
                         </p>
                         <p className="line-clamp-1 text-xs text-muted-foreground">{m.title}</p>
-                        <p className="text-[11px] font-medium text-navy/80">
-                          Host {m.host.name}
-                          {m.host.phone ? ` · ${m.host.phone}` : ''}
-                        </p>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
                             <MapPin className="h-3 w-3 text-brand" />
-                            {matchVenueLine(m)}
+                            {m.city ?? applied.city}
                           </span>
                           <span className="inline-flex items-center gap-1">
                             <Calendar className="h-3 w-3 text-brand" />
@@ -566,9 +553,8 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                           </span>
                           <span className="inline-flex items-center gap-1">
                             <Users className="h-3 w-3 text-brand" />
-                            {skillBandLabel(m.skillMin, m.skillMax)} · {spotsLeft} spots
+                            {spotsLeft} spots left
                           </span>
-                          <span className="font-semibold text-navy">{price}</span>
                         </div>
                       </div>
                       <div className="flex flex-col items-end justify-center gap-2 px-3 py-3">
@@ -576,7 +562,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                           {m.joinedCount}/{m.maxPlayers}
                         </span>
                         <span className="inline-flex h-9 items-center rounded-xl bg-brand px-3 text-xs font-bold text-white">
-                          View & join
+                          Join
                         </span>
                       </div>
                     </Link>

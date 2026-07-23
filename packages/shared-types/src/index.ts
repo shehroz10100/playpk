@@ -159,36 +159,36 @@ export const FEATURED_SPORT_ORDER = [
 
 export type FeaturedSportName = (typeof FEATURED_SPORT_ORDER)[number];
 
-/** Cover images for sport cards & venue heroes — landscape, mobile-optimized (1080×608). */
+/** Cover images for sport filter cards (visually verified Unsplash URLs). */
 export const SPORT_COVER_IMAGES: Record<string, string> = {
   Cricket:
-    'https://images.unsplash.com/photo-1540747916307-1bbbedbf8134?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=480&h=720&q=80',
   Padel:
-    'https://images.unsplash.com/photo-1767128890576-ecc5c643f9c4?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1767128890576-ecc5c643f9c4?auto=format&fit=crop&w=480&h=720&q=80',
   Futsal:
-    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=480&h=720&q=80',
   Badminton:
-    'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=480&h=720&q=80',
   Snooker:
-    'https://images.unsplash.com/photo-1707916041849-927236f6b4c8?auto=format&fit=crop&w=1080&h=608&q=85',
-  Gym: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1080&h=608&q=85',
-  All: 'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1707916041849-927236f6b4c8?auto=format&fit=crop&w=480&h=720&q=80',
+  Gym: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=480&h=720&q=80',
+  All: 'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?auto=format&fit=crop&w=480&h=720&q=80',
   Pickleball:
-    'https://images.unsplash.com/photo-1693142518820-78d7a05f1546?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1693142518820-78d7a05f1546?auto=format&fit=crop&w=480&h=720&q=80',
   Tennis:
-    'https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=480&h=720&q=80',
   Squash:
-    'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1740813416102-5d42f408bc85?auto=format&fit=crop&w=480&h=720&q=80',
   Basketball:
-    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=480&h=720&q=80',
   Volleyball:
-    'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?auto=format&fit=crop&w=480&h=720&q=80',
   'Table Tennis':
-    'https://images.unsplash.com/photo-1534158914592-062992fbe900?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1534158914592-062992fbe900?auto=format&fit=crop&w=480&h=720&q=80',
   Swimming:
-    'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=480&h=720&q=80',
   Bowling:
-    'https://images.unsplash.com/photo-1538511059256-46e76f13f071?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1538511059256-46e76f13f071?auto=format&fit=crop&w=480&h=720&q=80',
 };
 
 /** Aliases → canonical sport names used in SPORT_COVER_IMAGES. */
@@ -687,7 +687,6 @@ export type MatchFormat =
   | 'TEN_A_SIDE'
   | 'FOURTEEN_A_SIDE';
 export type OpenMatchStatus = 'OPEN' | 'FULL' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-export type MatchGenderPreference = 'MEN' | 'WOMEN' | 'MIXED' | 'ANY';
 
 export interface PlayerProfileDto {
   userId: string;
@@ -712,7 +711,6 @@ export interface OpenMatchPlayerDto {
   id: string;
   userId: string;
   name: string;
-  phone: string | null;
   skillLevel: SkillLevel | null;
   status: string;
   side: string | null;
@@ -727,23 +725,14 @@ export interface OpenMatchDto {
   format: MatchFormat;
   skillMin: SkillLevel;
   skillMax: SkillLevel;
-  genderPreference: MatchGenderPreference;
-  pricePerPlayer: number | null;
   status: OpenMatchStatus;
   maxPlayers: number;
   joinedCount: number;
   scheduledAt: string | Date | null;
   city: string | null;
   sport: SportDto;
-  host: { id: string; name: string; phone: string | null; email: string | null };
-  branch: {
-    id: string;
-    name: string;
-    city: string;
-    address: string;
-    latitude?: number | null;
-    longitude?: number | null;
-  } | null;
+  host: { id: string; name: string };
+  branch: { id: string; name: string; city: string } | null;
   players: OpenMatchPlayerDto[];
   result: {
     homeScore: number;

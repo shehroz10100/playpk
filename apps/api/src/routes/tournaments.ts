@@ -162,28 +162,6 @@ tournamentsRouter.patch(
 );
 
 tournamentsRouter.post(
-  '/:tournamentId/cancel',
-  authenticate,
-  requireRoles(
-    UserRole.PLAYER,
-    UserRole.COMPANY_OWNER,
-    UserRole.BRANCH_MANAGER,
-    UserRole.ADMIN,
-  ),
-  async (req, res, next) => {
-    try {
-      const data = await tournamentService.cancelTournament(param(req, 'tournamentId'), {
-        id: req.user!.id,
-        role: req.user!.role,
-      });
-      sendSuccess(res, data);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-tournamentsRouter.post(
   '/:tournamentId/register',
   authenticate,
   validate(

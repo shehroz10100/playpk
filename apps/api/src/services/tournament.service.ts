@@ -3,12 +3,10 @@ import {
   PaymentStatus,
   TournamentFormat,
   TournamentStatus,
-  UserRole,
   type Prisma,
 } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
-import { assertCanManageBranch } from './access.service';
 import { getPaymentProvider } from './payments/MockPaymentProvider';
 
 function parseDate(value: string): Date {
@@ -208,31 +206,6 @@ export async function updateTournament(
     throw new AppError('Tournament not found', { statusCode: 404, code: 'NOT_FOUND' });
   }
 
-  if (input.status === TournamentStatus.CANCELLED) {
-    if (existing.status === TournamentStatus.COMPLETED) {
-      throw new AppError('Completed tournaments cannot be cancelled', {
-        statusCode: 409,
-        code: 'TOURNAMENT_COMPLETED',
-      });
-    }
-    if (existing.status === TournamentStatus.CANCELLED) {
-      const current = await prisma.tournament.findUnique({
-        where: { id: tournamentId },
-        include: {
-          sport: true,
-          branch: { select: { id: true, name: true, city: true } },
-          host: { select: { id: true, name: true } },
-          _count: { select: { registrations: true, matches: true } },
-        },
-      });
-      return serializeTournament(current!);
-    }
-    await prisma.tournamentMatch.updateMany({
-      where: { tournamentId, status: MatchStatus.SCHEDULED },
-      data: { status: MatchStatus.CANCELLED },
-    });
-  }
-
   const updated = await prisma.tournament.update({
     where: { id: tournamentId },
     data: {
@@ -248,7 +221,6 @@ export async function updateTournament(
     include: {
       sport: true,
       branch: { select: { id: true, name: true, city: true } },
-      host: { select: { id: true, name: true } },
       _count: { select: { registrations: true, matches: true } },
     },
   });
@@ -259,70 +231,6 @@ export async function updateTournament(
     const { enqueueJob } = await import('../lib/jobs');
     enqueueJob('NOTIFY_TOURNAMENT_LISTED', { tournamentId: updated.id });
   }
-
-  return serializeTournament(updated);
-}
-
-/**
- * Soft-cancel a tournament (status → CANCELLED).
- * Allowed for branch managers/owners/admins, or the player who hosted a community event.
- * Completed tournaments cannot be cancelled.
- */
-export async function cancelTournament(tournamentId: string, actor: { id: string; role: UserRole }) {
-  const existing = await prisma.tournament.findUnique({
-    where: { id: tournamentId },
-    include: { branch: { select: { id: true, companyId: true, managerId: true } } },
-  });
-  if (!existing) {
-    throw new AppError('Tournament not found', { statusCode: 404, code: 'NOT_FOUND' });
-  }
-  if (existing.status === TournamentStatus.CANCELLED) {
-    throw new AppError('Tournament already cancelled', {
-      statusCode: 409,
-      code: 'ALREADY_CANCELLED',
-    });
-  }
-  if (existing.status === TournamentStatus.COMPLETED) {
-    throw new AppError('Completed tournaments cannot be cancelled', {
-      statusCode: 409,
-      code: 'TOURNAMENT_COMPLETED',
-    });
-  }
-
-  const isCompanyStaff =
-    actor.role === UserRole.ADMIN ||
-    actor.role === UserRole.COMPANY_OWNER ||
-    actor.role === UserRole.BRANCH_MANAGER;
-  const isHost = existing.hostUserId != null && existing.hostUserId === actor.id;
-
-  if (!isCompanyStaff && !isHost) {
-    throw new AppError('Only the host or venue staff can cancel this tournament', {
-      statusCode: 403,
-      code: 'FORBIDDEN',
-    });
-  }
-  if (isCompanyStaff && actor.role !== UserRole.ADMIN) {
-    await assertCanManageBranch(actor as never, existing.branchId);
-  }
-
-  await prisma.tournamentMatch.updateMany({
-    where: {
-      tournamentId,
-      status: MatchStatus.SCHEDULED,
-    },
-    data: { status: MatchStatus.CANCELLED },
-  });
-
-  const updated = await prisma.tournament.update({
-    where: { id: tournamentId },
-    data: { status: TournamentStatus.CANCELLED },
-    include: {
-      sport: true,
-      branch: { select: { id: true, name: true, city: true } },
-      host: { select: { id: true, name: true } },
-      _count: { select: { registrations: true, matches: true } },
-    },
-  });
 
   return serializeTournament(updated);
 }
@@ -361,9 +269,7 @@ export async function listTournaments(filter: {
     where: {
       ...(filter.branchId ? { branchId: filter.branchId } : {}),
       ...(filter.sportId ? { sportId: filter.sportId } : {}),
-      ...(filter.status
-        ? { status: filter.status }
-        : { status: { not: TournamentStatus.CANCELLED } }),
+      ...(filter.status ? { status: filter.status } : {}),
       ...(filter.city
         ? { branch: { city: { equals: filter.city, mode: 'insensitive' } } }
         : {}),
