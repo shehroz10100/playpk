@@ -164,7 +164,21 @@ export default function BranchHomePage() {
             {branch.address}, {branch.city}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setEditingLocation((v) => !v);
+              setLocationForm({
+                name: branch.name,
+                city: branch.city,
+                address: branch.address,
+              });
+            }}
+          >
+            {editingLocation ? 'Cancel' : 'Edit city & location'}
+          </Button>
           <Link
             href={`/companies/${branch.company.id}`}
             className="inline-flex h-9 items-center rounded-md border border-border bg-white px-3 text-sm text-navy hover:bg-muted"
@@ -175,6 +189,78 @@ export default function BranchHomePage() {
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      {editingLocation ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>City &amp; location</CardTitle>
+            <CardDescription>
+              Shown to customers on Discover and venue pages.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-4 md:grid-cols-2" onSubmit={onSaveLocation}>
+              <div className="space-y-2">
+                <Label htmlFor="branch-name">Branch name</Label>
+                <Input
+                  id="branch-name"
+                  required
+                  minLength={2}
+                  value={locationForm.name}
+                  onChange={(e) => setLocationForm((f) => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="branch-city">City</Label>
+                <select
+                  id="branch-city"
+                  required
+                  className="flex h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
+                  value={citySelectValue(locationForm.city)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setLocationForm((f) => ({
+                      ...f,
+                      city: next === 'Other' ? '' : next,
+                    }));
+                  }}
+                >
+                  {PAKISTAN_CITIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                {citySelectValue(locationForm.city) === 'Other' ? (
+                  <Input
+                    required
+                    minLength={2}
+                    value={locationForm.city}
+                    onChange={(e) => setLocationForm((f) => ({ ...f, city: e.target.value }))}
+                    placeholder="Enter city name"
+                  />
+                ) : null}
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="branch-address">Location / address</Label>
+                <Input
+                  id="branch-address"
+                  required
+                  minLength={5}
+                  value={locationForm.address}
+                  onChange={(e) => setLocationForm((f) => ({ ...f, address: e.target.value }))}
+                  placeholder="Street, area, landmark"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Button type="submit" disabled={savingLocation}>
+                  {savingLocation ? 'Saving…' : 'Save location'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
