@@ -43,7 +43,7 @@ export function HoverLoopMedia({
         fill
         sizes={sizes}
         priority={priority}
-        quality={85}
+        quality={90}
         className={cn('object-cover object-center', ambient ? 'opacity-90' : 'opacity-100')}
         onError={() => {
           if (src !== DEFAULT_SPORT_COVER) setSrc(DEFAULT_SPORT_COVER);

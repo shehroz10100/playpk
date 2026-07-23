@@ -36,7 +36,7 @@ export function resolveSportClip(sportName: string, posterFallback?: string): Me
   const key = Object.keys(SPORT_CLIP_SRC).find(
     (k) => k.toLowerCase() === sportName.trim().toLowerCase(),
   );
-  const poster = posterFallback ?? resolveSportCover(sportName);
+  const poster = posterFallback ?? resolveSportCover(sportName, null, 'rail');
   if (key) {
     return { src: SPORT_CLIP_SRC[key], poster };
   }

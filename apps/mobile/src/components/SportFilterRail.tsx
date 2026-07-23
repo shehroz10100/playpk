@@ -75,7 +75,7 @@ export function SportFilterRail({
           ]}
         >
           <ImageBackground
-            source={{ uri: resolveSportCover('All') }}
+            source={{ uri: resolveSportCover('All', null, 'rail') }}
             style={[styles.chip, !selected && styles.chipActive]}
             imageStyle={styles.chipImage}
           >
@@ -108,7 +108,7 @@ export function SportFilterRail({
             ]}
           >
             <ImageBackground
-              source={{ uri: resolveSportCover(s.name, s.iconUrl) }}
+              source={{ uri: resolveSportCover(s.name, null, 'rail') }}
               style={[styles.chip, active && styles.chipActive]}
               imageStyle={styles.chipImage}
             >

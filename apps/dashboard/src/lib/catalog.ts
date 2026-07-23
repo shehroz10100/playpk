@@ -60,7 +60,7 @@ export async function fetchSportsCatalog(): Promise<SportDto[]> {
   return orderSportsForRail(rows).map((s) => ({
     id: s.id,
     name: s.name,
-    iconUrl: resolveSportCover(s.name, s.iconUrl),
+    iconUrl: resolveSportCover(s.name, null, 'rail'),
   }));
 }
 
@@ -99,7 +99,7 @@ function mapBranch(branch: SbBranch): VenueListItem {
   ].map((s) => ({
     id: s.id,
     name: s.name,
-    iconUrl: resolveSportCover(s.name, s.iconUrl),
+    iconUrl: resolveSportCover(s.name, null, 'card'),
   }));
   const photos = [...new Set(courts.flatMap((c) => c.photos ?? []))].slice(0, 6);
 

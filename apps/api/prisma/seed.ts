@@ -30,35 +30,35 @@ const SPORTS = [
   'Bowling',
 ] as const;
 
-/** Keep in sync with packages/shared-types SPORT_COVER_IMAGES (verified 200 OK). */
+/** Keep in sync with packages/shared-types SPORT_COVER_PHOTO_IDS (high-res landscape). */
 const SPORT_COVERS: Record<(typeof SPORTS)[number], string> = {
   Cricket:
-    'https://images.unsplash.com/photo-1594470117722-de4b9a02ebed?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1594470117722-de4b9a02ebed?auto=format&fit=crop&w=1600&h=900&q=90',
   Padel:
-    'https://images.unsplash.com/photo-1767128890576-ecc5c643f9c4?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1767128890576-ecc5c643f9c4?auto=format&fit=crop&w=1600&h=900&q=90',
   Futsal:
-    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1600&h=900&q=90',
   Badminton:
-    'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=1600&h=900&q=90',
   Snooker:
-    'https://images.unsplash.com/photo-1707916041849-927236f6b4c8?auto=format&fit=crop&w=1080&h=608&q=85',
-  Gym: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1707916041849-927236f6b4c8?auto=format&fit=crop&w=1600&h=900&q=90',
+  Gym: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1600&h=900&q=90',
   Pickleball:
-    'https://images.unsplash.com/photo-1693142518820-78d7a05f1546?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1693142518820-78d7a05f1546?auto=format&fit=crop&w=1600&h=900&q=90',
   Tennis:
-    'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1600&h=900&q=90',
   Squash:
-    'https://images.unsplash.com/photo-1740813416102-5d42f408bc85?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1740813416102-5d42f408bc85?auto=format&fit=crop&w=1600&h=900&q=90',
   Basketball:
-    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1600&h=900&q=90',
   Volleyball:
-    'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?auto=format&fit=crop&w=1600&h=900&q=90',
   'Table Tennis':
-    'https://images.unsplash.com/photo-1534158914592-062992fbe900?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1534158914592-062992fbe900?auto=format&fit=crop&w=1600&h=900&q=90',
   Swimming:
-    'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=1600&h=900&q=90',
   Bowling:
-    'https://images.unsplash.com/photo-1538511059256-46e76f13f071?auto=format&fit=crop&w=1080&h=608&q=85',
+    'https://images.unsplash.com/photo-1538511059256-46e76f13f071?auto=format&fit=crop&w=1600&h=900&q=90',
 };
 
 /** Build HH:mm strings for hourly slots between startHour (inclusive) and endHour (exclusive). */

@@ -24,7 +24,7 @@ sportsRouter.get('/', async (_req, res, next) => {
     const sports = await prisma.sport.findMany();
     const ordered = orderSportsForRail(sports).map((s) => ({
       ...s,
-      iconUrl: resolveSportCover(s.name, s.iconUrl),
+      iconUrl: resolveSportCover(s.name, null, 'rail'),
     }));
     const meta = { featured: [...FEATURED_SPORT_ORDER] };
     await cacheSet(SPORTS_CACHE_KEY, { data: ordered, meta }, SPORTS_TTL_SECONDS);

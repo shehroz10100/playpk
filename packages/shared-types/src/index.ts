@@ -159,39 +159,45 @@ export const FEATURED_SPORT_ORDER = [
 
 export type FeaturedSportName = (typeof FEATURED_SPORT_ORDER)[number];
 
-/** Cover images for sport cards & venue heroes — landscape, mobile-optimized (verified 200 OK). */
-export const SPORT_COVER_IMAGES: Record<string, string> = {
-  Cricket:
-    'https://images.unsplash.com/photo-1594470117722-de4b9a02ebed?auto=format&fit=crop&w=1080&h=608&q=85',
-  Padel:
-    'https://images.unsplash.com/photo-1767128890576-ecc5c643f9c4?auto=format&fit=crop&w=1080&h=608&q=85',
-  Futsal:
-    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1080&h=608&q=85',
-  Badminton:
-    'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=1080&h=608&q=85',
-  Snooker:
-    'https://images.unsplash.com/photo-1707916041849-927236f6b4c8?auto=format&fit=crop&w=1080&h=608&q=85',
-  Gym: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1080&h=608&q=85',
-  All: 'https://images.unsplash.com/photo-1459865264687-595d652de67e?auto=format&fit=crop&w=1080&h=608&q=85',
-  Pickleball:
-    'https://images.unsplash.com/photo-1693142518820-78d7a05f1546?auto=format&fit=crop&w=1080&h=608&q=85',
-  Tennis:
-    'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1080&h=608&q=85',
-  Squash:
-    'https://images.unsplash.com/photo-1740813416102-5d42f408bc85?auto=format&fit=crop&w=1080&h=608&q=85',
-  Basketball:
-    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1080&h=608&q=85',
-  Volleyball:
-    'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?auto=format&fit=crop&w=1080&h=608&q=85',
-  'Table Tennis':
-    'https://images.unsplash.com/photo-1534158914592-062992fbe900?auto=format&fit=crop&w=1080&h=608&q=85',
-  Swimming:
-    'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=1080&h=608&q=85',
-  Bowling:
-    'https://images.unsplash.com/photo-1538511059256-46e76f13f071?auto=format&fit=crop&w=1080&h=608&q=85',
+/** Unsplash photo ids (stable). URL size is chosen per use (rail vs hero). */
+const SPORT_COVER_PHOTO_IDS: Record<string, string> = {
+  Cricket: 'photo-1594470117722-de4b9a02ebed',
+  Padel: 'photo-1767128890576-ecc5c643f9c4',
+  Futsal: 'photo-1574629810360-7efbbe195018',
+  Badminton: 'photo-1626224583764-f87db24ac4ea',
+  Snooker: 'photo-1707916041849-927236f6b4c8',
+  Gym: 'photo-1517836357463-d25dfeac3438',
+  All: 'photo-1504450758481-7338eba7524a',
+  Pickleball: 'photo-1693142518820-78d7a05f1546',
+  Tennis: 'photo-1554068865-24cecd4e34b8',
+  Squash: 'photo-1740813416102-5d42f408bc85',
+  Basketball: 'photo-1546519638-68e109498ffc',
+  Volleyball: 'photo-1612872087720-bb876e2e67d1',
+  'Table Tennis': 'photo-1534158914592-062992fbe900',
+  Swimming: 'photo-1530549387789-4c1017266635',
+  Bowling: 'photo-1538511059256-46e76f13f071',
 };
 
-/** Aliases → canonical sport names used in SPORT_COVER_IMAGES. */
+export type SportCoverVariant = 'rail' | 'hero' | 'card';
+
+function unsplashCoverUrl(photoId: string, variant: SportCoverVariant): string {
+  // Rail chips are tall/portrait; heroes & venue cards are landscape.
+  // Request 2× display size so retina phones stay sharp.
+  const dims =
+    variant === 'rail'
+      ? 'w=800&h=1200&q=90'
+      : variant === 'card'
+        ? 'w=1200&h=800&q=90'
+        : 'w=1600&h=900&q=90';
+  return `https://images.unsplash.com/${photoId}?auto=format&fit=crop&${dims}`;
+}
+
+/** @deprecated Prefer resolveSportCover — kept for callers that read the map directly. */
+export const SPORT_COVER_IMAGES: Record<string, string> = Object.fromEntries(
+  Object.entries(SPORT_COVER_PHOTO_IDS).map(([name, id]) => [name, unsplashCoverUrl(id, 'hero')]),
+);
+
+/** Aliases → canonical sport names used in SPORT_COVER_PHOTO_IDS. */
 const SPORT_COVER_ALIASES: Record<string, string> = {
   football: 'Futsal',
   soccer: 'Futsal',
@@ -206,22 +212,32 @@ const SPORT_COVER_ALIASES: Record<string, string> = {
   'paddle tennis': 'Padel',
 };
 
-export const DEFAULT_SPORT_COVER = SPORT_COVER_IMAGES.All;
+export const DEFAULT_SPORT_COVER = unsplashCoverUrl(SPORT_COVER_PHOTO_IDS.All, 'hero');
 
-/** Prefer curated covers so stale DB iconUrls cannot break the rail. */
-export function resolveSportCover(name: string, iconUrl?: string | null): string {
+function canonicalSportCoverName(name: string): string | null {
   const raw = name.trim();
-  if (!raw) return DEFAULT_SPORT_COVER;
-
-  const exact = SPORT_COVER_IMAGES[raw];
-  if (exact) return exact;
-
+  if (!raw) return null;
+  if (SPORT_COVER_PHOTO_IDS[raw]) return raw;
   const lower = raw.toLowerCase();
   const aliased = SPORT_COVER_ALIASES[lower];
-  if (aliased && SPORT_COVER_IMAGES[aliased]) return SPORT_COVER_IMAGES[aliased];
+  if (aliased && SPORT_COVER_PHOTO_IDS[aliased]) return aliased;
+  const caseMatch = Object.keys(SPORT_COVER_PHOTO_IDS).find((k) => k.toLowerCase() === lower);
+  return caseMatch ?? null;
+}
 
-  const caseMatch = Object.keys(SPORT_COVER_IMAGES).find((k) => k.toLowerCase() === lower);
-  if (caseMatch) return SPORT_COVER_IMAGES[caseMatch];
+/**
+ * Prefer curated high-res covers so stale DB iconUrls cannot break the rail.
+ * Use variant `rail` for tall sport chips, `hero`/`card` for wide venue surfaces.
+ */
+export function resolveSportCover(
+  name: string,
+  iconUrl?: string | null,
+  variant: SportCoverVariant = 'hero',
+): string {
+  const canonical = canonicalSportCoverName(name);
+  if (canonical) {
+    return unsplashCoverUrl(SPORT_COVER_PHOTO_IDS[canonical], variant);
+  }
 
   // Only use remote CDN iconUrls — never local /uploads paths (often 404 in prod).
   if (
@@ -232,7 +248,7 @@ export function resolveSportCover(name: string, iconUrl?: string | null): string
   ) {
     return iconUrl;
   }
-  return DEFAULT_SPORT_COVER;
+  return unsplashCoverUrl(SPORT_COVER_PHOTO_IDS.All, variant);
 }
 
 /** Featured sports first (Cricket → Gym), then remaining A–Z. */

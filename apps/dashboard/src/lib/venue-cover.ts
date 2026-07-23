@@ -1,7 +1,5 @@
 import { resolveSportCover, DEFAULT_SPORT_COVER } from '@playpk/shared-types';
 
-const CITY_COVER = resolveSportCover('All');
-
 /** Seed/demo uploads and API /uploads paths often 404 on Vercel/Railway. */
 export function isUnusableMediaUrl(src: string): boolean {
   if (!src.trim()) return true;
@@ -39,7 +37,7 @@ export function resolveVenueCover(venue: {
     null;
 
   if (sportName) {
-    return resolveSportCover(sportName);
+    return resolveSportCover(sportName, null, 'card');
   }
 
   const photo = venue.photos
@@ -47,9 +45,9 @@ export function resolveVenueCover(venue: {
     .find((p): p is string => typeof p === 'string' && !isUnusableMediaUrl(p));
   if (photo) return photo;
 
-  return CITY_COVER || DEFAULT_SPORT_COVER;
+  return resolveSportCover('All', null, 'card') || DEFAULT_SPORT_COVER;
 }
 
-export const LOGIN_HERO_IMAGE = resolveSportCover('Tennis');
+export const LOGIN_HERO_IMAGE = resolveSportCover('Tennis', null, 'hero');
 
-export const DISCOVER_HERO_IMAGE = resolveSportCover('Futsal');
+export const DISCOVER_HERO_IMAGE = resolveSportCover('Futsal', null, 'hero');

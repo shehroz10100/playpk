@@ -30,6 +30,9 @@ const sizeMap = {
   lg: 'h-40 w-[5.5rem] sm:h-48 sm:w-28 md:h-52 md:w-32',
 };
 
+/** Ask Next/Image for ~2× chip width so retina stays sharp. */
+const RAIL_IMAGE_SIZES = '(max-width:640px) 160px, (max-width:1024px) 200px, 240px';
+
 export function SportFilterRail({
   sports,
   value,
@@ -62,7 +65,7 @@ export function SportFilterRail({
       {showAll ? (
         <SportChip
           label="All sports"
-          cover={resolveSportCover('All')}
+          cover={resolveSportCover('All', null, 'rail')}
           active={!value}
           onClick={() => onChange('')}
           chipClass={chipClass}
@@ -71,7 +74,8 @@ export function SportFilterRail({
 
       {items.map((sport) => {
         const active = isActive(sport);
-        const cover = resolveSportCover(sport.name, sport.iconUrl);
+        // Always curated rail covers — ignore stale DB iconUrls.
+        const cover = resolveSportCover(sport.name, null, 'rail');
         return (
           <SportChip
             key={sport.id}
@@ -124,7 +128,7 @@ function SportChip({
           clip={clip}
           ambient={active}
           hoverPlay={!active}
-          sizes="(max-width:640px) 72px, (max-width:1024px) 88px, 112px"
+          sizes={RAIL_IMAGE_SIZES}
           className="absolute inset-0"
         />
       ) : (
@@ -132,14 +136,15 @@ function SportChip({
           src={cover}
           alt=""
           fill
-          sizes="(max-width:640px) 72px, (max-width:1024px) 88px, 112px"
-          className="object-cover"
+          sizes={RAIL_IMAGE_SIZES}
+          quality={90}
+          className="object-cover object-center"
           loading="lazy"
         />
       )}
       <span
         className={cn(
-          'absolute inset-0 z-[1] bg-gradient-to-t from-navy/85 via-navy/35 to-navy/15',
+          'absolute inset-0 z-[1] bg-gradient-to-t from-navy/90 via-navy/40 to-navy/20',
           active && 'from-brand/90 via-brand/45 to-brand/20',
         )}
       />
