@@ -14,11 +14,11 @@ type Props = {
   children: ReactNode;
 };
 
-/** Hero stack: static poster image → light scrim → content (no video / no shader blotch). */
+/** Hero stack: sharp landscape poster → light scrim → content. */
 export function HeroMedia({
   clip,
   className,
-  minClassName = 'min-h-[200px] sm:min-h-[240px]',
+  minClassName = 'min-h-[160px] sm:min-h-[200px]',
   children,
 }: Props) {
   return (
@@ -29,10 +29,11 @@ export function HeroMedia({
           alt=""
           fill
           priority
-          sizes="100vw"
-          className="object-cover"
+          quality={85}
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 900px, 1200px"
+          className="object-cover object-center"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/45 to-navy/25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-navy/80 via-navy/35 to-navy/15" />
         <div className="relative z-10 flex h-full flex-col justify-end">{children}</div>
       </div>
     </div>

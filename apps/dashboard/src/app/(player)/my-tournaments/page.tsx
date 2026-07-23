@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { SportDto, TournamentDto, VenueListItem } from '@playpk/shared-types';
+import type { AuthUser, SportDto, TournamentDto, VenueListItem } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { fetchSportsCatalog, fetchVenuesCatalog } from '@/lib/catalog';
 import { formatPkr } from '@/lib/utils';
@@ -21,6 +21,7 @@ function todayPlus(days: number): string {
 
 export default function MyTournamentsPage() {
   const router = useRouter();
+  const [me, setMe] = useState<AuthUser | null>(null);
   const [mine, setMine] = useState<TournamentDto[]>([]);
   const [venues, setVenues] = useState<VenueListItem[]>([]);
   const [sports, setSports] = useState<SportDto[]>([]);
@@ -41,7 +42,7 @@ export default function MyTournamentsPage() {
   const load = useCallback(async () => {
     setError(null);
 
-    const [mineResult, venueList, sportList] = await Promise.all([
+    const [mineResult, venueList, sportList, profile] = await Promise.all([
       api<TournamentDto[]>('/api/tournaments/mine')
         .then((res) => ({ ok: true as const, data: res.data }))
         .catch((err) => ({
@@ -50,8 +51,12 @@ export default function MyTournamentsPage() {
         })),
       fetchVenuesCatalog({ city: 'Lahore', sport: '', minPrice: '', maxPrice: '', minRating: '' }),
       fetchSportsCatalog(),
+      api<AuthUser>('/api/auth/me')
+        .then((res) => res.data)
+        .catch(() => null),
     ]);
 
+    setMe(profile);
     setVenues(venueList);
     setSports(sportList);
     setBranchId((prev) => prev || venueList[0]?.id || '');
@@ -82,6 +87,28 @@ export default function MyTournamentsPage() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
   }, []);
+
+  async function cancelTournament(tournamentId: string, e: FormEvent | { preventDefault(): void; stopPropagation(): void }) {
+    e.preventDefault();
+    if ('stopPropagation' in e) e.stopPropagation();
+    if (
+      !window.confirm(
+        'Cancel this tournament? It will be removed from public listings and no one else can register.',
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/tournaments/${tournamentId}/cancel`, { method: 'POST' });
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not cancel tournament');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function createTournament(e: FormEvent) {
     e.preventDefault();
@@ -262,29 +289,50 @@ export default function MyTournamentsPage() {
           <p className="text-sm text-muted-foreground">You haven&apos;t created or joined a tournament yet.</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {mine.map((item) => (
-              <Link key={item.id} href={`/events/${item.id}`}>
-                <Card className="h-full rounded-2xl border-0 shadow-panel transition hover:-translate-y-0.5">
-                  <CardHeader className="pb-2">
-                    <div className="flex flex-wrap gap-1">
-                      <Badge variant="success">{item.status}</Badge>
-                      {item.isCommunity || item.hostUserId ? (
-                        <Badge variant="secondary">Community</Badge>
-                      ) : (
-                        <Badge variant="muted">Venue event</Badge>
-                      )}
-                    </div>
-                    <CardTitle className="text-base">{item.name}</CardTitle>
-                    <CardDescription>
-                      {item.sport?.name} · {item.branch?.name} · {item.format}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground">
-                    {formatPkr(item.entryFee)} entry · {item.registrationCount ?? 0} joined
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+            {mine.map((item) => {
+              const isHost = Boolean(me?.id && item.hostUserId === me.id);
+              const canCancel =
+                isHost && item.status !== 'CANCELLED' && item.status !== 'COMPLETED';
+              return (
+                <Link key={item.id} href={`/events/${item.id}`}>
+                  <Card className="h-full rounded-2xl border-0 shadow-panel transition hover:-translate-y-0.5">
+                    <CardHeader className="pb-2">
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant={item.status === 'CANCELLED' ? 'warn' : 'success'}>
+                          {item.status}
+                        </Badge>
+                        {item.isCommunity || item.hostUserId ? (
+                          <Badge variant="secondary">Community</Badge>
+                        ) : (
+                          <Badge variant="muted">Venue event</Badge>
+                        )}
+                      </div>
+                      <CardTitle className="text-base">{item.name}</CardTitle>
+                      <CardDescription>
+                        {item.sport?.name} · {item.branch?.name} · {item.format}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm text-muted-foreground">
+                      <p>
+                        {formatPkr(item.entryFee)} entry · {item.registrationCount ?? 0} joined
+                      </p>
+                      {canCancel ? (
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          className="rounded-xl"
+                          disabled={busy}
+                          onClick={(e) => cancelTournament(item.id, e)}
+                        >
+                          Cancel tournament
+                        </Button>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>

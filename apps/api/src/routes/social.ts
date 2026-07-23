@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   CasualMatchType,
   MatchFormat,
+  MatchGenderPreference,
   MatchVisibility,
   OpenMatchStatus,
   SkillLevel,
@@ -67,6 +68,7 @@ socialRouter.get('/matches', async (req, res, next) => {
         userId: req.user!.id,
         city: typeof req.query.city === 'string' ? req.query.city : undefined,
         sportId: typeof req.query.sportId === 'string' ? req.query.sportId : undefined,
+        branchId: typeof req.query.branchId === 'string' ? req.query.branchId : undefined,
         visibility:
           typeof req.query.visibility === 'string'
             ? (req.query.visibility as MatchVisibility)
@@ -99,6 +101,8 @@ socialRouter.post(
       format: z.nativeEnum(MatchFormat),
       skillMin: z.nativeEnum(SkillLevel).optional(),
       skillMax: z.nativeEnum(SkillLevel).optional(),
+      genderPreference: z.nativeEnum(MatchGenderPreference).optional(),
+      pricePerPlayer: z.number().min(0).nullable().optional(),
       notes: z.string().max(500).optional(),
       city: z.string().optional(),
       branchId: z.string().optional(),
