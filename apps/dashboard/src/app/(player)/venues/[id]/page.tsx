@@ -119,7 +119,7 @@ export default function VenueDetailPage() {
             {firstCourt ? (
               <div className="flex flex-wrap items-center gap-3">
                 <Button
-                  className="h-11 rounded-xl bg-accent font-bold text-accent-foreground hover:bg-accent-soft"
+                  className="h-11 rounded-xl bg-brand font-bold text-white hover:bg-brand-600"
                   onClick={() => {
                     document.getElementById('venue-courts')?.scrollIntoView({
                       behavior: 'smooth',
@@ -269,7 +269,7 @@ export default function VenueDetailPage() {
                           </span>
                         ) : null}
                       </div>
-                      <span className="rounded-xl bg-accent px-3 py-2 text-xs font-bold text-navy transition group-hover:bg-accent-soft">
+                      <span className="rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white transition group-hover:bg-brand-600">
                         Book slots
                       </span>
                     </div>
@@ -288,10 +288,10 @@ export default function VenueDetailPage() {
 
       {/* Mobile sticky CTA */}
       {firstCourt ? (
-        <div className="fixed inset-x-0 bottom-[4.75rem] z-40 border-t border-border bg-white/95 p-3 shadow-[0_-8px_24px_rgba(11,31,58,0.08)] backdrop-blur sm:hidden">
+        <div className="fixed inset-x-0 bottom-[5.25rem] z-40 border-t border-border bg-white/95 p-3 shadow-[0_-8px_24px_rgba(11,31,58,0.08)] backdrop-blur sm:hidden">
           <Link
             href={`/courts/${firstCourt.id}`}
-            className="flex h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-accent text-sm font-bold text-navy"
+            className="flex h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-brand text-sm font-bold text-white transition hover:bg-brand-600"
           >
             Book from {minPrice != null ? formatPkr(minPrice) : '…'}/hr
           </Link>

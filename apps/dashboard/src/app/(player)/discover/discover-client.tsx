@@ -22,11 +22,12 @@ import { api } from '@/lib/api';
 import { formatLabel } from '@/lib/match-formats';
 import { formatPkr, cn } from '@/lib/utils';
 import { HERO_CLIP } from '@/lib/media-assets';
-import { AmbientPromo, AmbientSkeleton } from '@/components/ambient-gradient';
+import { AmbientPromo } from '@/components/ambient-gradient';
 import { HeroMedia } from '@/components/media/hero-media';
 import { CountUp } from '@/components/motion/count-up';
 import { MotionPress, MotionReveal } from '@/components/motion/motion-reveal';
 import { StadiumSkeleton } from '@/components/motion/stadium-skeleton';
+import { PlayerEmptyState } from '@/components/player-empty-state';
 import { VenueCard } from '@/components/venue-card';
 import {
   DEFAULT_VENUE_FILTERS,
@@ -143,7 +144,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
               </div>
               <Button
                 type="submit"
-                className="h-12 shrink-0 rounded-xl bg-accent px-6 font-bold text-accent-foreground hover:bg-accent-soft"
+                className="h-12 shrink-0 rounded-xl bg-brand px-6 font-bold text-white hover:bg-brand-600"
               >
                 Find courts
               </Button>
@@ -275,7 +276,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
             <Button
               onClick={applyFilters}
               disabled={isFetching}
-              className="rounded-xl bg-accent font-bold text-accent-foreground hover:bg-accent-soft"
+              className="rounded-xl bg-brand font-bold text-white hover:bg-brand-600"
             >
               {isFetching ? 'Loading…' : 'Apply filters'}
             </Button>
@@ -361,13 +362,21 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
             : null}
           {venues.map((venue, index) => (
             <div key={venue.id} className="w-[82%] max-w-[300px] shrink-0 snap-start">
-              <VenueCard venue={venue} index={index} />
+              <VenueCard venue={venue} index={index} compact />
             </div>
           ))}
           {!isFetching && venues.length === 0 ? (
-            <AmbientSkeleton className="min-w-[82%] max-w-[300px] shrink-0 snap-start p-4">
-              <p className="text-sm text-white/80">No venues for these filters.</p>
-            </AmbientSkeleton>
+            <div className="min-w-[82%] max-w-[300px] shrink-0 snap-start">
+              <PlayerEmptyState
+                title="No venues found"
+                description="Try another city or clear sport filters."
+                actionLabel="Clear filters"
+                onAction={() => {
+                  setDraft(DEFAULT_VENUE_FILTERS);
+                  setApplied(DEFAULT_VENUE_FILTERS);
+                }}
+              />
+            </div>
           ) : null}
         </div>
 
@@ -380,9 +389,17 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
             <VenueCard key={venue.id} venue={venue} index={index} />
           ))}
           {!isFetching && venues.length === 0 ? (
-            <AmbientSkeleton className="p-6 md:col-span-2 lg:col-span-3">
-              <p className="text-sm text-white/80">No venues for these filters. Try another city or sport.</p>
-            </AmbientSkeleton>
+            <div className="md:col-span-2 lg:col-span-3">
+              <PlayerEmptyState
+                title="No venues for these filters"
+                description="Try another city or sport, or clear filters to browse all venues."
+                actionLabel="Clear filters"
+                onAction={() => {
+                  setDraft(DEFAULT_VENUE_FILTERS);
+                  setApplied(DEFAULT_VENUE_FILTERS);
+                }}
+              />
+            </div>
           ) : null}
         </div>
       </section>
@@ -411,10 +428,10 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
           <MotionPress>
             <Link href="/play" className={CATEGORY_CARD}>
               <span
-                className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-accent/35 blur-2xl"
+                className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-brand/35 blur-2xl"
                 aria-hidden
               />
-              <span className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-navy shadow-md sm:h-16 sm:w-16">
+              <span className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-white shadow-md sm:h-16 sm:w-16">
                 <Swords className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={1.75} />
               </span>
               <span className="relative text-center font-display text-sm font-bold uppercase tracking-tight text-white sm:text-base">
@@ -432,7 +449,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
       <AmbientPromo className="animate-rise px-4 py-4 sm:px-5 sm:py-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#C8FF3D]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-100">
               Open matches
             </p>
             <p className="mt-1 font-display text-lg font-bold uppercase tracking-tight text-white sm:text-xl">
@@ -442,7 +459,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
           </div>
           <Link
             href="/play"
-            className="inline-flex h-10 w-fit cursor-pointer items-center justify-center rounded-xl bg-white px-4 text-sm font-bold text-navy transition hover:bg-brand hover:text-white"
+            className="inline-flex h-10 w-fit cursor-pointer items-center justify-center rounded-xl bg-brand px-4 text-sm font-bold text-white transition hover:bg-brand-600"
           >
             Browse matches
           </Link>
@@ -481,18 +498,13 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
           </Link>
         </div>
         {matches.length === 0 ? (
-          <Link
-            href="/play?create=1"
-            className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-panel"
-          >
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand/10 text-brand">
-              <Swords className="h-6 w-6" />
-            </span>
-            <span>
-              <span className="block font-semibold text-navy">No matches yet</span>
-              <span className="text-sm text-muted-foreground">Create an open match to get started</span>
-            </span>
-          </Link>
+          <PlayerEmptyState
+            icon={Swords}
+            title="No matches yet"
+            description="Create an open match to find players near you."
+            actionHref="/play?create=1"
+            actionLabel="Create match"
+          />
         ) : (
           <div className="space-y-3">
             {matches.map((m, index) => {
@@ -549,7 +561,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                         <span className="text-xs font-bold text-navy">
                           {m.joinedCount}/{m.maxPlayers}
                         </span>
-                        <span className="inline-flex h-9 items-center rounded-xl bg-accent px-3 text-xs font-bold text-navy">
+                        <span className="inline-flex h-9 items-center rounded-xl bg-brand px-3 text-xs font-bold text-white">
                           Join
                         </span>
                       </div>
@@ -602,7 +614,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                       </p>
                       <div className="flex items-center justify-between pt-1">
                         <span className="text-xs font-bold text-navy">{formatPkr(t.entryFee)}</span>
-                        <span className="rounded-lg bg-accent px-2.5 py-1 text-[10px] font-bold text-navy">
+                        <span className="rounded-lg bg-brand px-2.5 py-1 text-[10px] font-bold text-white">
                           Join
                         </span>
                       </div>

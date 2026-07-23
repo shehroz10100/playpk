@@ -83,21 +83,29 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const hideFab =
+    pathname.startsWith('/courts') ||
+    pathname.startsWith('/book') ||
+    pathname.startsWith('/venues/');
+
   return (
-    <div className="min-h-screen pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen pb-[calc(5.25rem+env(safe-area-inset-bottom))]">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-navy/95 text-white backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link href="/discover" className="font-display text-xl font-extrabold tracking-tight">
+          <Link
+            href="/discover"
+            className="font-display text-xl font-extrabold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+          >
             Play<span className="text-brand">PK</span>
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="hidden text-right text-xs sm:block">
               <div className="font-semibold text-white">{user?.name ?? 'Player'}</div>
-              <div className="truncate text-white/55">{user?.email}</div>
+              <div className="truncate text-white/70">{user?.email}</div>
             </div>
             <button
               type="button"
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-semibold text-white transition hover:bg-white/10"
+              className="inline-flex h-10 min-w-10 cursor-pointer items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
               onClick={() => {
                 clearSession();
                 router.replace('/login');
@@ -119,10 +127,10 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'relative flex items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-[12px] font-semibold transition sm:text-[13px]',
+                    'relative flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-[12px] font-semibold transition sm:text-[13px]',
                     active
                       ? 'bg-brand text-white'
-                      : 'text-white/65 hover:bg-white/8 hover:text-white',
+                      : 'text-white/70 hover:bg-white/8 hover:text-white',
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -141,18 +149,18 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 z-50">
           <button
             type="button"
-            className="absolute inset-0 bg-navy/50 backdrop-blur-[2px]"
+            className="absolute inset-0 cursor-pointer bg-navy/50 backdrop-blur-[2px]"
             aria-label="Close create menu"
             onClick={() => setCreateOpen(false)}
           />
-          <div className="absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 w-[min(18rem,calc(100vw-2rem))] animate-rise overflow-hidden rounded-2xl bg-white shadow-panel sm:right-8">
+          <div className="absolute bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-4 w-[min(18rem,calc(100vw-2rem))] animate-rise overflow-hidden rounded-2xl bg-white shadow-panel sm:right-8">
             <div className="border-b border-border px-4 py-3">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Create</p>
               <p className="text-sm font-semibold text-navy">What do you want to post?</p>
             </div>
             <Link
               href="/play?create=1"
-              className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-brand/5"
+              className="flex cursor-pointer items-center gap-3 px-4 py-3.5 transition hover:bg-brand/5"
               onClick={() => setCreateOpen(false)}
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
@@ -165,7 +173,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
             </Link>
             <Link
               href="/social?compose=1"
-              className="flex items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-brand/5"
+              className="flex cursor-pointer items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-brand/5"
               onClick={() => setCreateOpen(false)}
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy/8 text-navy">
@@ -180,24 +188,26 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
-      <button
-        type="button"
-        aria-label={createOpen ? 'Close create menu' : 'Create match or post'}
-        aria-expanded={createOpen}
-        onClick={() => setCreateOpen((o) => !o)}
-        className={cn(
-          'fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[0_8px_24px_rgba(0,166,81,0.45)] transition hover:bg-brand-600',
-          'right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] sm:right-8',
-        )}
-      >
-        {createOpen ? <X className="h-6 w-6" /> : <Plus className="h-7 w-7" strokeWidth={2.5} />}
-      </button>
+      {!hideFab ? (
+        <button
+          type="button"
+          aria-label={createOpen ? 'Close create menu' : 'Create match or post'}
+          aria-expanded={createOpen}
+          onClick={() => setCreateOpen((o) => !o)}
+          className={cn(
+            'fixed z-50 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-brand text-white shadow-[0_8px_24px_rgba(0,166,81,0.45)] transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2',
+            'right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] sm:right-8',
+          )}
+        >
+          {createOpen ? <X className="h-6 w-6" /> : <Plus className="h-7 w-7" strokeWidth={2.5} />}
+        </button>
+      ) : null}
 
       <nav
         aria-label="Customer"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-white/95 shadow-[0_-8px_24px_rgba(11,31,58,0.06)] backdrop-blur-md"
       >
-        <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5 px-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-1.5">
+        <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5 px-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5">
           {tabs.map((item) => {
             const Icon = item.icon;
             const active =
@@ -213,13 +223,13 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'relative flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-bold transition sm:text-[11px]',
-                  active ? 'text-brand' : 'text-navy/45 hover:text-navy',
+                  'relative flex min-h-[3.25rem] cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[11px] font-bold transition sm:text-xs',
+                  active ? 'text-brand' : 'text-navy/60 hover:text-navy',
                 )}
               >
                 <span
                   className={cn(
-                    'relative flex h-9 w-9 items-center justify-center rounded-xl transition',
+                    'relative flex h-10 w-10 items-center justify-center rounded-xl transition',
                     active ? 'bg-brand/12' : 'bg-transparent',
                   )}
                 >

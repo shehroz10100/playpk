@@ -227,7 +227,7 @@ export default function PlayPage() {
               onClick={() =>
                 createFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
               }
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-accent px-4 text-sm font-bold text-navy"
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white hover:bg-brand-600"
             >
               <Swords className="h-4 w-4" />
               Create match
@@ -358,7 +358,7 @@ export default function PlayPage() {
                         <span className="font-display text-sm font-bold tabular-nums text-navy">
                           {m.joinedCount}/{m.maxPlayers}
                         </span>
-                        <span className="inline-flex h-9 items-center rounded-xl bg-accent px-3 text-xs font-bold text-navy">
+                        <span className="inline-flex h-9 items-center rounded-xl bg-brand px-3 text-xs font-bold text-white">
                           Join
                         </span>
                       </div>

@@ -217,7 +217,7 @@ export default function PlayMatchPage() {
               <Button
                 onClick={() => void join()}
                 disabled={busy}
-                className="hidden h-11 w-full rounded-xl bg-accent font-bold text-navy hover:bg-accent/90 sm:inline-flex"
+                className="hidden h-11 w-full rounded-xl bg-brand font-bold text-white hover:bg-brand-600 sm:inline-flex"
               >
                 {busy ? 'Joining…' : 'Join open match'}
               </Button>
@@ -318,7 +318,7 @@ export default function PlayMatchPage() {
           <Button
             onClick={() => void join()}
             disabled={busy}
-            className="h-12 w-full rounded-xl bg-accent font-bold text-navy hover:bg-accent/90"
+            className="h-12 w-full rounded-xl bg-brand font-bold text-white hover:bg-brand-600"
           >
             {busy ? 'Joining…' : `Join · ${spotsLeft} spot${spotsLeft === 1 ? '' : 's'} left`}
           </Button>

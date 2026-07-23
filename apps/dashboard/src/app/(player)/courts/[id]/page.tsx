@@ -251,7 +251,7 @@ export default function CourtBookPage() {
         </div>
       </BookingStepPanel>
 
-      <div className="fixed inset-x-0 bottom-[4.75rem] z-50 border-t border-navy/10 bg-white/95 p-4 shadow-[0_-8px_24px_rgba(11,31,58,0.06)] backdrop-blur sm:bottom-[5rem]">
+      <div className="fixed inset-x-0 bottom-[5.25rem] z-50 border-t border-navy/10 bg-white/95 p-4 shadow-[0_-8px_24px_rgba(11,31,58,0.06)] backdrop-blur sm:bottom-[5.5rem]">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Card className="border-0 bg-transparent shadow-none sm:flex-1">
             <CardContent className="p-0 text-sm text-muted-foreground">
@@ -261,7 +261,7 @@ export default function CourtBookPage() {
             </CardContent>
           </Card>
           <Button
-            className="h-11 w-full rounded-xl bg-navy font-bold text-white hover:bg-navy-700 sm:w-auto"
+            className="h-11 w-full rounded-xl bg-brand font-bold text-white hover:bg-brand-600 sm:w-auto"
             disabled={!selectedSlot}
             onClick={() =>
               router.push(
