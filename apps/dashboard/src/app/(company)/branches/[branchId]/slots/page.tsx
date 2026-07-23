@@ -38,7 +38,7 @@ const statusVariant: Record<Slot['status'], 'success' | 'danger' | 'warn' | 'mut
   MAINTENANCE: 'warn',
 };
 
-/** 24-hour clock options (00–24) — avoids browser AM/PM time pickers. */
+/** 24-hour clock options (00–24) plus AM/PM helper. */
 const HOURS_24 = Array.from({ length: 25 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES_60 = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
@@ -48,6 +48,27 @@ function splitHm(value: string): { hour: string; minute: string } {
     hour: hour.padStart(2, '0').slice(0, 2),
     minute: minute.padStart(2, '0').slice(0, 2),
   };
+}
+
+function periodFromHour(hour: string): 'AM' | 'PM' {
+  const h = Number(hour);
+  if (!Number.isFinite(h) || h < 12 || h === 24) return 'AM';
+  return 'PM';
+}
+
+function applyPeriod(hour: string, period: 'AM' | 'PM'): string {
+  let h = Number(hour);
+  if (!Number.isFinite(h)) h = 0;
+  if (h === 24) return period === 'AM' ? '00' : '12';
+  h = ((h % 24) + 24) % 24;
+  if (period === 'AM') {
+    if (h === 12) return '00';
+    if (h > 12) return String(h - 12).padStart(2, '0');
+    return String(h).padStart(2, '0');
+  }
+  if (h === 0) return '12';
+  if (h < 12) return String(h + 12).padStart(2, '0');
+  return String(h).padStart(2, '0');
 }
 
 function Time24Select({
@@ -62,13 +83,14 @@ function Time24Select({
   onChange: (next: string) => void;
 }) {
   const { hour, minute } = splitHm(value);
+  const period = periodFromHour(hour);
   const selectClass =
     'flex h-10 rounded-md border border-border bg-white px-2 text-sm text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40';
 
   return (
     <div className="space-y-1">
       <Label htmlFor={`${id}-hour`}>{label}</Label>
-      <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         <select
           id={`${id}-hour`}
           aria-label={`${label} hour`}
@@ -96,7 +118,18 @@ function Time24Select({
             </option>
           ))}
         </select>
-        <span className="text-xs text-muted-foreground">24h</span>
+        <select
+          id={`${id}-period`}
+          aria-label={`${label} AM or PM`}
+          className={`${selectClass} min-w-[4.25rem]`}
+          value={period}
+          onChange={(e) =>
+            onChange(`${applyPeriod(hour, e.target.value as 'AM' | 'PM')}:${minute}`)
+          }
+        >
+          <option value="AM">AM</option>
+          <option value="PM">PM</option>
+        </select>
       </div>
     </div>
   );
