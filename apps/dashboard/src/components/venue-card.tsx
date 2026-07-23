@@ -34,8 +34,9 @@ export function VenueCard({ venue, index = 0, compact = false }: Props) {
         >
           <HoverLoopMedia
             clip={preview}
+            priority={index < 2}
             sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 33vw"
-            className={cn('shrink-0', compact ? 'aspect-[16/9]' : 'aspect-[16/10]')}
+            className={cn('shrink-0', compact ? 'aspect-[16/10] min-h-[160px]' : 'aspect-[16/10] min-h-[200px]')}
           >
             <div className="absolute inset-0 z-[1] bg-gradient-to-t from-navy/70 via-navy/10 to-transparent" />
             <div className="absolute left-3 top-3 z-[2] flex flex-wrap gap-1.5">

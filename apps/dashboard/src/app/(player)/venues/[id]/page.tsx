@@ -303,14 +303,14 @@ export default function VenueDetailPage() {
 
   return (
     <div className="relative pb-28 sm:pb-10">
-      {/* Hero */}
-      <section className="-mx-4 overflow-hidden sm:-mx-6">
+      {/* Hero — full-bleed, tall enough for mobile */}
+      <section className="-mx-4 w-[calc(100%+2rem)] overflow-hidden sm:-mx-6 sm:w-[calc(100%+3rem)]">
         <HeroMedia
           clip={tour}
           autoPlay
-          minClassName="aspect-[16/9] max-h-[220px] min-h-[140px] sm:max-h-[280px] sm:min-h-[180px]"
+          minClassName="aspect-[4/3] min-h-[260px] w-full sm:aspect-[16/9] sm:min-h-[320px]"
         >
-          <div className="flex h-full min-h-[140px] flex-col justify-between p-4 sm:min-h-[180px] sm:p-5">
+          <div className="flex h-full min-h-[260px] flex-col justify-between p-4 sm:min-h-[320px] sm:p-6">
             <div className="flex items-center justify-between">
               <Link
                 href="/discover"
@@ -345,9 +345,12 @@ export default function VenueDetailPage() {
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={resolveSportCover(s.name, s.iconUrl)}
+                      src={resolveSportCover(s.name)}
                       alt=""
-                      className="h-5 w-5 rounded-full object-cover"
+                      className="h-6 w-6 rounded-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = resolveSportCover('All');
+                      }}
                     />
                     {s.name}
                   </button>

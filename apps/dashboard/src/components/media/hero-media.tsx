@@ -1,7 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { DEFAULT_SPORT_COVER } from '@playpk/shared-types';
 import type { MediaClip } from '@/lib/media-assets';
 import { cn } from '@/lib/utils';
 
@@ -14,24 +15,29 @@ type Props = {
   children: ReactNode;
 };
 
-/** Hero stack: sharp landscape poster → light scrim → content. */
+/** Full-bleed hero with sharp landscape poster and broken-image fallback. */
 export function HeroMedia({
   clip,
   className,
-  minClassName = 'min-h-[160px] sm:min-h-[200px]',
+  minClassName = 'min-h-[42vw] min-h-[220px] sm:min-h-[280px]',
   children,
 }: Props) {
+  const [src, setSrc] = useState(clip.poster);
+
   return (
-    <div className={cn('relative overflow-hidden', className)}>
-      <div className={cn('relative', minClassName)}>
+    <div className={cn('relative w-full overflow-hidden', className)}>
+      <div className={cn('relative w-full', minClassName)}>
         <Image
-          src={clip.poster}
+          src={src}
           alt=""
           fill
           priority
-          quality={85}
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 900px, 1200px"
+          quality={90}
+          sizes="100vw"
           className="object-cover object-center"
+          onError={() => {
+            if (src !== DEFAULT_SPORT_COVER) setSrc(DEFAULT_SPORT_COVER);
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-navy/80 via-navy/35 to-navy/15" />
         <div className="relative z-10 flex h-full flex-col justify-end">{children}</div>
