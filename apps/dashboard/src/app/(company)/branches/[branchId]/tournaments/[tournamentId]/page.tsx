@@ -9,7 +9,7 @@ import type {
   TournamentMatchDto,
   TournamentStandingDto,
 } from '@playpk/shared-types';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { formatPkr } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,7 +93,19 @@ export default function TournamentManagePage() {
     setBusy(true);
     setError(null);
     try {
-      await api(`/api/tournaments/${tournamentId}/cancel`, { method: 'POST' });
+      // Prefer dedicated cancel endpoint; fall back to PATCH for older API deploys.
+      try {
+        await api(`/api/tournaments/${tournamentId}/cancel`, { method: 'POST' });
+      } catch (err) {
+        const missing =
+          err instanceof Error &&
+          (err.message === 'Resource not found' || /not found/i.test(err.message));
+        if (!missing) throw err;
+        await api(`/api/tournaments/${tournamentId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'CANCELLED' }),
+        });
+      }
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cancel failed');

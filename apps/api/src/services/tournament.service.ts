@@ -208,6 +208,31 @@ export async function updateTournament(
     throw new AppError('Tournament not found', { statusCode: 404, code: 'NOT_FOUND' });
   }
 
+  if (input.status === TournamentStatus.CANCELLED) {
+    if (existing.status === TournamentStatus.COMPLETED) {
+      throw new AppError('Completed tournaments cannot be cancelled', {
+        statusCode: 409,
+        code: 'TOURNAMENT_COMPLETED',
+      });
+    }
+    if (existing.status === TournamentStatus.CANCELLED) {
+      const current = await prisma.tournament.findUnique({
+        where: { id: tournamentId },
+        include: {
+          sport: true,
+          branch: { select: { id: true, name: true, city: true } },
+          host: { select: { id: true, name: true } },
+          _count: { select: { registrations: true, matches: true } },
+        },
+      });
+      return serializeTournament(current!);
+    }
+    await prisma.tournamentMatch.updateMany({
+      where: { tournamentId, status: MatchStatus.SCHEDULED },
+      data: { status: MatchStatus.CANCELLED },
+    });
+  }
+
   const updated = await prisma.tournament.update({
     where: { id: tournamentId },
     data: {
@@ -223,6 +248,7 @@ export async function updateTournament(
     include: {
       sport: true,
       branch: { select: { id: true, name: true, city: true } },
+      host: { select: { id: true, name: true } },
       _count: { select: { registrations: true, matches: true } },
     },
   });
