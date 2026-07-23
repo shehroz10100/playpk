@@ -296,21 +296,26 @@ export default function VenueDetailPage() {
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!venue) return <StadiumSkeleton className="mt-2" lines={5} />;
 
-  const cover = resolveVenueCover(venue);
+  const cover = resolveVenueCover({
+    ...venue,
+    sports: sportFilter
+      ? sports.filter((s) => s.key === sportFilter).map((s) => ({ name: s.name, iconUrl: s.iconUrl }))
+      : sports.map((s) => ({ name: s.name, iconUrl: s.iconUrl })),
+  });
   const tour = resolveVenuePreviewClip(cover);
   const filteredSports =
     sportFilter == null ? sports : sports.filter((s) => s.key === sportFilter);
 
   return (
     <div className="relative pb-28 sm:pb-10">
-      {/* Hero */}
+      {/* Hero — tall enough on mobile, sharp sport photo */}
       <section className="-mx-4 overflow-hidden sm:-mx-6">
         <HeroMedia
           clip={tour}
           autoPlay
-          minClassName="aspect-[16/9] max-h-[220px] min-h-[140px] sm:max-h-[280px] sm:min-h-[180px]"
+          minClassName="aspect-[4/3] min-h-[220px] sm:aspect-[16/9] sm:min-h-[280px]"
         >
-          <div className="flex h-full min-h-[140px] flex-col justify-between p-4 sm:min-h-[180px] sm:p-5">
+          <div className="flex h-full min-h-[220px] flex-col justify-between p-4 sm:min-h-[280px] sm:p-5">
             <div className="flex items-center justify-between">
               <Link
                 href="/discover"

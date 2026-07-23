@@ -1,8 +1,9 @@
 'use client';
 
 import Image from 'next/image';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { MediaClip } from '@/lib/media-assets';
+import { DISCOVER_HERO_IMAGE } from '@/lib/venue-cover';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -18,20 +19,25 @@ type Props = {
 export function HeroMedia({
   clip,
   className,
-  minClassName = 'min-h-[160px] sm:min-h-[200px]',
+  minClassName = 'min-h-[200px] sm:min-h-[260px]',
   children,
 }: Props) {
+  const [src, setSrc] = useState(clip.poster);
+
   return (
     <div className={cn('relative overflow-hidden', className)}>
       <div className={cn('relative', minClassName)}>
         <Image
-          src={clip.poster}
+          src={src}
           alt=""
           fill
           priority
           quality={85}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 900px, 1200px"
           className="object-cover object-center"
+          onError={() => {
+            if (src !== DISCOVER_HERO_IMAGE) setSrc(DISCOVER_HERO_IMAGE);
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-navy/80 via-navy/35 to-navy/15" />
         <div className="relative z-10 flex h-full flex-col justify-end">{children}</div>
