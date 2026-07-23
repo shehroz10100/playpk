@@ -308,9 +308,9 @@ export default function VenueDetailPage() {
         <HeroMedia
           clip={tour}
           autoPlay
-          minClassName="aspect-[16/10] min-h-[200px] sm:min-h-[240px]"
+          minClassName="aspect-[16/9] max-h-[220px] min-h-[140px] sm:max-h-[280px] sm:min-h-[180px]"
         >
-          <div className="flex h-full min-h-[200px] flex-col justify-between p-4 sm:min-h-[240px] sm:p-5">
+          <div className="flex h-full min-h-[140px] flex-col justify-between p-4 sm:min-h-[180px] sm:p-5">
             <div className="flex items-center justify-between">
               <Link
                 href="/discover"
@@ -429,9 +429,20 @@ export default function VenueDetailPage() {
             <h2 className="font-display text-lg font-bold uppercase tracking-tight text-navy">
               Club information
             </h2>
-            {venue.company.description ? (
-              <p className="mt-2 text-sm text-muted-foreground">{venue.company.description}</p>
-            ) : null}
+            <div className="mt-3 rounded-2xl bg-white p-4 shadow-panel">
+              <p className="text-xs font-bold uppercase tracking-wide text-brand">
+                {venue.company.name}
+              </p>
+              {venue.company.description?.trim() ? (
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-navy/85">
+                  {venue.company.description}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  This club has not added company information yet.
+                </p>
+              )}
+            </div>
             <ul className="mt-3 space-y-2">
               {(filteredSports.length ? filteredSports : sports).map((s) => (
                 <li

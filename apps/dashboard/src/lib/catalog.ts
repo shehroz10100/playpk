@@ -73,7 +73,12 @@ type SbBranch = {
   longitude: number | null;
   operatingHoursStart?: string;
   operatingHoursEnd?: string;
-  Company: { id: string; name: string; logoUrl: string | null };
+  Company: {
+    id: string;
+    name: string;
+    logoUrl: string | null;
+    description?: string | null;
+  };
   Court: Array<{
     id?: string;
     name?: string;
