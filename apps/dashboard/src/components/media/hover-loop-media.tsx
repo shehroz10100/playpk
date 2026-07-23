@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { DEFAULT_SPORT_COVER } from '@playpk/shared-types';
 import type { MediaClip } from '@/lib/media-assets';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,10 @@ export function HoverLoopMedia({
   priority = false,
 }: Props) {
   const [src, setSrc] = useState(clip.poster);
+
+  useEffect(() => {
+    setSrc(clip.poster);
+  }, [clip.poster]);
 
   return (
     <div className={cn('relative overflow-hidden bg-navy/15', className)}>
