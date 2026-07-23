@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { MediaClip } from '@/lib/media-assets';
 import { DISCOVER_HERO_IMAGE } from '@/lib/venue-cover';
 import { cn } from '@/lib/utils';
@@ -24,15 +24,10 @@ export function HeroMedia({
 }: Props) {
   const [src, setSrc] = useState(clip.poster);
 
-  useEffect(() => {
-    setSrc(clip.poster);
-  }, [clip.poster]);
-
   return (
     <div className={cn('relative overflow-hidden', className)}>
       <div className={cn('relative', minClassName)}>
         <Image
-          key={src}
           src={src}
           alt=""
           fill
