@@ -62,19 +62,32 @@ export default function SocialPage() {
   }, [likedOnly]);
 
   const loadNetwork = useCallback(async () => {
-    try {
-      const [f1, f2, f3, chats] = await Promise.all([
-        api<SocialConnectionDto[]>('/api/social/following'),
-        api<SocialConnectionDto[]>('/api/social/followers'),
-        api<SocialConnectionDto[]>('/api/social/follow-requests'),
-        api<DirectThreadDto[]>('/api/social/chats'),
-      ]);
-      setFollowing(f1.data);
-      setFollowers(f2.data);
-      setRequests(f3.data);
-      setThreads(chats.data);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load network');
+    const results = await Promise.allSettled([
+      api<SocialConnectionDto[]>('/api/social/following'),
+      api<SocialConnectionDto[]>('/api/social/followers'),
+      api<SocialConnectionDto[]>('/api/social/follow-requests'),
+      api<DirectThreadDto[]>('/api/social/chats'),
+    ]);
+
+    const errors: string[] = [];
+    if (results[0].status === 'fulfilled') setFollowing(results[0].value.data);
+    else {
+      errors.push('following');
+      console.error(results[0].reason);
+    }
+    if (results[1].status === 'fulfilled') setFollowers(results[1].value.data);
+    else errors.push('followers');
+    if (results[2].status === 'fulfilled') setRequests(results[2].value.data);
+    else errors.push('requests');
+    if (results[3].status === 'fulfilled') setThreads(results[3].value.data);
+    else errors.push('chats');
+
+    if (errors.length === 4) {
+      setError(
+        'Could not load your network. The API may need a redeploy/migration — try refresh in a minute.',
+      );
+    } else if (errors.length > 0) {
+      setError(`Some network lists failed to load (${errors.join(', ')}).`);
     }
   }, []);
 
@@ -179,26 +192,51 @@ export default function SocialPage() {
   }
 
   async function follow(userId: string, currentlyFollowing: boolean, followStatus?: string) {
+    const hit =
+      hits.find((h) => h.userId === userId) ?? contacts.find((h) => h.userId === userId) ?? null;
     try {
+      setError(null);
       if (currentlyFollowing || followStatus === 'PENDING') {
         await api(`/api/social/players/${userId}/follow`, { method: 'DELETE' });
-        const hit = hits.find((h) => h.userId === userId) ?? contacts.find((h) => h.userId === userId);
         patchHit(userId, {
           isFollowing: false,
           followStatus: 'NONE',
           canChat: Boolean(hit?.followsMe),
         });
+        setFollowing((prev) => prev.filter((p) => p.userId !== userId));
       } else {
         const { data } = await api<{ following: boolean; followStatus: 'PENDING' | 'ACCEPTED' }>(
           `/api/social/players/${userId}/follow`,
           { method: 'POST' },
         );
-        const hit = hits.find((h) => h.userId === userId) ?? contacts.find((h) => h.userId === userId);
+        const accepted = data.following || data.followStatus === 'ACCEPTED' || !data.followStatus;
         patchHit(userId, {
-          isFollowing: data.following,
-          followStatus: data.followStatus,
-          canChat: data.following || Boolean(hit?.followsMe),
+          isFollowing: accepted,
+          followStatus: accepted ? 'ACCEPTED' : data.followStatus,
+          canChat: accepted || Boolean(hit?.followsMe),
         });
+        if (accepted && hit) {
+          setFollowing((prev) => {
+            if (prev.some((p) => p.userId === userId)) return prev;
+            return [
+              {
+                userId: hit.userId,
+                name: hit.name,
+                email: hit.email,
+                phone: hit.phone,
+                skillLevel: hit.skillLevel,
+                points: hit.points,
+                followStatus: 'ACCEPTED',
+                followsMe: Boolean(hit.followsMe),
+                isFollowing: true,
+                canChat: true,
+                since: new Date().toISOString(),
+              },
+              ...prev,
+            ];
+          });
+          setNetworkTab('following');
+        }
       }
       await Promise.all([loadFeed(), loadNetwork()]);
     } catch (err) {
@@ -779,6 +817,7 @@ function ConnectionList({
             <div className="font-medium text-navy">{p.name}</div>
             <div className="text-xs text-muted-foreground">
               {p.skillLevel ?? 'No skill yet'} · {p.points} pts
+              {p.followStatus === 'PENDING' ? ' · Requested' : ''}
               {p.followsMe && p.isFollowing ? ' · Mutual' : ''}
             </div>
           </div>
@@ -818,7 +857,7 @@ function ConnectionList({
                 className="rounded-xl"
                 onClick={() => onUnfollow?.(p.userId)}
               >
-                Following
+                {p.followStatus === 'PENDING' ? 'Requested' : 'Following'}
               </Button>
             )}
           </div>

@@ -736,24 +736,16 @@ export async function followPlayer(followerId: string, followingId: string) {
     return { following: true, followStatus: FollowStatus.ACCEPTED };
   }
 
-  // Follow-back: if they already follow you, accept immediately.
-  const reverse = await prisma.follow.findUnique({
-    where: {
-      followerId_followingId: { followerId: followingId, followingId: followerId },
-    },
-    select: { status: true },
-  });
-  const status =
-    reverse?.status === FollowStatus.ACCEPTED ? FollowStatus.ACCEPTED : FollowStatus.PENDING;
-
+  // Instant follow so people show up under Following immediately.
+  // Pending requests remain for inbound "Requests" if created elsewhere.
   const row = await prisma.follow.upsert({
     where: { followerId_followingId: { followerId, followingId } },
-    create: { followerId, followingId, status },
-    update: { status },
+    create: { followerId, followingId, status: FollowStatus.ACCEPTED },
+    update: { status: FollowStatus.ACCEPTED },
   });
 
   return {
-    following: row.status === FollowStatus.ACCEPTED,
+    following: true,
     followStatus: row.status,
   };
 }
@@ -765,7 +757,10 @@ export async function unfollowPlayer(followerId: string, followingId: string) {
 
 export async function listFollowing(userId: string) {
   const rows = await prisma.follow.findMany({
-    where: { followerId: userId, status: FollowStatus.ACCEPTED },
+    where: {
+      followerId: userId,
+      status: { in: [FollowStatus.ACCEPTED, FollowStatus.PENDING] },
+    },
     orderBy: { createdAt: 'desc' },
     include: {
       following: {
@@ -785,6 +780,7 @@ export async function listFollowing(userId: string) {
   });
   return rows.map((r) => {
     const followsMe = r.following.follows.length > 0;
+    const accepted = r.status === FollowStatus.ACCEPTED;
     return {
       userId: r.following.id,
       name: r.following.name,
@@ -792,10 +788,10 @@ export async function listFollowing(userId: string) {
       phone: r.following.phone,
       skillLevel: r.following.playerProfile?.skillLevel ?? null,
       points: r.following.playerProfile?.points ?? 0,
-      followStatus: 'ACCEPTED' as const,
+      followStatus: r.status,
       followsMe,
-      isFollowing: true,
-      canChat: true,
+      isFollowing: accepted,
+      canChat: accepted || followsMe,
       since: r.createdAt,
     };
   });
