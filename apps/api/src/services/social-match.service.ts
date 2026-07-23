@@ -299,6 +299,7 @@ export async function listOpenMatches(input: {
   userId: string;
   city?: string;
   sportId?: string;
+  branchId?: string;
   visibility?: MatchVisibility;
   status?: OpenMatchStatus;
 }) {
@@ -310,6 +311,7 @@ export async function listOpenMatches(input: {
       AND: [
         input.city ? { city: { equals: input.city, mode: 'insensitive' } } : {},
         input.sportId ? { sportId: input.sportId } : {},
+        input.branchId ? { branchId: input.branchId } : {},
         input.status
           ? { status: input.status }
           : { status: { in: [OpenMatchStatus.OPEN, OpenMatchStatus.FULL, OpenMatchStatus.IN_PROGRESS] } },

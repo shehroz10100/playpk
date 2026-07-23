@@ -68,6 +68,7 @@ socialRouter.get('/matches', async (req, res, next) => {
         userId: req.user!.id,
         city: typeof req.query.city === 'string' ? req.query.city : undefined,
         sportId: typeof req.query.sportId === 'string' ? req.query.sportId : undefined,
+        branchId: typeof req.query.branchId === 'string' ? req.query.branchId : undefined,
         visibility:
           typeof req.query.visibility === 'string'
             ? (req.query.visibility as MatchVisibility)

@@ -132,7 +132,7 @@ export type CatalogVenueDetail = {
   avgRating?: number | null;
   photos?: string[];
   sports?: Array<{ id?: string; name: string; iconUrl?: string | null }>;
-  company: { name: string };
+  company: { name: string; description?: string | null };
   courts: Array<{
     id: string;
     name: string;
@@ -140,7 +140,7 @@ export type CatalogVenueDetail = {
     indoor: boolean;
     hasAC: boolean;
     photos?: string[];
-    sport: { name: string; iconUrl?: string | null };
+    sport: { id?: string; name: string; iconUrl?: string | null };
   }>;
 };
 
@@ -172,7 +172,8 @@ export async function fetchVenueDetail(branchId: string): Promise<CatalogVenueDe
       pricePerHour: Number(c.pricePerHour),
       indoor: Boolean(c.indoor),
       hasAC: Boolean(c.hasAC),
-      sport: { name: c.Sport.name },
+      photos: c.photos ?? undefined,
+      sport: { id: c.Sport.id, name: c.Sport.name, iconUrl: c.Sport.iconUrl },
     }));
 
   return {
@@ -185,6 +186,9 @@ export async function fetchVenueDetail(branchId: string): Promise<CatalogVenueDe
     operatingHoursStart: branch.operatingHoursStart ?? '06:00',
     operatingHoursEnd: branch.operatingHoursEnd ?? '23:00',
     company: { name: branch.Company.name },
+    sports: [
+      ...new Map(courts.map((c) => [c.sport.id ?? c.sport.name, c.sport])).values(),
+    ],
     courts,
   };
 }
