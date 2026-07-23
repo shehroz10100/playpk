@@ -180,6 +180,11 @@ enum MatchGenderPreference {
   ANY
 }
 
+enum FollowStatus {
+  PENDING
+  ACCEPTED
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
@@ -226,6 +231,9 @@ model User {
   contactHashes       ContactHash[]
   resultsReported     OpenMatchResult[]    @relation("ResultReporter")
   hostedTournaments   Tournament[]         @relation("TournamentHost")
+  dmThreadsAsOne      DirectThread[]       @relation("ThreadUserOne")
+  dmThreadsAsTwo      DirectThread[]       @relation("ThreadUserTwo")
+  directMessages      DirectMessage[]
 
   @@index([role])
   @@index([loyaltyTier])
@@ -798,16 +806,50 @@ model OpenMatchResult {
 }
 
 model Follow {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   followerId  String
   followingId String
-  createdAt   DateTime @default(now())
+  status      FollowStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   follower  User @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
   following User @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followingId])
-  @@index([followingId])
+  @@index([followingId, status])
+  @@index([followerId, status])
+}
+
+/** Sorted pair of users (userOneId < userTwoId) for 1:1 DMs between connected players. */
+model DirectThread {
+  id        String   @id @default(cuid())
+  userOneId String
+  userTwoId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userOne  User            @relation("ThreadUserOne", fields: [userOneId], references: [id], onDelete: Cascade)
+  userTwo  User            @relation("ThreadUserTwo", fields: [userTwoId], references: [id], onDelete: Cascade)
+  messages DirectMessage[]
+
+  @@unique([userOneId, userTwoId])
+  @@index([userOneId, updatedAt])
+  @@index([userTwoId, updatedAt])
+}
+
+model DirectMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  senderId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  thread DirectThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@index([senderId])
 }
 
 model SocialPost {

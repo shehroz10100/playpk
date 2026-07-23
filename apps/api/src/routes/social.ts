@@ -191,6 +191,86 @@ socialRouter.delete('/players/:userId/follow', async (req, res, next) => {
   }
 });
 
+socialRouter.get('/following', async (req, res, next) => {
+  try {
+    sendSuccess(res, await social.listFollowing(req.user!.id));
+  } catch (e) {
+    next(e);
+  }
+});
+
+socialRouter.get('/followers', async (req, res, next) => {
+  try {
+    sendSuccess(res, await social.listFollowers(req.user!.id));
+  } catch (e) {
+    next(e);
+  }
+});
+
+socialRouter.get('/follow-requests', async (req, res, next) => {
+  try {
+    sendSuccess(res, await social.listFollowRequests(req.user!.id));
+  } catch (e) {
+    next(e);
+  }
+});
+
+socialRouter.post('/follow-requests/:userId/accept', async (req, res, next) => {
+  try {
+    sendSuccess(res, await social.acceptFollowRequest(req.user!.id, param(req, 'userId')));
+  } catch (e) {
+    next(e);
+  }
+});
+
+socialRouter.post('/follow-requests/:userId/decline', async (req, res, next) => {
+  try {
+    sendSuccess(res, await social.declineFollowRequest(req.user!.id, param(req, 'userId')));
+  } catch (e) {
+    next(e);
+  }
+});
+
+socialRouter.get('/chats', async (req, res, next) => {
+  try {
+    sendSuccess(res, await social.listDirectThreads(req.user!.id));
+  } catch (e) {
+    next(e);
+  }
+});
+
+socialRouter.post('/chats/:userId', async (req, res, next) => {
+  try {
+    sendSuccess(res, await social.openDirectThread(req.user!.id, param(req, 'userId')), 201);
+  } catch (e) {
+    next(e);
+  }
+});
+
+socialRouter.get('/chats/thread/:threadId/messages', async (req, res, next) => {
+  try {
+    sendSuccess(res, await social.listDirectMessages(req.user!.id, param(req, 'threadId')));
+  } catch (e) {
+    next(e);
+  }
+});
+
+socialRouter.post(
+  '/chats/thread/:threadId/messages',
+  validate(z.object({ body: z.string().min(1).max(2000) })),
+  async (req, res, next) => {
+    try {
+      sendSuccess(
+        res,
+        await social.sendDirectMessage(req.user!.id, param(req, 'threadId'), req.body.body),
+        201,
+      );
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
 socialRouter.get('/feed', async (req, res, next) => {
   try {
     const starredOnly = req.query.starred === '1' || req.query.starred === 'true';

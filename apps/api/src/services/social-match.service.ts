@@ -1,5 +1,6 @@
 import {
   CasualMatchType,
+  FollowStatus,
   MatchFormat,
   MatchGenderPreference,
   MatchVisibility,
@@ -243,7 +244,12 @@ export async function getMyProfile(userId: string) {
       email: true,
       phone: true,
       playerProfile: { include: { primarySport: { select: { id: true, name: true } } } },
-      _count: { select: { follows: true, followers: true } },
+      _count: {
+        select: {
+          follows: { where: { status: FollowStatus.ACCEPTED } },
+          followers: { where: { status: FollowStatus.ACCEPTED } },
+        },
+      },
     },
   });
   const p = user.playerProfile ?? profile;
@@ -642,40 +648,427 @@ export async function searchPlayers(userId: string, q: string) {
       email: true,
       phone: true,
       playerProfile: { select: { skillLevel: true, points: true } },
-      followers: { where: { followerId: userId }, select: { id: true } },
+      followers: {
+        where: { followerId: userId },
+        select: { id: true, status: true },
+      },
+      follows: {
+        where: { followingId: userId, status: FollowStatus.ACCEPTED },
+        select: { id: true },
+      },
     },
   });
-  return users.map((u) => ({
+  return users.map((u) => mapPlayerHit(u));
+}
+
+function mapPlayerHit(u: {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  playerProfile: { skillLevel: SkillLevel | null; points: number } | null;
+  followers: Array<{ id: string; status: FollowStatus }>;
+  follows: Array<{ id: string }>;
+  fromContacts?: boolean;
+}) {
+  const outgoing = u.followers[0];
+  const followStatus = outgoing
+    ? outgoing.status === FollowStatus.ACCEPTED
+      ? ('ACCEPTED' as const)
+      : ('PENDING' as const)
+    : ('NONE' as const);
+  const isFollowing = followStatus === 'ACCEPTED';
+  const followsMe = u.follows.length > 0;
+  return {
     userId: u.id,
     name: u.name,
     email: u.email,
     phone: u.phone,
     skillLevel: u.playerProfile?.skillLevel ?? null,
     points: u.playerProfile?.points ?? 0,
-    isFollowing: u.followers.length > 0,
-  }));
+    isFollowing,
+    followStatus,
+    followsMe,
+    canChat: isFollowing || followsMe,
+    ...(u.fromContacts ? { fromContacts: true } : {}),
+  };
+}
+
+async function assertConnectedForChat(userId: string, otherUserId: string) {
+  const link = await prisma.follow.findFirst({
+    where: {
+      status: FollowStatus.ACCEPTED,
+      OR: [
+        { followerId: userId, followingId: otherUserId },
+        { followerId: otherUserId, followingId: userId },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!link) {
+    throw new AppError('Chat is only available with people you follow or who follow you', {
+      statusCode: 403,
+      code: 'FORBIDDEN',
+    });
+  }
+}
+
+function sortedPair(a: string, b: string): [string, string] {
+  return a < b ? [a, b] : [b, a];
 }
 
 export async function followPlayer(followerId: string, followingId: string) {
   if (followerId === followingId) {
     throw new AppError('Cannot follow yourself', { statusCode: 400, code: 'BAD_REQUEST' });
   }
-  await prisma.follow.upsert({
-    where: { followerId_followingId: { followerId, followingId } },
-    create: { followerId, followingId },
-    update: {},
+  const target = await prisma.user.findFirst({
+    where: { id: followingId, role: 'PLAYER' },
+    select: { id: true },
   });
-  return { following: true };
+  if (!target) {
+    throw new AppError('Player not found', { statusCode: 404, code: 'NOT_FOUND' });
+  }
+
+  const existing = await prisma.follow.findUnique({
+    where: { followerId_followingId: { followerId, followingId } },
+  });
+  if (existing?.status === FollowStatus.ACCEPTED) {
+    return { following: true, followStatus: FollowStatus.ACCEPTED };
+  }
+
+  // Follow-back: if they already follow you, accept immediately.
+  const reverse = await prisma.follow.findUnique({
+    where: {
+      followerId_followingId: { followerId: followingId, followingId: followerId },
+    },
+    select: { status: true },
+  });
+  const status =
+    reverse?.status === FollowStatus.ACCEPTED ? FollowStatus.ACCEPTED : FollowStatus.PENDING;
+
+  const row = await prisma.follow.upsert({
+    where: { followerId_followingId: { followerId, followingId } },
+    create: { followerId, followingId, status },
+    update: { status },
+  });
+
+  return {
+    following: row.status === FollowStatus.ACCEPTED,
+    followStatus: row.status,
+  };
 }
 
 export async function unfollowPlayer(followerId: string, followingId: string) {
   await prisma.follow.deleteMany({ where: { followerId, followingId } });
-  return { following: false };
+  return { following: false, followStatus: 'NONE' as const };
+}
+
+export async function listFollowing(userId: string) {
+  const rows = await prisma.follow.findMany({
+    where: { followerId: userId, status: FollowStatus.ACCEPTED },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      following: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          playerProfile: { select: { skillLevel: true, points: true } },
+          follows: {
+            where: { followingId: userId, status: FollowStatus.ACCEPTED },
+            select: { id: true },
+          },
+        },
+      },
+    },
+  });
+  return rows.map((r) => {
+    const followsMe = r.following.follows.length > 0;
+    return {
+      userId: r.following.id,
+      name: r.following.name,
+      email: r.following.email,
+      phone: r.following.phone,
+      skillLevel: r.following.playerProfile?.skillLevel ?? null,
+      points: r.following.playerProfile?.points ?? 0,
+      followStatus: 'ACCEPTED' as const,
+      followsMe,
+      isFollowing: true,
+      canChat: true,
+      since: r.createdAt,
+    };
+  });
+}
+
+export async function listFollowers(userId: string) {
+  const rows = await prisma.follow.findMany({
+    where: { followingId: userId, status: FollowStatus.ACCEPTED },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      follower: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          playerProfile: { select: { skillLevel: true, points: true } },
+          followers: {
+            where: { followerId: userId, status: FollowStatus.ACCEPTED },
+            select: { id: true },
+          },
+        },
+      },
+    },
+  });
+  return rows.map((r) => {
+    const isFollowing = r.follower.followers.length > 0;
+    return {
+      userId: r.follower.id,
+      name: r.follower.name,
+      email: r.follower.email,
+      phone: r.follower.phone,
+      skillLevel: r.follower.playerProfile?.skillLevel ?? null,
+      points: r.follower.playerProfile?.points ?? 0,
+      followStatus: 'ACCEPTED' as const,
+      followsMe: true,
+      isFollowing,
+      canChat: true,
+      since: r.createdAt,
+    };
+  });
+}
+
+/** Incoming pending follow requests (others asking to follow me). */
+export async function listFollowRequests(userId: string) {
+  const rows = await prisma.follow.findMany({
+    where: { followingId: userId, status: FollowStatus.PENDING },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      follower: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          playerProfile: { select: { skillLevel: true, points: true } },
+          followers: {
+            where: { followerId: userId },
+            select: { id: true, status: true },
+          },
+        },
+      },
+    },
+  });
+  return rows.map((r) => {
+    const outgoing = r.follower.followers[0];
+    const isFollowing = outgoing?.status === FollowStatus.ACCEPTED;
+    return {
+      userId: r.follower.id,
+      name: r.follower.name,
+      email: r.follower.email,
+      phone: r.follower.phone,
+      skillLevel: r.follower.playerProfile?.skillLevel ?? null,
+      points: r.follower.playerProfile?.points ?? 0,
+      followStatus: 'PENDING' as const,
+      followsMe: false,
+      isFollowing,
+      canChat: isFollowing,
+      since: r.createdAt,
+    };
+  });
+}
+
+export async function acceptFollowRequest(userId: string, requesterId: string) {
+  const row = await prisma.follow.findUnique({
+    where: {
+      followerId_followingId: { followerId: requesterId, followingId: userId },
+    },
+  });
+  if (!row || row.status !== FollowStatus.PENDING) {
+    throw new AppError('Follow request not found', { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  await prisma.follow.update({
+    where: { id: row.id },
+    data: { status: FollowStatus.ACCEPTED },
+  });
+  return { accepted: true };
+}
+
+export async function declineFollowRequest(userId: string, requesterId: string) {
+  await prisma.follow.deleteMany({
+    where: {
+      followerId: requesterId,
+      followingId: userId,
+      status: FollowStatus.PENDING,
+    },
+  });
+  return { declined: true };
+}
+
+export async function listDirectThreads(userId: string) {
+  const threads = await prisma.directThread.findMany({
+    where: { OR: [{ userOneId: userId }, { userTwoId: userId }] },
+    orderBy: { updatedAt: 'desc' },
+    include: {
+      userOne: {
+        select: {
+          id: true,
+          name: true,
+          playerProfile: { select: { skillLevel: true } },
+        },
+      },
+      userTwo: {
+        select: {
+          id: true,
+          name: true,
+          playerProfile: { select: { skillLevel: true } },
+        },
+      },
+      messages: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { id: true, body: true, senderId: true, createdAt: true },
+      },
+    },
+    take: 50,
+  });
+
+  return threads.map((t) => {
+    const other = t.userOneId === userId ? t.userTwo : t.userOne;
+    const last = t.messages[0] ?? null;
+    return {
+      id: t.id,
+      otherUser: {
+        userId: other.id,
+        name: other.name,
+        skillLevel: other.playerProfile?.skillLevel ?? null,
+      },
+      lastMessage: last
+        ? {
+            id: last.id,
+            body: last.body,
+            senderId: last.senderId,
+            createdAt: last.createdAt,
+          }
+        : null,
+      updatedAt: t.updatedAt,
+    };
+  });
+}
+
+export async function openDirectThread(userId: string, otherUserId: string) {
+  if (userId === otherUserId) {
+    throw new AppError('Cannot chat with yourself', { statusCode: 400, code: 'BAD_REQUEST' });
+  }
+  await assertConnectedForChat(userId, otherUserId);
+  const [userOneId, userTwoId] = sortedPair(userId, otherUserId);
+  const thread = await prisma.directThread.upsert({
+    where: { userOneId_userTwoId: { userOneId, userTwoId } },
+    create: { userOneId, userTwoId },
+    update: {},
+    include: {
+      userOne: {
+        select: { id: true, name: true, playerProfile: { select: { skillLevel: true } } },
+      },
+      userTwo: {
+        select: { id: true, name: true, playerProfile: { select: { skillLevel: true } } },
+      },
+      messages: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { id: true, body: true, senderId: true, createdAt: true },
+      },
+    },
+  });
+  const other = thread.userOneId === userId ? thread.userTwo : thread.userOne;
+  const last = thread.messages[0] ?? null;
+  return {
+    id: thread.id,
+    otherUser: {
+      userId: other.id,
+      name: other.name,
+      skillLevel: other.playerProfile?.skillLevel ?? null,
+    },
+    lastMessage: last
+      ? {
+          id: last.id,
+          body: last.body,
+          senderId: last.senderId,
+          createdAt: last.createdAt,
+        }
+      : null,
+    updatedAt: thread.updatedAt,
+  };
+}
+
+export async function listDirectMessages(userId: string, threadId: string) {
+  const thread = await prisma.directThread.findFirst({
+    where: {
+      id: threadId,
+      OR: [{ userOneId: userId }, { userTwoId: userId }],
+    },
+    select: { id: true },
+  });
+  if (!thread) {
+    throw new AppError('Chat not found', { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  const messages = await prisma.directMessage.findMany({
+    where: { threadId },
+    orderBy: { createdAt: 'asc' },
+    take: 200,
+  });
+  return messages.map((m) => ({
+    id: m.id,
+    threadId: m.threadId,
+    senderId: m.senderId,
+    body: m.body,
+    createdAt: m.createdAt,
+    mine: m.senderId === userId,
+  }));
+}
+
+export async function sendDirectMessage(userId: string, threadId: string, body: string) {
+  const text = body.trim();
+  if (!text) {
+    throw new AppError('Message cannot be empty', { statusCode: 400, code: 'BAD_REQUEST' });
+  }
+  const thread = await prisma.directThread.findFirst({
+    where: {
+      id: threadId,
+      OR: [{ userOneId: userId }, { userTwoId: userId }],
+    },
+  });
+  if (!thread) {
+    throw new AppError('Chat not found', { statusCode: 404, code: 'NOT_FOUND' });
+  }
+  const otherId = thread.userOneId === userId ? thread.userTwoId : thread.userOneId;
+  await assertConnectedForChat(userId, otherId);
+
+  const message = await prisma.$transaction(async (tx) => {
+    const msg = await tx.directMessage.create({
+      data: { threadId, senderId: userId, body: text },
+    });
+    await tx.directThread.update({
+      where: { id: threadId },
+      data: { updatedAt: new Date() },
+    });
+    return msg;
+  });
+
+  return {
+    id: message.id,
+    threadId: message.threadId,
+    senderId: message.senderId,
+    body: message.body,
+    createdAt: message.createdAt,
+    mine: true,
+  };
 }
 
 export async function listFeed(userId: string, starredOnly = false) {
   const following = await prisma.follow.findMany({
-    where: { followerId: userId },
+    where: { followerId: userId, status: FollowStatus.ACCEPTED },
     select: { followingId: true },
   });
   const authorIds = [userId, ...following.map((f) => f.followingId)];
@@ -850,23 +1243,21 @@ export async function syncContacts(userId: string, phones: string[]) {
       email: true,
       phone: true,
       playerProfile: { select: { skillLevel: true, points: true } },
-      followers: { where: { followerId: userId }, select: { id: true } },
+      followers: {
+        where: { followerId: userId },
+        select: { id: true, status: true },
+      },
+      follows: {
+        where: { followingId: userId, status: FollowStatus.ACCEPTED },
+        select: { id: true },
+      },
     },
     take: 200,
   });
 
   return users
     .filter((u) => u.phone && hashes.includes(hashPhone(u.phone)))
-    .map((u) => ({
-      userId: u.id,
-      name: u.name,
-      email: u.email,
-      phone: u.phone,
-      skillLevel: u.playerProfile?.skillLevel ?? null,
-      points: u.playerProfile?.points ?? 0,
-      isFollowing: u.followers.length > 0,
-      fromContacts: true,
-    }));
+    .map((u) => mapPlayerHit({ ...u, fromContacts: true }));
 }
 
 export async function performanceLeaderboard(limit = 50) {

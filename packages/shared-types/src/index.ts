@@ -814,7 +814,57 @@ export interface PlayerSearchHitDto {
   phone: string | null;
   skillLevel: SkillLevel | null;
   points: number;
+  /** True when an ACCEPTED follow exists from me → them. */
   isFollowing: boolean;
+  /** Outgoing follow status from me → them. */
+  followStatus?: 'NONE' | 'PENDING' | 'ACCEPTED';
+  /** True when they follow me (ACCEPTED). */
+  followsMe?: boolean;
+  /** Chat is allowed when either direction is ACCEPTED. */
+  canChat?: boolean;
   fromContacts?: boolean;
 }
+
+export type FollowStatusDto = 'PENDING' | 'ACCEPTED';
+
+export interface SocialConnectionDto {
+  userId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  skillLevel: SkillLevel | null;
+  points: number;
+  /** They follow me / I follow them (context depends on list). */
+  followStatus: FollowStatusDto;
+  followsMe: boolean;
+  isFollowing: boolean;
+  canChat: boolean;
+  since: string | Date;
+}
+
+export interface DirectThreadDto {
+  id: string;
+  otherUser: {
+    userId: string;
+    name: string;
+    skillLevel: SkillLevel | null;
+  };
+  lastMessage: {
+    id: string;
+    body: string;
+    senderId: string;
+    createdAt: string | Date;
+  } | null;
+  updatedAt: string | Date;
+}
+
+export interface DirectMessageDto {
+  id: string;
+  threadId: string;
+  senderId: string;
+  body: string;
+  createdAt: string | Date;
+  mine: boolean;
+}
+
 

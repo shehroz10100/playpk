@@ -816,6 +816,22 @@ async function main(): Promise<void> {
     },
   ]);
 
+  // Mutual accepted follows so demo players can chat
+  await prisma.follow.upsert({
+    where: {
+      followerId_followingId: { followerId: player.id, followingId: player2.id },
+    },
+    create: { followerId: player.id, followingId: player2.id, status: 'ACCEPTED' },
+    update: { status: 'ACCEPTED' },
+  });
+  await prisma.follow.upsert({
+    where: {
+      followerId_followingId: { followerId: player2.id, followingId: player.id },
+    },
+    create: { followerId: player2.id, followingId: player.id, status: 'ACCEPTED' },
+    update: { status: 'ACCEPTED' },
+  });
+
   console.log('\n✅ Seed complete.');
   console.log('Demo accounts:');
   console.log('  Admin:         admin@playpk.demo       / PlayPK@admin1');

@@ -2,8 +2,15 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Heart, MessageCircle, Send } from 'lucide-react';
-import type { PlayerSearchHitDto, SocialCommentDto, SocialPostDto } from '@playpk/shared-types';
+import { Heart, MessageCircle, Send, UserPlus, Users } from 'lucide-react';
+import type {
+  DirectMessageDto,
+  DirectThreadDto,
+  PlayerSearchHitDto,
+  SocialCommentDto,
+  SocialConnectionDto,
+  SocialPostDto,
+} from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,9 +19,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
+type NetworkTab = 'following' | 'followers' | 'requests' | 'chats';
+
 export default function SocialPage() {
   const query = useSearchParams();
   const composeRef = useRef<HTMLInputElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const [posts, setPosts] = useState<SocialPostDto[]>([]);
   const [likedOnly, setLikedOnly] = useState(false);
   const [body, setBody] = useState('');
@@ -27,6 +37,16 @@ export default function SocialPage() {
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState<Record<string, SocialCommentDto[]>>({});
   const [draftComment, setDraftComment] = useState<Record<string, string>>({});
+
+  const [networkTab, setNetworkTab] = useState<NetworkTab>('following');
+  const [following, setFollowing] = useState<SocialConnectionDto[]>([]);
+  const [followers, setFollowers] = useState<SocialConnectionDto[]>([]);
+  const [requests, setRequests] = useState<SocialConnectionDto[]>([]);
+  const [threads, setThreads] = useState<DirectThreadDto[]>([]);
+  const [activeThread, setActiveThread] = useState<DirectThreadDto | null>(null);
+  const [messages, setMessages] = useState<DirectMessageDto[]>([]);
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
 
   const loadFeed = useCallback(async () => {
     try {
@@ -41,9 +61,30 @@ export default function SocialPage() {
     }
   }, [likedOnly]);
 
+  const loadNetwork = useCallback(async () => {
+    try {
+      const [f1, f2, f3, chats] = await Promise.all([
+        api<SocialConnectionDto[]>('/api/social/following'),
+        api<SocialConnectionDto[]>('/api/social/followers'),
+        api<SocialConnectionDto[]>('/api/social/follow-requests'),
+        api<DirectThreadDto[]>('/api/social/chats'),
+      ]);
+      setFollowing(f1.data);
+      setFollowers(f2.data);
+      setRequests(f3.data);
+      setThreads(chats.data);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load network');
+    }
+  }, []);
+
   useEffect(() => {
     void loadFeed();
   }, [loadFeed]);
+
+  useEffect(() => {
+    void loadNetwork();
+  }, [loadNetwork]);
 
   useEffect(() => {
     if (query.get('compose') === '1') {
@@ -51,6 +92,10 @@ export default function SocialPage() {
       composeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [query]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, activeThread?.id]);
 
   async function publish(e: FormEvent) {
     e.preventDefault();
@@ -128,22 +173,104 @@ export default function SocialPage() {
     }
   }
 
-  async function follow(userId: string, currently: boolean) {
+  function patchHit(userId: string, patch: Partial<PlayerSearchHitDto>) {
+    setHits((prev) => prev.map((h) => (h.userId === userId ? { ...h, ...patch } : h)));
+    setContacts((prev) => prev.map((h) => (h.userId === userId ? { ...h, ...patch } : h)));
+  }
+
+  async function follow(userId: string, currentlyFollowing: boolean, followStatus?: string) {
     try {
-      if (currently) {
+      if (currentlyFollowing || followStatus === 'PENDING') {
         await api(`/api/social/players/${userId}/follow`, { method: 'DELETE' });
+        const hit = hits.find((h) => h.userId === userId) ?? contacts.find((h) => h.userId === userId);
+        patchHit(userId, {
+          isFollowing: false,
+          followStatus: 'NONE',
+          canChat: Boolean(hit?.followsMe),
+        });
       } else {
-        await api(`/api/social/players/${userId}/follow`, { method: 'POST' });
+        const { data } = await api<{ following: boolean; followStatus: 'PENDING' | 'ACCEPTED' }>(
+          `/api/social/players/${userId}/follow`,
+          { method: 'POST' },
+        );
+        const hit = hits.find((h) => h.userId === userId) ?? contacts.find((h) => h.userId === userId);
+        patchHit(userId, {
+          isFollowing: data.following,
+          followStatus: data.followStatus,
+          canChat: data.following || Boolean(hit?.followsMe),
+        });
       }
-      setHits((prev) =>
-        prev.map((h) => (h.userId === userId ? { ...h, isFollowing: !currently } : h)),
-      );
-      setContacts((prev) =>
-        prev.map((h) => (h.userId === userId ? { ...h, isFollowing: !currently } : h)),
-      );
-      await loadFeed();
+      await Promise.all([loadFeed(), loadNetwork()]);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Follow failed');
+    }
+  }
+
+  async function acceptRequest(userId: string) {
+    try {
+      await api(`/api/social/follow-requests/${userId}/accept`, { method: 'POST' });
+      await loadNetwork();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not accept request');
+    }
+  }
+
+  async function declineRequest(userId: string) {
+    try {
+      await api(`/api/social/follow-requests/${userId}/decline`, { method: 'POST' });
+      await loadNetwork();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not decline request');
+    }
+  }
+
+  async function openChat(userId: string) {
+    setChatBusy(true);
+    setError(null);
+    try {
+      const { data } = await api<DirectThreadDto>(`/api/social/chats/${userId}`, {
+        method: 'POST',
+      });
+      setActiveThread(data);
+      setNetworkTab('chats');
+      const msgs = await api<DirectMessageDto[]>(`/api/social/chats/thread/${data.id}/messages`);
+      setMessages(msgs.data);
+      await loadNetwork();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not open chat');
+    } finally {
+      setChatBusy(false);
+    }
+  }
+
+  async function selectThread(thread: DirectThreadDto) {
+    setActiveThread(thread);
+    setNetworkTab('chats');
+    try {
+      const { data } = await api<DirectMessageDto[]>(
+        `/api/social/chats/thread/${thread.id}/messages`,
+      );
+      setMessages(data);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not load messages');
+    }
+  }
+
+  async function sendChat(e?: FormEvent) {
+    e?.preventDefault();
+    if (!activeThread || !chatDraft.trim()) return;
+    const text = chatDraft.trim();
+    setChatDraft('');
+    try {
+      const { data } = await api<DirectMessageDto>(
+        `/api/social/chats/thread/${activeThread.id}/messages`,
+        { method: 'POST', body: JSON.stringify({ body: text }) },
+      );
+      setMessages((prev) => [...prev, data]);
+      await loadNetwork();
+    } catch (err) {
+      setChatDraft(text);
+      setError(err instanceof ApiError ? err.message : 'Could not send message');
     }
   }
 
@@ -167,6 +294,19 @@ export default function SocialPage() {
     }
   }
 
+  function followLabel(h: { isFollowing: boolean; followStatus?: string }) {
+    if (h.isFollowing || h.followStatus === 'ACCEPTED') return 'Following';
+    if (h.followStatus === 'PENDING') return 'Requested';
+    return 'Follow';
+  }
+
+  const networkTabs: Array<{ id: NetworkTab; label: string; count: number }> = [
+    { id: 'following', label: 'Following', count: following.length },
+    { id: 'followers', label: 'Followers', count: followers.length },
+    { id: 'requests', label: 'Requests', count: requests.length },
+    { id: 'chats', label: 'Chats', count: threads.length },
+  ];
+
   return (
     <div className="space-y-6 animate-rise">
       <div>
@@ -175,17 +315,200 @@ export default function SocialPage() {
           Social
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Follow players, like &amp; comment on posts — just like PlayPro.
+          Follow players, manage requests, and chat with your network.
         </p>
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
+      <Card className="rounded-2xl border-0 shadow-panel">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Users className="h-5 w-5 text-brand" />
+            Your network
+          </CardTitle>
+          <CardDescription>
+            See who you follow, who follows you, pending requests, and open chats.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {networkTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setNetworkTab(tab.id)}
+                className={cn(
+                  'shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition',
+                  networkTab === tab.id
+                    ? 'bg-navy text-white'
+                    : 'bg-muted text-navy/70 hover:bg-brand/10',
+                )}
+              >
+                {tab.label}
+                <span className="ml-1.5 opacity-70">{tab.count}</span>
+              </button>
+            ))}
+          </div>
+
+          {networkTab === 'following' ? (
+            <ConnectionList
+              empty="You are not following anyone yet — search below to find players."
+              items={following}
+              onUnfollow={(id) => void follow(id, true, 'ACCEPTED')}
+              onChat={(id) => void openChat(id)}
+              chatBusy={chatBusy}
+            />
+          ) : null}
+
+          {networkTab === 'followers' ? (
+            <ConnectionList
+              empty="No followers yet. When someone follows you and you accept, they show up here."
+              items={followers}
+              onFollowBack={(id, isFollowing) => void follow(id, isFollowing)}
+              onChat={(id) => void openChat(id)}
+              chatBusy={chatBusy}
+              showFollowBack
+            />
+          ) : null}
+
+          {networkTab === 'requests' ? (
+            <ul className="space-y-2">
+              {requests.map((r) => (
+                <li
+                  key={r.userId}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/40 px-3 py-2.5 text-sm"
+                >
+                  <div>
+                    <div className="font-medium text-navy">{r.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {r.skillLevel ?? 'No skill yet'} · {r.points} pts · wants to follow you
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="rounded-xl"
+                      onClick={() => void acceptRequest(r.userId)}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl"
+                      onClick={() => void declineRequest(r.userId)}
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                </li>
+              ))}
+              {requests.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-navy/15 px-4 py-8 text-center text-sm text-muted-foreground">
+                  No pending follow requests.
+                </p>
+              ) : null}
+            </ul>
+          ) : null}
+
+          {networkTab === 'chats' ? (
+            <div className="grid gap-3 md:grid-cols-[minmax(0,14rem)_1fr]">
+              <ul className="space-y-1.5">
+                {threads.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => void selectThread(t)}
+                      className={cn(
+                        'w-full rounded-xl px-3 py-2.5 text-left text-sm transition',
+                        activeThread?.id === t.id
+                          ? 'bg-brand/15 text-navy'
+                          : 'bg-muted/50 hover:bg-muted',
+                      )}
+                    >
+                      <div className="font-semibold">{t.otherUser.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {t.lastMessage?.body ?? 'No messages yet'}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+                {threads.length === 0 ? (
+                  <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                    No chats yet. Tap Chat on a follower or someone you follow.
+                  </p>
+                ) : null}
+              </ul>
+
+              <div className="flex min-h-[16rem] flex-col rounded-2xl border border-border/70 bg-white">
+                {activeThread ? (
+                  <>
+                    <div className="border-b border-border/60 px-3 py-2.5 text-sm font-bold text-navy">
+                      {activeThread.otherUser.name}
+                      {activeThread.otherUser.skillLevel ? (
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          {activeThread.otherUser.skillLevel}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
+                      {messages.map((m) => (
+                        <div
+                          key={m.id}
+                          className={cn(
+                            'max-w-[85%] rounded-2xl px-3 py-2 text-sm',
+                            m.mine
+                              ? 'ml-auto bg-brand text-white'
+                              : 'bg-muted text-navy',
+                          )}
+                        >
+                          {m.body}
+                          <div
+                            className={cn(
+                              'mt-1 text-[10px]',
+                              m.mine ? 'text-white/70' : 'text-muted-foreground',
+                            )}
+                          >
+                            {new Date(m.createdAt).toLocaleString()}
+                          </div>
+                        </div>
+                      ))}
+                      <div ref={chatEndRef} />
+                    </div>
+                    <form
+                      className="flex gap-2 border-t border-border/60 p-2.5"
+                      onSubmit={(e) => void sendChat(e)}
+                    >
+                      <Input
+                        placeholder="Write a message…"
+                        value={chatDraft}
+                        onChange={(e) => setChatDraft(e.target.value)}
+                        className="rounded-xl"
+                      />
+                      <Button type="submit" size="sm" className="rounded-xl" disabled={chatBusy}>
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </form>
+                  </>
+                ) : (
+                  <div className="flex flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">
+                    Select a conversation or start one from Following / Followers.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="rounded-2xl border-0 shadow-panel">
           <CardHeader>
             <CardTitle className="text-lg">Find players</CardTitle>
-            <CardDescription>Search by name, email, or phone — then follow.</CardDescription>
+            <CardDescription>
+              Search by name, email, or phone — then send a follow request.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex gap-2">
@@ -194,6 +517,12 @@ export default function SocialPage() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 className="rounded-xl"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void search();
+                  }
+                }}
               />
               <Button type="button" variant="outline" className="rounded-xl" onClick={() => void search()}>
                 Search
@@ -203,22 +532,37 @@ export default function SocialPage() {
               {hits.map((h) => (
                 <li
                   key={h.userId}
-                  className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/40 px-3 py-2 text-sm"
                 >
                   <div>
                     <div className="font-medium text-navy">{h.name}</div>
                     <div className="text-xs text-muted-foreground">
                       {h.skillLevel ?? 'No skill yet'} · {h.points} pts
+                      {h.followsMe ? ' · Follows you' : ''}
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant={h.isFollowing ? 'secondary' : 'outline'}
-                    className="rounded-xl"
-                    onClick={() => void follow(h.userId, h.isFollowing)}
-                  >
-                    {h.isFollowing ? 'Following' : 'Follow'}
-                  </Button>
+                  <div className="flex gap-2">
+                    {h.canChat ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-xl"
+                        disabled={chatBusy}
+                        onClick={() => void openChat(h.userId)}
+                      >
+                        <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                        Chat
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant={h.isFollowing || h.followStatus === 'PENDING' ? 'secondary' : 'outline'}
+                      className="rounded-xl"
+                      onClick={() => void follow(h.userId, h.isFollowing, h.followStatus)}
+                    >
+                      {followLabel(h)}
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -246,20 +590,33 @@ export default function SocialPage() {
               {contacts.map((h) => (
                 <li
                   key={h.userId}
-                  className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/40 px-3 py-2 text-sm"
                 >
                   <div>
                     <div className="font-medium text-navy">{h.name}</div>
                     <Badge variant="secondary">From contacts</Badge>
                   </div>
-                  <Button
-                    size="sm"
-                    variant={h.isFollowing ? 'secondary' : 'outline'}
-                    className="rounded-xl"
-                    onClick={() => void follow(h.userId, h.isFollowing)}
-                  >
-                    {h.isFollowing ? 'Following' : 'Follow'}
-                  </Button>
+                  <div className="flex gap-2">
+                    {h.canChat ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-xl"
+                        disabled={chatBusy}
+                        onClick={() => void openChat(h.userId)}
+                      >
+                        Chat
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant={h.isFollowing || h.followStatus === 'PENDING' ? 'secondary' : 'outline'}
+                      className="rounded-xl"
+                      onClick={() => void follow(h.userId, h.isFollowing, h.followStatus)}
+                    >
+                      {followLabel(h)}
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -383,5 +740,90 @@ export default function SocialPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function ConnectionList({
+  items,
+  empty,
+  onUnfollow,
+  onFollowBack,
+  onChat,
+  chatBusy,
+  showFollowBack,
+}: {
+  items: SocialConnectionDto[];
+  empty: string;
+  onUnfollow?: (userId: string) => void;
+  onFollowBack?: (userId: string, isFollowing: boolean) => void;
+  onChat: (userId: string) => void;
+  chatBusy: boolean;
+  showFollowBack?: boolean;
+}) {
+  if (items.length === 0) {
+    return (
+      <p className="rounded-xl border border-dashed border-navy/15 px-4 py-8 text-center text-sm text-muted-foreground">
+        {empty}
+      </p>
+    );
+  }
+
+  return (
+    <ul className="space-y-2">
+      {items.map((p) => (
+        <li
+          key={p.userId}
+          className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/40 px-3 py-2.5 text-sm"
+        >
+          <div>
+            <div className="font-medium text-navy">{p.name}</div>
+            <div className="text-xs text-muted-foreground">
+              {p.skillLevel ?? 'No skill yet'} · {p.points} pts
+              {p.followsMe && p.isFollowing ? ' · Mutual' : ''}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {p.canChat ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-xl"
+                disabled={chatBusy}
+                onClick={() => onChat(p.userId)}
+              >
+                <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                Chat
+              </Button>
+            ) : null}
+            {showFollowBack ? (
+              <Button
+                size="sm"
+                variant={p.isFollowing ? 'secondary' : 'default'}
+                className="rounded-xl"
+                onClick={() => onFollowBack?.(p.userId, p.isFollowing)}
+              >
+                {p.isFollowing ? (
+                  'Following'
+                ) : (
+                  <>
+                    <UserPlus className="mr-1 h-3.5 w-3.5" />
+                    Follow back
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="rounded-xl"
+                onClick={() => onUnfollow?.(p.userId)}
+              >
+                Following
+              </Button>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
