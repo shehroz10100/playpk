@@ -20,6 +20,7 @@ import { fetchVenuesCatalog } from '@/lib/catalog';
 import {
   formatMatchWhen,
   genderLabel,
+  isUpcomingOpenMatch,
   matchVenueLine,
   skillBandLabel,
   toIsoFromLocalInput,
@@ -89,7 +90,7 @@ export default function PlayPage() {
         fetchVenuesCatalog({ city: 'Lahore', sport: '', minPrice: '', maxPrice: '', minRating: '' }),
       ]);
       setProfile(p.data);
-      setMatches(m.data);
+      setMatches(m.data.filter(isUpcomingOpenMatch));
       setSports(s.data);
       setVenues(venueList);
       setBranchId((prev) => prev || venueList[0]?.id || '');

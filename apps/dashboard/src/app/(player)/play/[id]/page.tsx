@@ -22,6 +22,7 @@ import { googleMapsUrl } from '@/lib/google-maps';
 import {
   formatMatchWhen,
   genderLabel,
+  isUpcomingOpenMatch,
   matchVenueLine,
   skillBandLabel,
 } from '@/lib/match-details';
@@ -132,7 +133,8 @@ export default function PlayMatchPage() {
 
   const isHost = me?.id === match.host.id;
   const alreadyIn = match.players.some((p) => p.userId === me?.id && p.status === 'JOINED');
-  const canJoin = !alreadyIn && match.status === 'OPEN';
+  const listingActive = isUpcomingOpenMatch(match);
+  const canJoin = !alreadyIn && match.status === 'OPEN' && listingActive;
   const spotsLeft = Math.max(0, match.maxPlayers - match.joinedCount);
   const fillPct = Math.min(100, Math.round((match.joinedCount / Math.max(1, match.maxPlayers)) * 100));
   const when = formatMatchWhen(match.scheduledAt);
@@ -354,6 +356,12 @@ export default function PlayMatchPage() {
                 ))}
               </ul>
             </div>
+
+            {!listingActive ? (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                This match listing expired after 24 hours and no longer appears in Upcoming Matches.
+              </p>
+            ) : null}
 
             {canJoin ? (
               <Button

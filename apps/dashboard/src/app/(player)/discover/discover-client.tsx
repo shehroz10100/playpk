@@ -22,6 +22,7 @@ import { api } from '@/lib/api';
 import {
   formatMatchWhen,
   genderLabel,
+  isUpcomingOpenMatch,
   matchVenueLine,
   skillBandLabel,
 } from '@/lib/match-details';
@@ -71,7 +72,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
       .then(({ data }) => setTournaments(data.slice(0, 8)))
       .catch(() => setTournaments([]));
     api<OpenMatchDto[]>(`/api/social/matches?city=${encodeURIComponent(city)}`)
-      .then(({ data }) => setMatches(data.slice(0, 6)))
+      .then(({ data }) => setMatches(data.filter(isUpcomingOpenMatch).slice(0, 6)))
       .catch(() => setMatches([]));
   }, [applied.city]);
 

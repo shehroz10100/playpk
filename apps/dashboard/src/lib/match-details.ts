@@ -1,5 +1,17 @@
 import type { MatchGenderPreference, OpenMatchDto, SkillLevel } from '@playpk/shared-types';
 
+/** Keep in sync with API OPEN_MATCH_LISTING_TTL_MS — listings leave Upcoming after this. */
+export const OPEN_MATCH_LISTING_TTL_MS = 24 * 60 * 60 * 1000;
+
+export function isUpcomingOpenMatch(
+  match: Pick<OpenMatchDto, 'createdAt' | 'scheduledAt' | 'status'>,
+): boolean {
+  if (match.status === 'CANCELLED' || match.status === 'COMPLETED') return false;
+  const anchor = match.scheduledAt ? new Date(match.scheduledAt) : new Date(match.createdAt);
+  if (Number.isNaN(anchor.getTime())) return false;
+  return Date.now() - anchor.getTime() <= OPEN_MATCH_LISTING_TTL_MS;
+}
+
 export function genderLabel(value: MatchGenderPreference | string | null | undefined): string {
   switch (value) {
     case 'MEN':

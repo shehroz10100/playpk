@@ -47,6 +47,67 @@ function hashPhone(phone: string): string {
   return createHash('sha256').update(normalized).digest('hex');
 }
 
+/** Open/challenge matches leave Upcoming after 24h past scheduled time (or createdAt if unset). */
+export const OPEN_MATCH_LISTING_TTL_MS = 24 * 60 * 60 * 1000;
+
+export function openMatchExpiryAnchor(match: {
+  createdAt: Date;
+  scheduledAt: Date | null;
+}): Date {
+  return match.scheduledAt ?? match.createdAt;
+}
+
+export function isOpenMatchListingExpired(match: {
+  createdAt: Date;
+  scheduledAt: Date | null;
+  status?: OpenMatchStatus;
+}): boolean {
+  if (
+    match.status === OpenMatchStatus.COMPLETED ||
+    match.status === OpenMatchStatus.CANCELLED
+  ) {
+    return true;
+  }
+  const anchor = openMatchExpiryAnchor(match).getTime();
+  return Date.now() - anchor > OPEN_MATCH_LISTING_TTL_MS;
+}
+
+/**
+ * Soft-cancel stale open matches so they drop out of Upcoming Matches.
+ * Safe to call often (list/join/bootstrap).
+ */
+export async function expireStaleOpenMatches(): Promise<number> {
+  const cutoff = new Date(Date.now() - OPEN_MATCH_LISTING_TTL_MS);
+  const stale = await prisma.openMatch.findMany({
+    where: {
+      status: {
+        in: [OpenMatchStatus.OPEN, OpenMatchStatus.FULL, OpenMatchStatus.IN_PROGRESS],
+      },
+      OR: [
+        { scheduledAt: { not: null, lt: cutoff } },
+        { scheduledAt: null, createdAt: { lt: cutoff } },
+      ],
+    },
+    select: { id: true },
+    take: 200,
+  });
+  if (stale.length === 0) return 0;
+  const result = await prisma.openMatch.updateMany({
+    where: { id: { in: stale.map((m) => m.id) } },
+    data: { status: OpenMatchStatus.CANCELLED },
+  });
+  return result.count;
+}
+
+function upcomingMatchWhereFilter(cutoff: Date): Prisma.OpenMatchWhereInput {
+  return {
+    OR: [
+      { scheduledAt: { gte: cutoff } },
+      { AND: [{ scheduledAt: null }, { createdAt: { gte: cutoff } }] },
+    ],
+  };
+}
+
 async function ensureProfile(userId: string): Promise<PlayerProfile> {
   const existing = await prisma.playerProfile.findUnique({ where: { userId } });
   if (existing) return existing;
@@ -241,13 +302,17 @@ export async function listOpenMatches(input: {
   visibility?: MatchVisibility;
   status?: OpenMatchStatus;
 }) {
+  await expireStaleOpenMatches();
   const profile = await ensureProfile(input.userId);
+  const cutoff = new Date(Date.now() - OPEN_MATCH_LISTING_TTL_MS);
   const matches = await prisma.openMatch.findMany({
     where: {
       AND: [
         input.city ? { city: { equals: input.city, mode: 'insensitive' } } : {},
         input.sportId ? { sportId: input.sportId } : {},
-        input.status ? { status: input.status } : { status: { in: [OpenMatchStatus.OPEN, OpenMatchStatus.FULL, OpenMatchStatus.IN_PROGRESS] } },
+        input.status
+          ? { status: input.status }
+          : { status: { in: [OpenMatchStatus.OPEN, OpenMatchStatus.FULL, OpenMatchStatus.IN_PROGRESS] } },
         {
           OR: [
             { visibility: MatchVisibility.PUBLIC },
@@ -256,6 +321,7 @@ export async function listOpenMatches(input: {
           ],
         },
         input.visibility ? { visibility: input.visibility } : {},
+        upcomingMatchWhereFilter(cutoff),
       ],
     },
     include: matchInclude,
@@ -361,12 +427,25 @@ export async function createOpenMatch(
 }
 
 export async function joinOpenMatch(matchId: string, userId: string) {
+  await expireStaleOpenMatches();
   const profile = await ensureProfile(userId);
   const match = await prisma.openMatch.findUnique({
     where: { id: matchId },
     include: { players: true },
   });
   if (!match) throw new AppError('Match not found', { statusCode: 404, code: 'NOT_FOUND' });
+  if (isOpenMatchListingExpired(match)) {
+    if (match.status !== OpenMatchStatus.CANCELLED) {
+      await prisma.openMatch.update({
+        where: { id: matchId },
+        data: { status: OpenMatchStatus.CANCELLED },
+      });
+    }
+    throw new AppError('This match listing has expired (over 24 hours old)', {
+      statusCode: 410,
+      code: 'MATCH_EXPIRED',
+    });
+  }
   if (match.visibility === MatchVisibility.PRIVATE) {
     const invited = match.players.find(
       (p) => p.userId === userId && p.status === OpenMatchPlayerStatus.INVITED,
