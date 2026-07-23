@@ -428,7 +428,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
         </div>
       </section>
 
-      {/* Promo — below fold, ambient only (no second above-fold video) */}
+      {/* Promo — below fold */}
       <AmbientPromo className="animate-rise px-4 py-4 sm:px-5 sm:py-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
