@@ -368,6 +368,14 @@ export default function VenueDetailPage() {
             <h1 className="font-display text-2xl font-extrabold tracking-tight text-navy sm:text-3xl">
               {venue.name}
             </h1>
+            {venue.discountPercent != null && venue.discountPercent > 0 ? (
+              <p className="mt-2 inline-flex items-center rounded-md bg-brand px-2.5 py-1 text-xs font-bold text-white">
+                {venue.discountPercent}% OFF
+                {venue.sportDiscounts?.[0]?.label
+                  ? ` · ${venue.sportDiscounts[0].label}`
+                  : ' on selected sports'}
+              </p>
+            ) : null}
             <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <MapPin className="h-4 w-4 text-brand" />
               {venue.city}
@@ -546,8 +554,11 @@ export default function VenueDetailPage() {
             </div>
             {bookCourt ? (
               <p className="mt-2 text-xs text-muted-foreground">
-                Court · {bookCourt.name} · from {formatPkr(bookCourt.pricePerHour)}/hr · advance{' '}
-                {formatPkr(BOOKING_ADVANCE_PKR)}
+                Court · {bookCourt.name} · from {formatPkr(bookCourt.pricePerHour)}/hr
+                {bookCourt.discountPercent
+                  ? ` · ${bookCourt.discountPercent}% off`
+                  : ''}{' '}
+                · advance {formatPkr(BOOKING_ADVANCE_PKR)}
               </p>
             ) : null}
           </div>

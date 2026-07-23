@@ -40,13 +40,18 @@ export function VenueCard({ venue, index = 0, compact = false }: Props) {
           >
             <div className="absolute inset-0 z-[1] bg-gradient-to-t from-navy/70 via-navy/10 to-transparent" />
             <div className="absolute left-3 top-3 z-[2] flex flex-wrap gap-1.5">
+              {venue.discountPercent != null && venue.discountPercent > 0 ? (
+                <span className="rounded-md bg-brand px-2 py-1 text-[11px] font-bold text-white shadow-sm">
+                  {venue.discountPercent}% OFF
+                </span>
+              ) : null}
               {rating != null ? (
                 <span className="inline-flex items-center gap-1 rounded-md bg-white/95 px-2 py-1 text-[11px] font-bold text-navy backdrop-blur">
                   <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
                   {rating.toFixed(1)}
                 </span>
               ) : (
-                <span className="rounded-md bg-brand px-2 py-1 text-[11px] font-bold text-white">
+                <span className="rounded-md bg-navy/80 px-2 py-1 text-[11px] font-bold text-white backdrop-blur">
                   New
                 </span>
               )}
@@ -102,18 +107,23 @@ export function VenueCard({ venue, index = 0, compact = false }: Props) {
             <div className="flex min-h-[2.75rem] flex-wrap content-start items-start gap-2">
               <span className="rounded-md bg-brand/10 px-2 py-1 text-xs font-bold text-brand-700">
                 {venue.minPrice != null ? `from ${formatPkr(venue.minPrice)}` : 'Check prices'}
+                {venue.discountPercent ? ' · deal' : ''}
               </span>
               <span className="rounded-md bg-navy/5 px-2 py-1 text-xs font-semibold text-navy/70">
                 {venue.courtCount} courts
               </span>
-              {venue.sports.slice(0, compact ? 1 : 2).map((s) => (
-                <span
-                  key={s.id}
-                  className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-navy/65"
-                >
-                  {s.name}
-                </span>
-              ))}
+              {venue.sports.slice(0, compact ? 1 : 2).map((s) => {
+                const deal = venue.sportDiscounts?.find((d) => d.sportId === s.id);
+                return (
+                  <span
+                    key={s.id}
+                    className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-navy/65"
+                  >
+                    {s.name}
+                    {deal ? ` · ${deal.percentOff}% off` : ''}
+                  </span>
+                );
+              })}
             </div>
 
             <span className="mt-auto inline-flex h-11 w-full items-center justify-center rounded-xl bg-brand text-sm font-bold text-white transition group-hover:bg-brand-600">

@@ -138,10 +138,19 @@ export type CatalogVenueDetail = {
   photos?: string[];
   sports?: Array<{ id?: string; name: string; iconUrl?: string | null }>;
   company: { name: string; description?: string | null };
+  discountPercent?: number | null;
+  sportDiscounts?: Array<{
+    sportId: string;
+    sportName: string;
+    percentOff: number;
+    label: string | null;
+  }>;
   courts: Array<{
     id: string;
     name: string;
     pricePerHour: number;
+    basePricePerHour?: number;
+    discountPercent?: number | null;
     indoor: boolean;
     hasAC: boolean;
     photos?: string[];

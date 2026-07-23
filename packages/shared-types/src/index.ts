@@ -292,6 +292,9 @@ export interface CourtDto {
   name: string;
   capacity: number;
   pricePerHour: number;
+  /** Court base rate before sport discount (when discount applied). */
+  basePricePerHour?: number;
+  discountPercent?: number | null;
   indoor: boolean;
   hasAC: boolean;
   equipmentAvailable?: string[];
@@ -299,6 +302,13 @@ export interface CourtDto {
   sportId?: string;
   sport: SportDto;
   branchId?: string;
+}
+
+export interface VenueSportDiscountDto {
+  sportId: string;
+  sportName: string;
+  percentOff: number;
+  label: string | null;
 }
 
 export interface VenueListItem {
@@ -316,6 +326,9 @@ export interface VenueListItem {
   sports: SportDto[];
   photos?: string[];
   courtCount: number;
+  /** Highest active sport discount % at this venue (for badge). */
+  discountPercent?: number | null;
+  sportDiscounts?: VenueSportDiscountDto[];
 }
 
 export interface VenueDetail extends VenueListItem {

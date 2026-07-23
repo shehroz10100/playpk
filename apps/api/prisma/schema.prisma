@@ -277,6 +277,7 @@ model Company {
   tickets    SupportTicket[]
   pricingRules PricingRule[]
   branding   BrandingSettings?
+  sportDiscounts SportDiscount[]
 
   @@index([ownerId])
   @@index([approvalStatus])
@@ -324,6 +325,7 @@ model Sport {
   playerProfiles PlayerProfile[]
   openMatches    OpenMatch[]
   pricingRules   PricingRule[]
+  sportDiscounts SportDiscount[]
 }
 
 model Court {
@@ -447,6 +449,27 @@ model BrandingSettings {
   updatedAt         DateTime @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+/** Company-wide % off for a sport — shown on venue cards and applied at booking. */
+model SportDiscount {
+  id         String    @id @default(cuid())
+  companyId  String
+  sportId    String
+  percentOff Decimal   @db.Decimal(5, 2)
+  label      String?
+  active     Boolean   @default(true)
+  validFrom  DateTime?
+  validTo    DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sport   Sport   @relation(fields: [sportId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, sportId])
+  @@index([companyId, active])
+  @@index([sportId])
 }
 
 model Review {

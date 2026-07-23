@@ -4,6 +4,7 @@ jest.mock('../../lib/prisma', () => ({
   prisma: {
     court: { findUnique: jest.fn() },
     pricingRule: { findMany: jest.fn() },
+    sportDiscount: { findUnique: jest.fn() },
   },
 }));
 
@@ -13,6 +14,7 @@ import { resolvePrice } from '../resolvePrice';
 const mockedPrisma = prisma as unknown as {
   court: { findUnique: jest.Mock };
   pricingRule: { findMany: jest.Mock };
+  sportDiscount: { findUnique: jest.Mock };
 };
 
 describe('resolvePrice', () => {
@@ -25,6 +27,7 @@ describe('resolvePrice', () => {
       branchId: 'branch_1',
       branch: { companyId: 'co_1', id: 'branch_1' },
     });
+    mockedPrisma.sportDiscount.findUnique.mockResolvedValue(null);
   });
 
   it('returns identical price for ONLINE and WALK_IN when matching rule channel is BOTH', async () => {

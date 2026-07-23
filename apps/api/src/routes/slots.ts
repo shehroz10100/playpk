@@ -115,7 +115,10 @@ slotsRouter.get('/court/:courtId/availability', async (req, res, next) => {
   try {
     const court = await prisma.court.findUnique({
       where: { id: param(req, 'courtId') },
-      include: { sport: true, branch: { select: { id: true, name: true, city: true } } },
+      include: {
+        sport: true,
+        branch: { select: { id: true, name: true, city: true, companyId: true } },
+      },
     });
     if (!court) {
       throw new AppError('Court not found', { statusCode: 404, code: 'NOT_FOUND' });
@@ -151,11 +154,20 @@ slotsRouter.get('/court/:courtId/availability', async (req, res, next) => {
       },
     });
 
+    const { findActiveSportDiscount, applyPercentOff } = await import(
+      '../services/sport-discount.service'
+    );
+    const discount = await findActiveSportDiscount(court.branch.companyId, court.sportId);
+    const mapPrice = (base: number) =>
+      discount ? applyPercentOff(base, discount.percentOff) : base;
+
     sendSuccess(res, {
       court: {
         id: court.id,
         name: court.name,
-        pricePerHour: Number(court.pricePerHour),
+        pricePerHour: mapPrice(Number(court.pricePerHour)),
+        basePricePerHour: Number(court.pricePerHour),
+        discountPercent: discount?.percentOff ?? null,
         indoor: court.indoor,
         hasAC: court.hasAC,
         photos: court.photos,
@@ -164,7 +176,7 @@ slotsRouter.get('/court/:courtId/availability', async (req, res, next) => {
       },
       slots: slots.map((s) => ({
         ...s,
-        price: Number(s.price),
+        price: mapPrice(Number(s.price)),
         date: s.date.toISOString().slice(0, 10),
       })),
     });

@@ -2,6 +2,10 @@ import { CompanyApprovalStatus, type Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { cacheGet, cacheSet } from '../lib/cache';
+import {
+  applyPercentOff,
+  getActiveSportDiscounts,
+} from './sport-discount.service';
 
 const approvedVenueWhere = {
   approvalStatus: CompanyApprovalStatus.APPROVED,
@@ -123,11 +127,32 @@ async function fetchVenues(q: ListVenuesQuery) {
     ]),
   );
 
+  const companyIds = [...new Set(branches.map((b) => b.company.id))];
+  const activeDiscounts = await getActiveSportDiscounts(companyIds);
+  const discountsByCompany = new Map<string, typeof activeDiscounts>();
+  for (const d of activeDiscounts) {
+    const list = discountsByCompany.get(d.companyId) ?? [];
+    list.push(d);
+    discountsByCompany.set(d.companyId, list);
+  }
+
   const data = branches.map((branch) => {
-    const prices = branch.courts.map((c) => Number(c.pricePerHour));
+    const companyDiscounts = discountsByCompany.get(branch.company.id) ?? [];
+    const sportIds = new Set(branch.courts.map((c) => c.sport.id));
+    const sportDiscounts = companyDiscounts.filter((d) => sportIds.has(d.sportId));
+    const discountBySport = new Map(sportDiscounts.map((d) => [d.sportId, d.percentOff]));
+
+    const prices = branch.courts.map((c) => {
+      const base = Number(c.pricePerHour);
+      const pct = discountBySport.get(c.sport.id);
+      return pct != null ? applyPercentOff(base, pct) : base;
+    });
     const sports = [...new Map(branch.courts.map((c) => [c.sport.id, c.sport])).values()];
     const photos = [...new Set(branch.courts.flatMap((c) => c.photos))].slice(0, 6);
     const rating = ratingByBranch.get(branch.id);
+    const discountPercent =
+      sportDiscounts.length > 0 ? Math.max(...sportDiscounts.map((d) => d.percentOff)) : null;
+
     return {
       id: branch.id,
       name: branch.name,
@@ -143,6 +168,13 @@ async function fetchVenues(q: ListVenuesQuery) {
       sports,
       photos,
       courtCount: branch.courts.length,
+      discountPercent,
+      sportDiscounts: sportDiscounts.map((d) => ({
+        sportId: d.sportId,
+        sportName: d.sportName,
+        percentOff: d.percentOff,
+        label: d.label,
+      })),
     };
   });
 
@@ -195,6 +227,13 @@ export async function getVenueDetail(branchId: string) {
   const sports = [...new Map(branch.courts.map((c) => [c.sport.id, c.sport])).values()];
   const photos = [...new Set(branch.courts.flatMap((c) => c.photos))];
 
+  const activeDiscounts = await getActiveSportDiscounts([branch.company.id]);
+  const sportIds = new Set(branch.courts.map((c) => c.sportId));
+  const sportDiscounts = activeDiscounts.filter((d) => sportIds.has(d.sportId));
+  const discountBySport = new Map(sportDiscounts.map((d) => [d.sportId, d]));
+  const discountPercent =
+    sportDiscounts.length > 0 ? Math.max(...sportDiscounts.map((d) => d.percentOff)) : null;
+
   return {
     id: branch.id,
     name: branch.name,
@@ -210,16 +249,30 @@ export async function getVenueDetail(branchId: string) {
     reviews: branch.reviews,
     sports,
     photos,
-    courts: branch.courts.map((c) => ({
-      id: c.id,
-      name: c.name,
-      capacity: c.capacity,
-      pricePerHour: Number(c.pricePerHour),
-      indoor: c.indoor,
-      hasAC: c.hasAC,
-      equipmentAvailable: c.equipmentAvailable,
-      photos: c.photos,
-      sport: c.sport,
+    discountPercent,
+    sportDiscounts: sportDiscounts.map((d) => ({
+      sportId: d.sportId,
+      sportName: d.sportName,
+      percentOff: d.percentOff,
+      label: d.label,
     })),
+    courts: branch.courts.map((c) => {
+      const base = Number(c.pricePerHour);
+      const disc = discountBySport.get(c.sportId);
+      const pricePerHour = disc ? applyPercentOff(base, disc.percentOff) : base;
+      return {
+        id: c.id,
+        name: c.name,
+        capacity: c.capacity,
+        pricePerHour,
+        basePricePerHour: base,
+        discountPercent: disc?.percentOff ?? null,
+        indoor: c.indoor,
+        hasAC: c.hasAC,
+        equipmentAvailable: c.equipmentAvailable,
+        photos: c.photos,
+        sport: c.sport,
+      };
+    }),
   };
 }

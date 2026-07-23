@@ -1,6 +1,10 @@
 import { PricingChannel, PricingDayType, type PricingRule } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
+import {
+  applyPercentOff,
+  findActiveSportDiscount,
+} from '../services/sport-discount.service';
 
 export type PriceChannel = 'ONLINE' | 'WALK_IN';
 
@@ -12,6 +16,8 @@ export type ResolvedPrice = {
   dayType: PricingDayType;
   appliedRuleId: string | null;
   appliedRuleLabel: string | null;
+  discountPercent: number | null;
+  discountLabel: string | null;
 };
 
 function toMinutes(hhmm: string): number {
@@ -89,7 +95,16 @@ export async function resolvePrice(
   );
 
   const winner = matching[0] ?? null;
-  const price = winner ? applyRule(basePrice, winner) : basePrice;
+  let price = winner ? applyRule(basePrice, winner) : basePrice;
+
+  const sportDiscount = await findActiveSportDiscount(court.branch.companyId, court.sportId);
+  let discountPercent: number | null = null;
+  let discountLabel: string | null = null;
+  if (sportDiscount) {
+    discountPercent = sportDiscount.percentOff;
+    discountLabel = sportDiscount.label ?? `${sportDiscount.percentOff}% off ${sportDiscount.sportName}`;
+    price = applyPercentOff(price, sportDiscount.percentOff);
+  }
 
   return {
     price,
@@ -101,5 +116,7 @@ export async function resolvePrice(
     appliedRuleLabel: winner
       ? `${winner.dayType} ${winner.timeRangeStart}-${winner.timeRangeEnd} (${winner.channel})`
       : null,
+    discountPercent,
+    discountLabel,
   };
 }

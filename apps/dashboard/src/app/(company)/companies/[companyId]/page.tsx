@@ -275,6 +275,12 @@ export default function CompanyOverviewPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
+            href={`/companies/${companyId}/discounts`}
+            className="inline-flex h-9 items-center rounded-md border border-border bg-white px-3 text-sm text-navy hover:bg-muted"
+          >
+            Sport discounts
+          </Link>
+          <Link
             href={`/companies/${companyId}/branding`}
             className="inline-flex h-9 items-center rounded-md border border-border bg-white px-3 text-sm text-navy hover:bg-muted"
           >

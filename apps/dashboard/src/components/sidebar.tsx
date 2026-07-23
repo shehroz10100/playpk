@@ -10,6 +10,7 @@ import {
   LogOut,
   MapPin,
   Menu,
+  Percent,
   Star,
   Ticket,
   Trophy,
@@ -40,6 +41,15 @@ export function Sidebar({ companyId, branchId }: SidebarProps) {
       label: 'Company',
       icon: Building2,
     },
+    ...(companyId
+      ? [
+          {
+            href: `/companies/${companyId}/discounts`,
+            label: 'Sport discounts',
+            icon: Percent,
+          },
+        ]
+      : []),
     ...(branchId
       ? [
           {

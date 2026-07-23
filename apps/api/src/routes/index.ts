@@ -18,6 +18,7 @@ import { pricingRouter } from './pricing';
 import { walkinRouter } from './walkin';
 import { brandingRouter } from './branding';
 import { pricingRulesRouter } from './pricing-rules';
+import { sportDiscountsRouter } from './sport-discounts';
 
 /**
  * Versioned API routes under /api
@@ -58,6 +59,7 @@ apiRouter.get('/', (_req, res) => {
         support: '/api/support',
         pricing: 'GET /api/pricing/resolve',
         pricingRules: '/api/pricing-rules',
+        sportDiscounts: '/api/sport-discounts',
         branding: '/api/branding',
         walkin: '/api/walkin',
       },
@@ -90,3 +92,4 @@ apiRouter.use('/pricing', pricingRouter);
 apiRouter.use('/walkin', walkinRouter);
 apiRouter.use('/branding', brandingRouter);
 apiRouter.use('/pricing-rules', pricingRulesRouter);
+apiRouter.use('/sport-discounts', sportDiscountsRouter);
