@@ -426,8 +426,8 @@ export default function SlotsPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
-                Creates one slot for <strong>{selectedDate}</strong> on the selected court. Use
-                24-hour times (00–24). Overnight (e.g. 23:00–01:00) is allowed; overlaps are blocked.
+                Creates one slot for <strong>{selectedDate}</strong> on the selected court. Hours
+                are 00–24 with AM/PM. Overnight (e.g. 23:00–01:00) is allowed; overlaps are blocked.
               </p>
             </form>
           ) : null}
