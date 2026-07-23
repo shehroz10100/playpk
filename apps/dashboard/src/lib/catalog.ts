@@ -159,7 +159,7 @@ export async function fetchVenueDetail(branchId: string): Promise<CatalogVenueDe
   const { data, error } = await supabase
     .from('Branch')
     .select(
-      'id, name, city, address, latitude, longitude, operatingHoursStart, operatingHoursEnd, approvalStatus, Company!inner(id, name, logoUrl, approvalStatus), Court(id, name, capacity, pricePerHour, indoor, hasAC, photos, Sport(id, name, iconUrl))',
+      'id, name, city, address, latitude, longitude, operatingHoursStart, operatingHoursEnd, approvalStatus, Company!inner(id, name, logoUrl, description, approvalStatus), Court(id, name, capacity, pricePerHour, indoor, hasAC, photos, Sport(id, name, iconUrl))',
     )
     .eq('id', branchId)
     .eq('approvalStatus', 'APPROVED')
@@ -190,7 +190,10 @@ export async function fetchVenueDetail(branchId: string): Promise<CatalogVenueDe
     longitude: branch.longitude ?? null,
     operatingHoursStart: branch.operatingHoursStart ?? '06:00',
     operatingHoursEnd: branch.operatingHoursEnd ?? '23:00',
-    company: { name: branch.Company.name },
+    company: {
+      name: branch.Company.name,
+      description: branch.Company.description ?? null,
+    },
     sports: [
       ...new Map(courts.map((c) => [c.sport.id ?? c.sport.name, c.sport])).values(),
     ],
