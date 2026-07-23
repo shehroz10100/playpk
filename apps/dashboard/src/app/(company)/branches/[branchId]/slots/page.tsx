@@ -38,6 +38,70 @@ const statusVariant: Record<Slot['status'], 'success' | 'danger' | 'warn' | 'mut
   MAINTENANCE: 'warn',
 };
 
+/** 24-hour clock options (00–24) — avoids browser AM/PM time pickers. */
+const HOURS_24 = Array.from({ length: 25 }, (_, i) => String(i).padStart(2, '0'));
+const MINUTES_60 = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
+function splitHm(value: string): { hour: string; minute: string } {
+  const [hour = '00', minute = '00'] = value.split(':');
+  return {
+    hour: hour.padStart(2, '0').slice(0, 2),
+    minute: minute.padStart(2, '0').slice(0, 2),
+  };
+}
+
+function Time24Select({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const { hour, minute } = splitHm(value);
+  const selectClass =
+    'flex h-10 rounded-md border border-border bg-white px-2 text-sm text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40';
+
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={`${id}-hour`}>{label}</Label>
+      <div className="flex items-center gap-1.5">
+        <select
+          id={`${id}-hour`}
+          aria-label={`${label} hour`}
+          className={`${selectClass} min-w-[4.5rem]`}
+          value={HOURS_24.includes(hour) ? hour : '00'}
+          onChange={(e) => onChange(`${e.target.value}:${minute}`)}
+        >
+          {HOURS_24.map((h) => (
+            <option key={h} value={h}>
+              {h}
+            </option>
+          ))}
+        </select>
+        <span className="text-sm font-medium text-muted-foreground">:</span>
+        <select
+          id={`${id}-minute`}
+          aria-label={`${label} minute`}
+          className={`${selectClass} min-w-[4.5rem]`}
+          value={MINUTES_60.includes(minute) ? minute : '00'}
+          onChange={(e) => onChange(`${hour}:${e.target.value}`)}
+        >
+          {MINUTES_60.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-muted-foreground">24h</span>
+      </div>
+    </div>
+  );
+}
+
 export default function SlotsPage() {
   const params = useParams<{ branchId: string }>();
   const branchId = params.branchId;
@@ -300,26 +364,18 @@ export default function SlotsPage() {
                 void createManualSlot();
               }}
             >
-              <div className="space-y-1">
-                <Label htmlFor="manual-start">Start</Label>
-                <Input
-                  id="manual-start"
-                  type="time"
-                  required
-                  value={manualStart}
-                  onChange={(e) => setManualStart(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="manual-end">End</Label>
-                <Input
-                  id="manual-end"
-                  type="time"
-                  required
-                  value={manualEnd}
-                  onChange={(e) => setManualEnd(e.target.value)}
-                />
-              </div>
+              <Time24Select
+                id="manual-start"
+                label="Start"
+                value={manualStart}
+                onChange={setManualStart}
+              />
+              <Time24Select
+                id="manual-end"
+                label="End"
+                value={manualEnd}
+                onChange={setManualEnd}
+              />
               <div className="space-y-1 sm:col-span-2 lg:col-span-1">
                 <Label htmlFor="manual-price">Price PKR (optional)</Label>
                 <Input
@@ -337,8 +393,8 @@ export default function SlotsPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
-                Creates one slot for <strong>{selectedDate}</strong> on the selected court. Overnight
-                times (e.g. 23:00–01:00) are allowed. Overlaps with existing slots are blocked.
+                Creates one slot for <strong>{selectedDate}</strong> on the selected court. Use
+                24-hour times (00–24). Overnight (e.g. 23:00–01:00) is allowed; overlaps are blocked.
               </p>
             </form>
           ) : null}

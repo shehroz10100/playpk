@@ -47,11 +47,11 @@ const createManualSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z
     .string()
-    .regex(/^\d{2}:\d{2}(:\d{2})?$/)
+    .regex(/^([01]\d|2[0-4]):[0-5]\d(:\d{2})?$/)
     .transform((t) => t.slice(0, 5)),
   endTime: z
     .string()
-    .regex(/^\d{2}:\d{2}(:\d{2})?$/)
+    .regex(/^([01]\d|2[0-4]):[0-5]\d(:\d{2})?$/)
     .transform((t) => t.slice(0, 5)),
   price: z.number().positive().optional(),
   status: z.nativeEnum(SlotStatus).optional(),
