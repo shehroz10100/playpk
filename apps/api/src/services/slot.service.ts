@@ -80,6 +80,88 @@ export async function generateSlots(input: {
   };
 }
 
+/**
+ * Create a single slot with custom start/end timing for a court on a date.
+ * Rejects duplicate startTime and overlapping windows.
+ */
+export async function createManualSlot(input: {
+  courtId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  price?: number;
+  status?: SlotStatus;
+}) {
+  const court = await prisma.court.findUnique({ where: { id: input.courtId } });
+  if (!court) {
+    throw new AppError('Court not found', { statusCode: 404, code: 'NOT_FOUND' });
+  }
+
+  const startMin = toHourMinutes(input.startTime);
+  let endMin = toHourMinutes(input.endTime);
+  // Overnight slot on the same calendar date (e.g. 23:00–01:00)
+  const overnight = endMin <= startMin;
+  if (overnight) endMin += 24 * 60;
+  if (endMin - startMin < 15) {
+    throw new AppError('Slot must be at least 15 minutes', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+  if (endMin - startMin > 12 * 60) {
+    throw new AppError('Slot cannot exceed 12 hours', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+
+  const date = parseDateOnly(input.date);
+  const existing = await prisma.slot.findMany({
+    where: { courtId: court.id, date },
+    select: { id: true, startTime: true, endTime: true },
+  });
+
+  for (const s of existing) {
+    if (s.startTime === input.startTime) {
+      throw new AppError('A slot already starts at this time', {
+        statusCode: 409,
+        code: 'SLOT_EXISTS',
+      });
+    }
+    const sStart = toHourMinutes(s.startTime);
+    let sEnd = toHourMinutes(s.endTime);
+    if (sEnd <= sStart) sEnd += 24 * 60;
+    const overlaps = startMin < sEnd && endMin > sStart;
+    if (overlaps) {
+      throw new AppError(
+        `Overlaps existing slot ${s.startTime}–${s.endTime}`,
+        { statusCode: 409, code: 'SLOT_OVERLAP' },
+      );
+    }
+  }
+
+  const created = await prisma.slot.create({
+    data: {
+      courtId: court.id,
+      date,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      status: input.status ?? SlotStatus.AVAILABLE,
+      price: input.price ?? Number(court.pricePerHour),
+    },
+  });
+
+  return {
+    id: created.id,
+    courtId: created.courtId,
+    date: created.date.toISOString().slice(0, 10),
+    startTime: created.startTime,
+    endTime: created.endTime,
+    status: created.status,
+    price: Number(created.price),
+  };
+}
+
 export async function searchSlots(input: {
   city?: string;
   sportId?: string;

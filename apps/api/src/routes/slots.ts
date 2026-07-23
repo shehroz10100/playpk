@@ -42,6 +42,42 @@ slotsRouter.post(
   },
 );
 
+/** Create one slot with custom start/end times for the selected court + date. */
+slotsRouter.post(
+  '/',
+  authenticate,
+  requireRoles(UserRole.COMPANY_OWNER, UserRole.BRANCH_MANAGER, UserRole.ADMIN),
+  validate(
+    z.object({
+      courtId: z.string().min(1),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      startTime: z
+        .string()
+        .regex(/^\d{2}:\d{2}(:\d{2})?$/)
+        .transform((t) => t.slice(0, 5)),
+      endTime: z
+        .string()
+        .regex(/^\d{2}:\d{2}(:\d{2})?$/)
+        .transform((t) => t.slice(0, 5)),
+      price: z.number().positive().optional(),
+      status: z.nativeEnum(SlotStatus).optional(),
+    }),
+  ),
+  async (req, res, next) => {
+    try {
+      const court = await prisma.court.findUnique({ where: { id: req.body.courtId } });
+      if (!court) {
+        throw new AppError('Court not found', { statusCode: 404, code: 'NOT_FOUND' });
+      }
+      await assertCanManageBranch(req.user!, court.branchId);
+      const slot = await slotService.createManualSlot(req.body);
+      sendSuccess(res, slot, 201);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 slotsRouter.get('/search', async (req, res, next) => {
   try {
     const q = z

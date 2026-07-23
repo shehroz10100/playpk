@@ -49,6 +49,10 @@ export default function SlotsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [generateDays, setGenerateDays] = useState(14);
+  const [manualStart, setManualStart] = useState('18:00');
+  const [manualEnd, setManualEnd] = useState('19:00');
+  const [manualPrice, setManualPrice] = useState('');
+  const [showManual, setShowManual] = useState(false);
 
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
@@ -137,13 +141,42 @@ export default function SlotsPage() {
     }
   }
 
+  async function createManualSlot() {
+    if (!courtId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const priceNum = manualPrice.trim() ? Number(manualPrice) : undefined;
+      if (priceNum !== undefined && (!Number.isFinite(priceNum) || priceNum <= 0)) {
+        setError('Enter a valid price (PKR) or leave blank for court default.');
+        return;
+      }
+      await api('/api/slots', {
+        method: 'POST',
+        body: JSON.stringify({
+          courtId,
+          date: selectedDate,
+          startTime: manualStart,
+          endTime: manualEnd,
+          ...(priceNum !== undefined ? { price: priceNum } : {}),
+        }),
+      });
+      setShowManual(false);
+      await loadSlots();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create slot');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-navy">Slot calendar</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Monthly view per court. Click a date to create, block, or mark maintenance.
+            Monthly view per court. Click a date to add a manual slot, block, or mark maintenance.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -241,17 +274,78 @@ export default function SlotsPage() {
           <div>
             <CardTitle>Slots for {selectedDate}</CardTitle>
             <CardDescription>
-              {slots.length} slots · click status actions to update availability
+              {slots.length} slots · add a custom time or update availability
             </CardDescription>
           </div>
-          <Button variant="secondary" size="sm" disabled={busy || !courtId} onClick={markHoliday}>
-            Mark holiday
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy || !courtId}
+              onClick={() => setShowManual((v) => !v)}
+            >
+              {showManual ? 'Cancel' : 'Add manual slot'}
+            </Button>
+            <Button variant="secondary" size="sm" disabled={busy || !courtId} onClick={markHoliday}>
+              Mark holiday
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-4">
+          {showManual ? (
+            <form
+              className="grid gap-3 rounded-lg border border-border bg-muted/40 p-4 sm:grid-cols-2 lg:grid-cols-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void createManualSlot();
+              }}
+            >
+              <div className="space-y-1">
+                <Label htmlFor="manual-start">Start</Label>
+                <Input
+                  id="manual-start"
+                  type="time"
+                  required
+                  value={manualStart}
+                  onChange={(e) => setManualStart(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="manual-end">End</Label>
+                <Input
+                  id="manual-end"
+                  type="time"
+                  required
+                  value={manualEnd}
+                  onChange={(e) => setManualEnd(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+                <Label htmlFor="manual-price">Price PKR (optional)</Label>
+                <Input
+                  id="manual-price"
+                  type="number"
+                  min={1}
+                  placeholder="Court default"
+                  value={manualPrice}
+                  onChange={(e) => setManualPrice(e.target.value)}
+                />
+              </div>
+              <div className="flex items-end sm:col-span-2 lg:col-span-1">
+                <Button type="submit" className="w-full" disabled={busy || !courtId}>
+                  {busy ? 'Saving…' : 'Create slot'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
+                Creates one slot for <strong>{selectedDate}</strong> on the selected court. Overnight
+                times (e.g. 23:00–01:00) are allowed. Overlaps with existing slots are blocked.
+              </p>
+            </form>
+          ) : null}
+
           {slots.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No slots for this day. Use Generate slots to create a schedule.
+              No slots for this day. Use <strong>Add manual slot</strong> or Generate slots.
             </p>
           ) : (
             slots.map((slot) => (
