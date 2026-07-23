@@ -11,7 +11,7 @@
   --muted-fg: #5b6b7c;
 }
 
-  body {
+body {
   color: var(--foreground);
   background:
     radial-gradient(1200px 600px at 10% -10%, rgba(0, 166, 81, 0.12), transparent 55%),

@@ -12,9 +12,11 @@ pkg.workspaces = ['apps/api', 'apps/dashboard', 'packages/*'];
 fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
 NODE
 
-npm install \
+# Keep CSS tooling available: Vercel may set production install and omit devDeps.
+NPM_CONFIG_PRODUCTION=false npm install \
   --workspace=@playpk/dashboard \
   --workspace=@playpk/shared-types \
   --include-workspace-root \
+  --include=dev \
   --no-audit \
   --no-fund

@@ -57,9 +57,9 @@ const createManualSchema = z.object({
   status: z.nativeEnum(SlotStatus).optional(),
 });
 
-/** Create one slot with custom start/end times for the selected court + date. */
+/** Create one slot with custom start/end times (POST /api/slots and /api/slots/manual). */
 slotsRouter.post(
-  '/manual',
+  ['/', '/manual'],
   authenticate,
   requireRoles(UserRole.COMPANY_OWNER, UserRole.BRANCH_MANAGER, UserRole.ADMIN),
   validate(createManualSchema),
