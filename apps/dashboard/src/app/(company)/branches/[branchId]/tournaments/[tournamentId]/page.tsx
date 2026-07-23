@@ -82,6 +82,26 @@ export default function TournamentManagePage() {
     }
   }
 
+  async function cancelTournament() {
+    if (
+      !window.confirm(
+        'Cancel this tournament? Players will no longer be able to register, and it will be hidden from public listings.',
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/tournaments/${tournamentId}/cancel`, { method: 'POST' });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cancel failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveResult(matchId: string) {
     const s = scores[matchId];
     if (!s) return;
@@ -120,13 +140,28 @@ export default function TournamentManagePage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="success">{tournament.status}</Badge>
+          <Badge variant={tournament.status === 'CANCELLED' ? 'warn' : 'success'}>
+            {tournament.status}
+          </Badge>
           {tournament.status === 'OPEN' ? (
             <Button variant="outline" disabled={busy} onClick={closeRegistration}>
               Close registration
             </Button>
           ) : null}
-          <Button disabled={busy || tournament.format !== 'KNOCKOUT'} onClick={generateFixtures}>
+          {tournament.status !== 'CANCELLED' && tournament.status !== 'COMPLETED' ? (
+            <Button variant="danger" disabled={busy} onClick={cancelTournament}>
+              Cancel tournament
+            </Button>
+          ) : null}
+          <Button
+            disabled={
+              busy ||
+              tournament.format !== 'KNOCKOUT' ||
+              tournament.status === 'CANCELLED' ||
+              tournament.status === 'COMPLETED'
+            }
+            onClick={generateFixtures}
+          >
             {busy ? 'Working…' : 'Generate knockout fixtures'}
           </Button>
         </div>
