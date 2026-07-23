@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import type { AnalyticsDto, BranchTodayStats, PricingSuggestResponse } from '@playpk/shared-types';
@@ -21,12 +21,30 @@ import { formatPkr } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+const PAKISTAN_CITIES = [
+  'Lahore',
+  'Karachi',
+  'Islamabad',
+  'Rawalpindi',
+  'Faisalabad',
+  'Multan',
+  'Peshawar',
+  'Quetta',
+  'Sialkot',
+  'Gujranwala',
+  'Other',
+] as const;
 
 type Branch = {
   id: string;
   name: string;
   city: string;
   address: string;
+  operatingHoursStart?: string;
+  operatingHoursEnd?: string;
   company: { id: string; name: string };
   courts: Array<{ id: string; name: string; sport: { name: string } }>;
 };
@@ -40,6 +58,13 @@ export default function BranchHomePage() {
   const [pricing, setPricing] = useState<PricingSuggestResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pricingBusy, setPricingBusy] = useState(false);
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [locationForm, setLocationForm] = useState({
+    name: '',
+    city: 'Lahore',
+    address: '',
+  });
 
   useEffect(() => {
     Promise.all([
@@ -51,9 +76,55 @@ export default function BranchHomePage() {
         setBranch(branchRes.data);
         setStats(statsRes.data);
         setAnalytics(analyticsRes.data);
+        setLocationForm({
+          name: branchRes.data.name,
+          city: branchRes.data.city,
+          address: branchRes.data.address,
+        });
       })
       .catch((err: Error) => setError(err.message));
   }, [branchId]);
+
+  function citySelectValue(city: string) {
+    return (PAKISTAN_CITIES as readonly string[]).includes(city) ? city : 'Other';
+  }
+
+  async function onSaveLocation(e: FormEvent) {
+    e.preventDefault();
+    const city = locationForm.city.trim();
+    const address = locationForm.address.trim();
+    if (city.length < 2 || address.length < 5) {
+      setError('Enter a city and a full location / address (at least 5 characters).');
+      return;
+    }
+    setSavingLocation(true);
+    setError(null);
+    try {
+      const { data } = await api<Branch>(`/api/branches/${branchId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: locationForm.name.trim(),
+          city,
+          address,
+        }),
+      });
+      setBranch((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: data.name,
+              city: data.city,
+              address: data.address,
+            }
+          : prev,
+      );
+      setEditingLocation(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update location');
+    } finally {
+      setSavingLocation(false);
+    }
+  }
 
   async function loadPricing() {
     if (!branch?.courts[0]) return;

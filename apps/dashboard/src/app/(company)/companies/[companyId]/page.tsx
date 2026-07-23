@@ -3,12 +3,27 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { MapPin } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+
+const PAKISTAN_CITIES = [
+  'Lahore',
+  'Karachi',
+  'Islamabad',
+  'Rawalpindi',
+  'Faisalabad',
+  'Multan',
+  'Peshawar',
+  'Quetta',
+  'Sialkot',
+  'Gujranwala',
+  'Other',
+] as const;
 
 type Branch = {
   id: string;
@@ -44,6 +59,14 @@ export default function CompanyOverviewPage() {
   const [bankName, setBankName] = useState('');
   const [showBank, setShowBank] = useState(false);
   const [bankSaved, setBankSaved] = useState(false);
+  const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
+  const [locationForm, setLocationForm] = useState({
+    name: '',
+    city: 'Lahore',
+    address: '',
+    operatingHoursStart: '06:00',
+    operatingHoursEnd: '23:00',
+  });
   const [form, setForm] = useState({
     name: '',
     city: 'Lahore',
@@ -66,6 +89,10 @@ export default function CompanyOverviewPage() {
     load().catch((err: Error) => setError(err.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
+
+  function citySelectValue(city: string) {
+    return (PAKISTAN_CITIES as readonly string[]).includes(city) ? city : 'Other';
+  }
 
   async function onSaveBank(e: FormEvent) {
     e.preventDefault();
@@ -157,6 +184,52 @@ export default function CompanyOverviewPage() {
     }
   }
 
+  function startEditLocation(branch: Branch) {
+    setEditingBranchId(branch.id);
+    setShowForm(false);
+    setShowRename(false);
+    setShowBank(false);
+    setLocationForm({
+      name: branch.name,
+      city: branch.city,
+      address: branch.address,
+      operatingHoursStart: branch.operatingHoursStart,
+      operatingHoursEnd: branch.operatingHoursEnd,
+    });
+    setError(null);
+  }
+
+  async function onSaveLocation(e: FormEvent) {
+    e.preventDefault();
+    if (!editingBranchId) return;
+    const city = locationForm.city.trim();
+    const address = locationForm.address.trim();
+    if (city.length < 2 || address.length < 5) {
+      setError('Enter a city and a full location / address (at least 5 characters).');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await api(`/api/branches/${editingBranchId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: locationForm.name.trim(),
+          city,
+          address,
+          operatingHoursStart: locationForm.operatingHoursStart,
+          operatingHoursEnd: locationForm.operatingHoursEnd,
+        }),
+      });
+      setEditingBranchId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update location');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (!company) {
     return <p className="text-sm text-muted-foreground">{error ?? 'Loading company…'}</p>;
   }
@@ -167,7 +240,7 @@ export default function CompanyOverviewPage() {
         <div>
           <h1 className="text-2xl font-semibold text-navy">{company.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {company.description ?? 'Manage branches for this company.'}
+            {company.description ?? 'Manage branches, city, and location for this company.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -183,6 +256,7 @@ export default function CompanyOverviewPage() {
               setShowBank((v) => !v);
               setShowRename(false);
               setShowForm(false);
+              setEditingBranchId(null);
               setBankAccountName(company.bankAccountName ?? '');
               setBankAccountNumber(company.bankAccountNumber ?? '');
               setBankName(company.bankName ?? '');
@@ -196,6 +270,7 @@ export default function CompanyOverviewPage() {
               setShowRename((v) => !v);
               setShowForm(false);
               setShowBank(false);
+              setEditingBranchId(null);
               setCompanyName(company.name);
               setCompanyDescription(company.description ?? '');
             }}
@@ -207,6 +282,7 @@ export default function CompanyOverviewPage() {
               setShowForm((v) => !v);
               setShowRename(false);
               setShowBank(false);
+              setEditingBranchId(null);
             }}
           >
             {showForm ? 'Cancel' : 'Add branch'}
@@ -339,32 +415,63 @@ export default function CompanyOverviewPage() {
         <Card>
           <CardHeader>
             <CardTitle>New branch</CardTitle>
-            <CardDescription>Create a venue location under this company.</CardDescription>
+            <CardDescription>
+              Create a venue with city and street location (shown to customers on Discover).
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form className="grid gap-4 md:grid-cols-2" onSubmit={onCreateBranch}>
               <div className="space-y-2">
-                <Label>Name</Label>
+                <Label htmlFor="new-branch-name">Branch name</Label>
                 <Input
+                  id="new-branch-name"
                   required
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="DHA Phase 5"
                 />
               </div>
               <div className="space-y-2">
-                <Label>City</Label>
-                <Input
+                <Label htmlFor="new-branch-city">City</Label>
+                <select
+                  id="new-branch-city"
                   required
-                  value={form.city}
-                  onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                />
+                  className="flex h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
+                  value={citySelectValue(form.city)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setForm((f) => ({
+                      ...f,
+                      city: next === 'Other' ? '' : next,
+                    }));
+                  }}
+                >
+                  {PAKISTAN_CITIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                {citySelectValue(form.city) === 'Other' ? (
+                  <Input
+                    required
+                    minLength={2}
+                    value={form.city}
+                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                    placeholder="Enter city name"
+                    className="mt-2"
+                  />
+                ) : null}
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label>Address</Label>
+                <Label htmlFor="new-branch-address">Location / address</Label>
                 <Input
+                  id="new-branch-address"
                   required
+                  minLength={5}
                   value={form.address}
                   onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                  placeholder="23-K, DHA Phase 5, Lahore"
                 />
               </div>
               <div className="space-y-2">
@@ -400,29 +507,188 @@ export default function CompanyOverviewPage() {
         </Card>
       ) : null}
 
-      <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
-        {company.branches.map((branch) => (
-          <Card key={branch.id} className="flex h-full flex-col">
-            <CardHeader className="flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <CardTitle className="line-clamp-2">{branch.name}</CardTitle>
-                <Badge className="shrink-0">{branch.city}</Badge>
-              </div>
-              <CardDescription className="line-clamp-2">{branch.address}</CardDescription>
-            </CardHeader>
-            <CardContent className="mt-auto flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">
-                Hours {branch.operatingHoursStart}–{branch.operatingHoursEnd}
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-navy">Venue locations</h2>
+          <p className="text-sm text-muted-foreground">
+            City and street address for each branch — used on the customer Discover page.
+          </p>
+        </div>
+
+        {company.branches.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-start gap-3 py-8">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                <MapPin className="h-5 w-5" />
               </span>
-              <Link
-                href={`/branches/${branch.id}`}
-                className="inline-flex h-9 shrink-0 items-center rounded-md bg-navy px-3 text-sm font-medium text-white hover:bg-navy-700"
-              >
-                Manage
-              </Link>
+              <div>
+                <p className="font-semibold text-navy">No venues yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Add a branch with city and location so customers can find you.
+                </p>
+              </div>
+              <Button type="button" onClick={() => setShowForm(true)}>
+                Add branch
+              </Button>
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
+            {company.branches.map((branch) => (
+              <Card key={branch.id} className="flex h-full flex-col">
+                {editingBranchId === branch.id ? (
+                  <>
+                    <CardHeader>
+                      <CardTitle className="text-base">Edit city &amp; location</CardTitle>
+                      <CardDescription>
+                        Update how this venue appears to customers searching by city.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <form className="grid gap-3" onSubmit={onSaveLocation}>
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`edit-name-${branch.id}`}>Branch name</Label>
+                          <Input
+                            id={`edit-name-${branch.id}`}
+                            required
+                            minLength={2}
+                            value={locationForm.name}
+                            onChange={(e) =>
+                              setLocationForm((f) => ({ ...f, name: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`edit-city-${branch.id}`}>City</Label>
+                          <select
+                            id={`edit-city-${branch.id}`}
+                            required
+                            className="flex h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
+                            value={citySelectValue(locationForm.city)}
+                            onChange={(e) => {
+                              const next = e.target.value;
+                              setLocationForm((f) => ({
+                                ...f,
+                                city: next === 'Other' ? '' : next,
+                              }));
+                            }}
+                          >
+                            {PAKISTAN_CITIES.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
+                          {citySelectValue(locationForm.city) === 'Other' ? (
+                            <Input
+                              required
+                              minLength={2}
+                              value={locationForm.city}
+                              onChange={(e) =>
+                                setLocationForm((f) => ({ ...f, city: e.target.value }))
+                              }
+                              placeholder="Enter city name"
+                            />
+                          ) : null}
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`edit-address-${branch.id}`}>Location / address</Label>
+                          <Input
+                            id={`edit-address-${branch.id}`}
+                            required
+                            minLength={5}
+                            value={locationForm.address}
+                            onChange={(e) =>
+                              setLocationForm((f) => ({ ...f, address: e.target.value }))
+                            }
+                            placeholder="Street, area, landmark"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label>Opens</Label>
+                            <Input
+                              required
+                              pattern="^\\d{2}:\\d{2}$"
+                              value={locationForm.operatingHoursStart}
+                              onChange={(e) =>
+                                setLocationForm((f) => ({
+                                  ...f,
+                                  operatingHoursStart: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Closes</Label>
+                            <Input
+                              required
+                              pattern="^\\d{2}:\\d{2}$"
+                              value={locationForm.operatingHoursEnd}
+                              onChange={(e) =>
+                                setLocationForm((f) => ({
+                                  ...f,
+                                  operatingHoursEnd: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <Button type="submit" disabled={saving}>
+                            {saving ? 'Saving…' : 'Save location'}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={saving}
+                            onClick={() => setEditingBranchId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </form>
+                    </CardContent>
+                  </>
+                ) : (
+                  <>
+                    <CardHeader className="flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle className="line-clamp-2">{branch.name}</CardTitle>
+                        <Badge className="shrink-0">{branch.city}</Badge>
+                      </div>
+                      <CardDescription className="flex items-start gap-1.5">
+                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
+                        <span className="line-clamp-3">{branch.address}</span>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="mt-auto flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-xs text-muted-foreground">
+                        Hours {branch.operatingHoursStart}–{branch.operatingHoursEnd}
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => startEditLocation(branch)}
+                        >
+                          Edit location
+                        </Button>
+                        <Link
+                          href={`/branches/${branch.id}`}
+                          className="inline-flex h-9 shrink-0 items-center rounded-md bg-navy px-3 text-sm font-medium text-white hover:bg-navy-700"
+                        >
+                          Manage
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </>
+                )}
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
