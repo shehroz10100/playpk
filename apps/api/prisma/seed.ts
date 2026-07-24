@@ -147,7 +147,11 @@ async function main(): Promise<void> {
   const playerHash = await bcrypt.hash('PlayPK@player1', 10);
   const player = await prisma.user.upsert({
     where: { email: 'player@playpk.demo' },
-    update: { passwordHash: playerHash },
+    update: {
+      name: 'Sara Ahmed',
+      passwordHash: playerHash,
+      role: UserRole.PLAYER,
+    },
     create: {
       name: 'Sara Ahmed',
       email: 'player@playpk.demo',
