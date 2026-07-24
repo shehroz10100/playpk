@@ -14,6 +14,7 @@
     "@shadergradient/react": "^2.4.20",
     "@supabase/supabase-js": "^2.110.7",
     "@tanstack/react-query": "^5.101.2",
+    "@vercel/speed-insights": "^2.0.0",
     "camera-controls": "^3.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
