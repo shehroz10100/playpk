@@ -136,10 +136,10 @@ export async function createTournament(input: {
   return serializeTournament(tournament);
 }
 
-/** Player-hosted tournament at an approved venue (PlayPro-style community event). */
+/** @deprecated Player-hosted tournaments are disabled. */
 export async function createCommunityTournament(
-  hostUserId: string,
-  input: {
+  _hostUserId: string,
+  _input: {
     branchId: string;
     name: string;
     sportId: string;
@@ -152,31 +152,18 @@ export async function createCommunityTournament(
     description?: string;
   },
 ) {
-  const branch = await prisma.branch.findFirst({
-    where: {
-      id: input.branchId,
-      approvalStatus: 'APPROVED',
-      company: { approvalStatus: 'APPROVED' },
-    },
-  });
-  if (!branch) {
-    throw new AppError('Venue not found or not approved', { statusCode: 404, code: 'NOT_FOUND' });
-  }
-
-  return createTournament({
-    ...input,
-    hostUserId,
-    status: TournamentStatus.OPEN,
+  throw new AppError('Only venue companies can create tournaments', {
+    statusCode: 403,
+    code: 'FORBIDDEN',
   });
 }
 
+/** Company tournaments the player registered for (not player-hosted events). */
 export async function listMyTournaments(userId: string) {
   const items = await prisma.tournament.findMany({
     where: {
-      OR: [
-        { hostUserId: userId },
-        { registrations: { some: { userId } } },
-      ],
+      hostUserId: null,
+      registrations: { some: { userId } },
     },
     include: {
       sport: true,
@@ -336,6 +323,8 @@ export async function listTournaments(filter: {
   maxFee?: number;
   dateFrom?: string;
   dateTo?: string;
+  /** When true (default), only venue/company tournaments — no player-hosted community events. */
+  companyOnly?: boolean;
 }) {
   if (
     filter.minFee !== undefined &&
@@ -357,8 +346,11 @@ export async function listTournaments(filter: {
     });
   }
 
+  const companyOnly = filter.companyOnly !== false;
+
   const items = await prisma.tournament.findMany({
     where: {
+      ...(companyOnly ? { hostUserId: null } : {}),
       ...(filter.branchId ? { branchId: filter.branchId } : {}),
       ...(filter.sportId ? { sportId: filter.sportId } : {}),
       ...(filter.status

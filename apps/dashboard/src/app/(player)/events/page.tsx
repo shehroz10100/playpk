@@ -29,14 +29,14 @@ export default function EventsPage() {
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Compete</p>
           <h1 className="font-display mt-1 text-3xl font-extrabold text-navy">Events</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tournaments near {city}. Open an event to register — or host your own.
+            Venue tournaments near {city}. Open an event to register — hosted by listed companies.
           </p>
         </div>
         <Link
           href="/my-tournaments"
-          className="inline-flex h-10 items-center rounded-xl bg-navy px-4 text-sm font-semibold text-white hover:bg-brand"
+          className="inline-flex h-10 items-center rounded-xl border border-border bg-white px-4 text-sm font-semibold text-navy hover:border-brand/40"
         >
-          My tournaments
+          My registrations
         </Link>
       </div>
 

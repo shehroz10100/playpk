@@ -26,6 +26,10 @@ tournamentsRouter.get('/', async (req, res, next) => {
         status: z.nativeEnum(TournamentStatus).optional(),
         minFee: z.coerce.number().min(0).optional(),
         maxFee: z.coerce.number().min(0).optional(),
+        /** When true, include player-hosted community events (admin/legacy). Default: company-only. */
+        includeCommunity: z
+          .union([z.literal('1'), z.literal('true'), z.literal('0'), z.literal('false')])
+          .optional(),
         dateFrom: z
           .string()
           .regex(/^\d{4}-\d{2}-\d{2}$/, 'dateFrom must be YYYY-MM-DD')
@@ -36,7 +40,12 @@ tournamentsRouter.get('/', async (req, res, next) => {
           .optional(),
       })
       .parse(req.query);
-    const data = await tournamentService.listTournaments(q);
+    const includeCommunity =
+      q.includeCommunity === '1' || q.includeCommunity === 'true';
+    const data = await tournamentService.listTournaments({
+      ...q,
+      companyOnly: !includeCommunity,
+    });
     sendSuccess(res, data);
   } catch (error) {
     next(error);
@@ -51,34 +60,15 @@ tournamentsRouter.get('/mine', authenticate, async (req, res, next) => {
   }
 });
 
-const tournamentBodySchema = z.object({
-  branchId: z.string().min(1),
-  name: z.string().min(2).max(120),
-  sportId: z.string().min(1),
-  format: z.nativeEnum(TournamentFormat),
-  entryFee: z.number().min(0),
-  prizePool: z.number().min(0).optional(),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  maxParticipants: z.number().int().positive().optional(),
-  description: z.string().max(2000).optional(),
-  status: z.nativeEnum(TournamentStatus).optional(),
+/** Player-hosted community tournaments are disabled — only listed companies create events. */
+tournamentsRouter.post('/community', authenticate, async (_req, res, next) => {
+  next(
+    new AppError('Only venue companies can create tournaments. Browse Events to register.', {
+      statusCode: 403,
+      code: 'FORBIDDEN',
+    }),
+  );
 });
-
-tournamentsRouter.post(
-  '/community',
-  authenticate,
-  requireRoles(UserRole.PLAYER, UserRole.ADMIN),
-  validate(tournamentBodySchema.omit({ status: true })),
-  async (req, res, next) => {
-    try {
-      const data = await tournamentService.createCommunityTournament(req.user!.id, req.body);
-      sendSuccess(res, data, 201);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
 
 tournamentsRouter.get('/:tournamentId', async (req, res, next) => {
   try {

@@ -69,28 +69,6 @@ export default function EventDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  async function cancelTournament() {
-    if (
-      !window.confirm(
-        'Cancel this tournament? It will be removed from public listings and no one else can register.',
-      )
-    ) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api(`/api/tournaments/${id}/cancel`, { method: 'POST' });
-      setMessage('Tournament cancelled.');
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not cancel tournament');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function onRegister(e: FormEvent) {
     e.preventDefault();
     if (!tournament) return;
@@ -163,9 +141,6 @@ export default function EventDetailPage() {
   }
 
   const alreadyIn = tournament.registrations.some((r) => r.userId === me?.id);
-  const isHost = Boolean(me?.id && tournament.hostUserId && tournament.hostUserId === me.id);
-  const canCancel =
-    isHost && tournament.status !== 'CANCELLED' && tournament.status !== 'COMPLETED';
   const fee = Number(tournament.entryFee);
 
   return (
@@ -182,11 +157,6 @@ export default function EventDetailPage() {
               {tournament.sport?.name} · {tournament.branch?.name} · {tournament.format}
             </p>
           </div>
-          {canCancel ? (
-            <Button variant="danger" size="sm" disabled={busy} onClick={cancelTournament}>
-              Cancel tournament
-            </Button>
-          ) : null}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Badge variant={tournament.status === 'CANCELLED' ? 'warn' : 'success'}>
@@ -194,7 +164,7 @@ export default function EventDetailPage() {
           </Badge>
           <Badge>{formatPkr(fee)} entry</Badge>
           <Badge variant="muted">{tournament.registrations.length} registered</Badge>
-          {isHost ? <Badge variant="secondary">You’re hosting</Badge> : null}
+          <Badge variant="secondary">Venue event</Badge>
         </div>
         {tournament.description ? (
           <p className="mt-3 text-sm text-navy/80">{tournament.description}</p>

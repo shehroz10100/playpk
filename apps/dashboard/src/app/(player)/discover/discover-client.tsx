@@ -593,9 +593,6 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="font-display text-lg font-bold text-navy sm:text-xl">Tournaments</h2>
           <div className="flex gap-3">
-            <Link href="/my-tournaments" className="text-sm font-semibold text-navy hover:text-brand">
-              My tournaments
-            </Link>
             <Link href="/events" className="text-sm font-semibold text-brand">
               View all
             </Link>
@@ -603,7 +600,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
         </div>
         {tournaments.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-navy/15 bg-white/70 px-4 py-6 text-sm text-muted-foreground">
-            No tournaments in {applied.city} yet.
+            No venue tournaments in {applied.city} yet.
           </p>
         ) : (
           <div className="sport-rail -mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
@@ -618,7 +615,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                     <div className="relative h-28">
                       <Image src={cover} alt="" fill sizes="220px" className="object-cover" />
                       <span className="absolute left-2 top-2 rounded-md bg-brand px-2 py-0.5 text-[10px] font-bold text-white">
-                        {t.isCommunity ? 'Community' : 'Venue'}
+                        Venue
                       </span>
                     </div>
                     <div className="space-y-1 p-3">
