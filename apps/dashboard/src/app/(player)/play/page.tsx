@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Calendar, MapPin, Swords, Trophy, Users, Wallet } from 'lucide-react';
+import { Calendar, MapPin, Swords, Users, Wallet } from 'lucide-react';
 import type {
   MatchFormat,
   MatchGenderPreference,
@@ -445,17 +445,17 @@ export default function PlayPage() {
 
       <div className="flex flex-wrap gap-2">
         <Link
-          href="/events"
+          href="/play"
           className="inline-flex h-10 items-center gap-2 rounded-xl bg-navy px-4 text-sm font-semibold text-white hover:bg-brand"
         >
-          <Trophy className="h-4 w-4" />
-          Venue tournaments
+          <Swords className="h-4 w-4" />
+          Match &amp; play
         </Link>
         <Link
-          href="/my-tournaments"
+          href="/events"
           className="inline-flex h-10 items-center rounded-xl border border-border bg-white px-4 text-sm font-semibold text-navy hover:border-brand/40"
         >
-          My registrations
+          Venue events
         </Link>
       </div>
 
