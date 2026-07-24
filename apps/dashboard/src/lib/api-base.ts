@@ -3,7 +3,7 @@
  *
  * - Local browser → http://localhost:4000 (or NEXT_PUBLIC_API_URL)
  * - Deployed browser (Vercel) → Railway HTTPS API directly
- *   (CORS is open on the API; avoids broken Vercel /api rewrites)
+ *   (CORS is open on the API; avoids broken Vercel /api rewrites that may drop Authorization)
  * - Server-side on Vercel → Railway (never localhost)
  */
 
@@ -18,12 +18,27 @@ function isLoopback(url: string): boolean {
   }
 }
 
+/** Never call the Vercel app origin as the API — rewrites can drop Authorization. */
+function isDashboardOrigin(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return (
+      hostname.endsWith('.vercel.app') ||
+      hostname === 'playpk.vercel.app' ||
+      hostname === 'www.playpk.vercel.app'
+    );
+  } catch {
+    return /vercel\.app/i.test(url);
+  }
+}
+
 function firstPublicApiUrl(): string | null {
   const candidates = [process.env.API_URL, process.env.NEXT_PUBLIC_API_URL];
   for (const raw of candidates) {
     if (!raw) continue;
     const cleaned = raw.replace(/\/$/, '');
     if (isLoopback(cleaned)) continue;
+    if (isDashboardOrigin(cleaned)) continue;
     if (cleaned.startsWith('https://') || cleaned.startsWith('http://')) return cleaned;
   }
   return null;
@@ -35,7 +50,8 @@ export function getApiBase(): string {
     if (host === 'localhost' || host === '127.0.0.1') {
       const local =
         process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000';
-      return local;
+      if (!isLoopback(local) && !isDashboardOrigin(local)) return local;
+      return 'http://localhost:4000';
     }
     return firstPublicApiUrl() ?? RAILWAY_API;
   }

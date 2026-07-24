@@ -4,7 +4,8 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { AuthUser, SportDto, TournamentDto, VenueListItem } from '@playpk/shared-types';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, ensureAccessToken } from '@/lib/api';
+import { getStoredUser } from '@/lib/auth';
 import { fetchSportsCatalog, fetchVenuesCatalog } from '@/lib/catalog';
 import { formatPkr } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,15 @@ function todayPlus(days: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+function isAuthError(err: unknown): boolean {
+  return (
+    err instanceof ApiError &&
+    (err.status === 401 ||
+      err.code === 'UNAUTHORIZED' ||
+      /authentication required|invalid or expired|invalid refresh/i.test(err.message))
+  );
 }
 
 export default function MyTournamentsPage() {
@@ -39,8 +49,25 @@ export default function MyTournamentsPage() {
   const [maxParticipants, setMaxParticipants] = useState('16');
   const [description, setDescription] = useState('Player-hosted tournament — join and compete!');
 
+  const requireSession = useCallback(async () => {
+    const token = await ensureAccessToken();
+    if (!token) {
+      router.replace('/login?next=/my-tournaments');
+      throw new ApiError('Please sign in again to host a tournament', 401, 'UNAUTHORIZED');
+    }
+    return token;
+  }, [router]);
+
   const load = useCallback(async () => {
     setError(null);
+    setMe(getStoredUser());
+
+    try {
+      await requireSession();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Please sign in again');
+      return;
+    }
 
     const [mineResult, venueList, sportList, profile] = await Promise.all([
       api<TournamentDto[]>('/api/tournaments/mine')
@@ -48,12 +75,13 @@ export default function MyTournamentsPage() {
         .catch((err) => ({
           ok: false as const,
           message: err instanceof ApiError ? err.message : 'Failed to load your tournaments',
+          auth: isAuthError(err),
         })),
       fetchVenuesCatalog({ city: 'Lahore', sport: '', minPrice: '', maxPrice: '', minRating: '' }),
       fetchSportsCatalog(),
       api<AuthUser>('/api/auth/me')
         .then((res) => res.data)
-        .catch(() => null),
+        .catch(() => getStoredUser()),
     ]);
 
     setMe(profile);
@@ -70,7 +98,12 @@ export default function MyTournamentsPage() {
       setMine(mineResult.data);
     } else {
       setMine([]);
-      setError(mineResult.message);
+      if (mineResult.auth) {
+        setError('Session expired — please sign in again, then create your tournament.');
+        router.replace('/login?next=/my-tournaments');
+      } else {
+        setError(mineResult.message);
+      }
     }
 
     if (venueList.length === 0 || sportList.length === 0) {
@@ -81,12 +114,11 @@ export default function MyTournamentsPage() {
           : 'No sports found. Try again in a moment.'),
       );
     }
-  }, []);
+  }, [requireSession, router]);
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
-  }, []);
+  }, [load]);
 
   async function cancelTournament(tournamentId: string, e: FormEvent | { preventDefault(): void; stopPropagation(): void }) {
     e.preventDefault();
@@ -101,10 +133,12 @@ export default function MyTournamentsPage() {
     setBusy(true);
     setError(null);
     try {
+      await requireSession();
       await api(`/api/tournaments/${tournamentId}/cancel`, { method: 'POST' });
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not cancel tournament');
+      if (isAuthError(err)) router.replace('/login?next=/my-tournaments');
     } finally {
       setBusy(false);
     }
@@ -115,11 +149,16 @@ export default function MyTournamentsPage() {
     setBusy(true);
     setError(null);
     try {
+      await requireSession();
+      if (!branchId || !sportId) {
+        setError('Pick a venue and sport before creating.');
+        return;
+      }
       const { data } = await api<TournamentDto>('/api/tournaments/community', {
         method: 'POST',
         body: JSON.stringify({
           branchId,
-          name,
+          name: name.trim(),
           sportId,
           format,
           entryFee: Number(entryFee) || 0,
@@ -132,7 +171,12 @@ export default function MyTournamentsPage() {
       });
       router.push(`/events/${data.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not create tournament');
+      if (isAuthError(err)) {
+        setError('Session expired — please sign in again, then create your tournament.');
+        router.replace('/login?next=/my-tournaments');
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Could not create tournament');
+      }
     } finally {
       setBusy(false);
     }

@@ -28,21 +28,49 @@ type ApiFailure = {
   error: { code: string; message: string; details?: unknown };
 };
 
+/** Single-flight refresh so parallel 401s don't revoke each other's tokens. */
+let refreshInFlight: Promise<string | null> | null = null;
+
 async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
-  const res = await fetch(`${getApiBase()}/api/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return null;
+
+    try {
+      const res = await fetch(`${getApiBase()}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) {
+        clearSession();
+        return null;
+      }
+      const json = (await res.json()) as ApiSuccess<AuthTokensResponse>;
+      if (!json.success || !json.data?.accessToken) {
+        clearSession();
+        return null;
+      }
+      saveSession(json.data);
+      return json.data.accessToken;
+    } catch {
+      return null;
+    }
+  })().finally(() => {
+    refreshInFlight = null;
   });
-  if (!res.ok) {
-    clearSession();
-    return null;
-  }
-  const json = (await res.json()) as ApiSuccess<AuthTokensResponse>;
-  saveSession(json.data);
-  return json.data.accessToken;
+
+  return refreshInFlight;
+}
+
+/** Ensure we have an access token (refresh if needed). */
+export async function ensureAccessToken(): Promise<string | null> {
+  const existing = getAccessToken();
+  if (existing) return existing;
+  if (!getRefreshToken()) return null;
+  return refreshAccessToken();
 }
 
 export async function api<T>(
@@ -55,7 +83,7 @@ export async function api<T>(
   }
 
   const useAuth = options.auth !== false;
-  let token = getAccessToken();
+  let token = useAuth ? await ensureAccessToken() : getAccessToken();
   if (useAuth && token) {
     headers.set('Authorization', `Bearer ${token}`);
   }

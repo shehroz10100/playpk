@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { AuthTokensResponse } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { clearSession, saveSession } from '@/lib/auth';
-import { homePathForRole } from '@/lib/roles';
+import { homePathForRole, isPlayerRole } from '@/lib/roles';
 import { LOGIN_HERO_IMAGE } from '@/lib/venue-cover';
 import { AmbientGradient } from '@/components/ambient-gradient';
 import { Button } from '@/components/ui/button';
@@ -64,6 +64,29 @@ export default function LoginPage() {
     clearSession();
   }, []);
 
+  function safeNextPath(role: string): string {
+    const next =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('next')
+        : null;
+    if (
+      next &&
+      next.startsWith('/') &&
+      !next.startsWith('//') &&
+      isPlayerRole(role) &&
+      (next.startsWith('/my-tournaments') ||
+        next.startsWith('/events') ||
+        next.startsWith('/discover') ||
+        next.startsWith('/play') ||
+        next.startsWith('/social') ||
+        next.startsWith('/me') ||
+        next.startsWith('/rank'))
+    ) {
+      return next;
+    }
+    return homePathForRole(role);
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -82,7 +105,7 @@ export default function LoginPage() {
       }
 
       saveSession(data);
-      router.replace(homePathForRole(String(data.user.role)));
+      router.replace(safeNextPath(String(data.user.role)));
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
