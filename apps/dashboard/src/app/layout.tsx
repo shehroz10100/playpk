@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Barlow, Barlow_Condensed } from 'next/font/google';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { QueryProvider } from '@/components/query-provider';
 import './globals.css';
 
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body className={`${barlow.variable} ${barlowCondensed.variable} font-sans antialiased`}>
         <QueryProvider>{children}</QueryProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
