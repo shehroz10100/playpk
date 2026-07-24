@@ -720,7 +720,9 @@ export type MatchFormat =
   | 'DOUBLES'
   | 'EIGHT_A_SIDE'
   | 'TEN_A_SIDE'
-  | 'FOURTEEN_A_SIDE';
+  | 'FOURTEEN_A_SIDE'
+  | 'FIVE_A_SIDE'
+  | 'CUSTOM';
 export type OpenMatchStatus = 'OPEN' | 'FULL' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 export type MatchGenderPreference = 'MEN' | 'WOMEN' | 'MIXED' | 'ANY';
 
@@ -760,6 +762,7 @@ export interface OpenMatchDto {
   visibility: MatchVisibility;
   matchType: CasualMatchType;
   format: MatchFormat;
+  customFormat: string | null;
   skillMin: SkillLevel;
   skillMax: SkillLevel;
   genderPreference: MatchGenderPreference;

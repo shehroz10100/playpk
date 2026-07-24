@@ -27,6 +27,8 @@ import {
 } from '@/lib/match-details';
 import {
   defaultFormatForSport,
+  defaultMaxPlayersForCustom,
+  formatHintForSport,
   formatLabel,
   formatOptionsForSport,
 } from '@/lib/match-formats';
@@ -68,6 +70,8 @@ export default function PlayPage() {
   const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
   const [matchType, setMatchType] = useState<'FRIENDLY' | 'COMPETITIVE'>('FRIENDLY');
   const [format, setFormat] = useState<MatchFormat>('DOUBLES');
+  const [customFormat, setCustomFormat] = useState('');
+  const [customMaxPlayers, setCustomMaxPlayers] = useState('10');
   const [createSportId, setCreateSportId] = useState('');
   const [city, setCity] = useState('Lahore');
   const [branchId, setBranchId] = useState('');
@@ -80,6 +84,13 @@ export default function PlayPage() {
 
   const selectedSport = sports.find((s) => s.id === createSportId);
   const formatOptions = formatOptionsForSport(selectedSport?.name);
+
+  useEffect(() => {
+    const next = defaultFormatForSport(selectedSport?.name);
+    setFormat(next);
+    setCustomMaxPlayers(String(defaultMaxPlayersForCustom(selectedSport?.name)));
+    if (next !== 'CUSTOM') setCustomFormat('');
+  }, [selectedSport?.name]);
 
   const load = useCallback(async () => {
     try {
@@ -146,6 +157,19 @@ export default function PlayPage() {
     setBusy(true);
     setError(null);
     try {
+      if (format === 'CUSTOM') {
+        if (!customFormat.trim()) {
+          setError('Enter your custom format style');
+          setBusy(false);
+          return;
+        }
+        const players = Number(customMaxPlayers);
+        if (!Number.isFinite(players) || players < 2 || players > 30) {
+          setError('Custom format needs between 2 and 30 players');
+          setBusy(false);
+          return;
+        }
+      }
       const selectedVenue = venues.find((v) => v.id === branchId);
       const { data } = await api<OpenMatchDto>('/api/social/matches', {
         method: 'POST',
@@ -155,6 +179,8 @@ export default function PlayPage() {
           visibility,
           matchType,
           format,
+          customFormat: format === 'CUSTOM' ? customFormat.trim() : undefined,
+          maxPlayers: format === 'CUSTOM' ? Number(customMaxPlayers) : undefined,
           city: selectedVenue?.city || city,
           branchId: branchId || undefined,
           scheduledAt: toIsoFromLocalInput(scheduledLocal),
@@ -367,14 +393,14 @@ export default function PlayPage() {
                             {m.matchType}
                           </Badge>
                           <Badge variant="secondary" className="text-[10px]">
-                            {formatLabel(m.format)}
+                            {formatLabel(m.format, m.customFormat)}
                           </Badge>
                           <Badge variant="secondary" className="text-[10px]">
                             {genderLabel(m.genderPreference)}
                           </Badge>
                         </div>
                         <p className="font-bold text-navy">
-                          {m.sport.name} · {formatLabel(m.format)}
+                          {m.sport.name} · {formatLabel(m.format, m.customFormat)}
                         </p>
                         <p className="line-clamp-1 text-xs text-muted-foreground">{m.title}</p>
                         <p className="text-[11px] font-medium text-navy/80">
@@ -460,9 +486,16 @@ export default function PlayPage() {
                   const nextId = e.target.value;
                   setCreateSportId(nextId);
                   const sport = sports.find((s) => s.id === nextId);
-                  setFormat(defaultFormatForSport(sport?.name));
+                  // format reset handled by useEffect on selectedSport?.name
                   if (sport && sport.name.toLowerCase() === 'cricket') {
                     setTitle((t) => (t.toLowerCase().includes('padel') ? 'Open cricket match' : t));
+                  }
+                  if (sport && sport.name.toLowerCase() === 'futsal') {
+                    setTitle((t) =>
+                      t.toLowerCase().includes('padel') || t.toLowerCase().includes('cricket')
+                        ? 'Open futsal match'
+                        : t,
+                    );
                   }
                 }}
               >
@@ -592,10 +625,33 @@ export default function PlayPage() {
                 ))}
               </select>
               <p className="text-[11px] text-muted-foreground">
-                {selectedSport?.name?.toLowerCase() === 'cricket'
-                  ? 'Cricket sides: 8, 10, or 14 players (PlayPro-style).'
-                  : 'Singles or doubles for racket sports.'}
+                {formatHintForSport(selectedSport?.name)}
               </p>
+              {format === 'CUSTOM' ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Your format style</Label>
+                    <Input
+                      className="rounded-xl"
+                      placeholder="e.g. 5v5, 7-a-side, King of the court"
+                      value={customFormat}
+                      onChange={(e) => setCustomFormat(e.target.value)}
+                      required
+                      maxLength={80}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Players needed</Label>
+                    <Input
+                      className="rounded-xl"
+                      inputMode="numeric"
+                      value={customMaxPlayers}
+                      onChange={(e) => setCustomMaxPlayers(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label>Notes (optional)</Label>

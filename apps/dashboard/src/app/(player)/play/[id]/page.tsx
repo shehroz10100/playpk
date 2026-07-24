@@ -257,7 +257,7 @@ export default function PlayMatchPage() {
                   {match.matchType}
                 </Badge>
                 <Badge variant="secondary" className="border-0 bg-white/15 text-[10px] text-white">
-                  {formatLabel(match.format)}
+                  {formatLabel(match.format, match.customFormat)}
                 </Badge>
                 <Badge variant="secondary" className="border-0 bg-white/15 text-[10px] text-white">
                   {genderLabel(match.genderPreference)}

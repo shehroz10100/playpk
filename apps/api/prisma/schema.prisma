@@ -156,6 +156,8 @@ enum MatchFormat {
   EIGHT_A_SIDE
   TEN_A_SIDE
   FOURTEEN_A_SIDE
+  FIVE_A_SIDE
+  CUSTOM
 }
 
 enum OpenMatchStatus {
@@ -776,6 +778,7 @@ model OpenMatch {
   visibility  MatchVisibility   @default(PUBLIC)
   matchType   CasualMatchType   @default(FRIENDLY)
   format      MatchFormat       @default(DOUBLES)
+  customFormat String?
   skillMin    SkillLevel        @default(BEGINNER)
   skillMax    SkillLevel        @default(PRO)
   genderPreference MatchGenderPreference @default(ANY)

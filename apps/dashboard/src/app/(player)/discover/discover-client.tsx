@@ -548,7 +548,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                           </Badge>
                         </div>
                         <p className="font-bold text-navy">
-                          {m.sport.name} · {formatLabel(m.format)}
+                          {m.sport.name} · {formatLabel(m.format, m.customFormat)}
                         </p>
                         <p className="line-clamp-1 text-xs text-muted-foreground">{m.title}</p>
                         <p className="text-[11px] font-medium text-navy/80">

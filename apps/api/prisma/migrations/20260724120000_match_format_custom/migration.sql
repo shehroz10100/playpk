@@ -1,0 +1,6 @@
+-- AlterEnum
+ALTER TYPE "MatchFormat" ADD VALUE IF NOT EXISTS 'FIVE_A_SIDE';
+ALTER TYPE "MatchFormat" ADD VALUE IF NOT EXISTS 'CUSTOM';
+
+-- AlterTable
+ALTER TABLE "OpenMatch" ADD COLUMN IF NOT EXISTS "customFormat" TEXT;

@@ -26,18 +26,25 @@ function skillRank(level: SkillLevel): number {
   return SKILL_ORDER.indexOf(level);
 }
 
-function maxPlayersForFormat(format: MatchFormat): number {
+function maxPlayersForFormat(format: MatchFormat, override?: number | null): number {
+  if (format === MatchFormat.CUSTOM && override != null && override >= 2) {
+    return Math.min(30, Math.floor(override));
+  }
   switch (format) {
     case MatchFormat.SINGLES:
       return 2;
     case MatchFormat.DOUBLES:
       return 4;
+    case MatchFormat.FIVE_A_SIDE:
+      return 10;
     case MatchFormat.EIGHT_A_SIDE:
       return 8;
     case MatchFormat.TEN_A_SIDE:
       return 10;
     case MatchFormat.FOURTEEN_A_SIDE:
       return 14;
+    case MatchFormat.CUSTOM:
+      return 4;
     default:
       return 4;
   }
@@ -187,6 +194,7 @@ function serializeMatch(match: SerializedMatchSource) {
     visibility: match.visibility,
     matchType: match.matchType,
     format: match.format,
+    customFormat: match.customFormat ?? null,
     skillMin: match.skillMin,
     skillMax: match.skillMax,
     genderPreference: match.genderPreference,
@@ -377,6 +385,8 @@ export async function createOpenMatch(
     visibility: MatchVisibility;
     matchType: CasualMatchType;
     format: MatchFormat;
+    customFormat?: string;
+    maxPlayers?: number;
     skillMin?: SkillLevel;
     skillMax?: SkillLevel;
     genderPreference?: MatchGenderPreference;
@@ -407,7 +417,25 @@ export async function createOpenMatch(
     });
   }
 
-  const maxPlayers = maxPlayersForFormat(input.format);
+  const customFormat =
+    input.format === MatchFormat.CUSTOM
+      ? (input.customFormat?.trim() || null)
+      : null;
+  if (input.format === MatchFormat.CUSTOM && !customFormat) {
+    throw new AppError('Describe your custom format', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+
+  const maxPlayers = maxPlayersForFormat(input.format, input.maxPlayers);
+  if (input.format === MatchFormat.CUSTOM && (input.maxPlayers == null || input.maxPlayers < 2)) {
+    throw new AppError('Custom format needs at least 2 players', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+
   const match = await prisma.openMatch.create({
     data: {
       hostId,
@@ -418,6 +446,7 @@ export async function createOpenMatch(
       visibility: input.visibility,
       matchType: input.matchType,
       format: input.format,
+      customFormat,
       skillMin,
       skillMax,
       genderPreference: input.genderPreference ?? MatchGenderPreference.ANY,

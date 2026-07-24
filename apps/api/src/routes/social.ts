@@ -99,6 +99,8 @@ socialRouter.post(
       visibility: z.nativeEnum(MatchVisibility),
       matchType: z.nativeEnum(CasualMatchType),
       format: z.nativeEnum(MatchFormat),
+      customFormat: z.string().min(2).max(80).optional(),
+      maxPlayers: z.number().int().min(2).max(30).optional(),
       skillMin: z.nativeEnum(SkillLevel).optional(),
       skillMax: z.nativeEnum(SkillLevel).optional(),
       genderPreference: z.nativeEnum(MatchGenderPreference).optional(),
@@ -107,6 +109,24 @@ socialRouter.post(
       city: z.string().optional(),
       branchId: z.string().optional(),
       scheduledAt: z.string().datetime().optional(),
+    })
+    .superRefine((data, ctx) => {
+      if (data.format === MatchFormat.CUSTOM) {
+        if (!data.customFormat?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Custom format description is required',
+            path: ['customFormat'],
+          });
+        }
+        if (data.maxPlayers == null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Player count is required for custom format',
+            path: ['maxPlayers'],
+          });
+        }
+      }
     }),
   ),
   async (req, res, next) => {

@@ -754,7 +754,7 @@ export default function VenueDetailPage() {
                         </p>
                       </div>
                       <Badge variant="secondary" className="shrink-0 text-[10px]">
-                        {genderLabel(m.genderPreference)} · {formatLabel(m.format)}
+                        {genderLabel(m.genderPreference)} · {formatLabel(m.format, m.customFormat)}
                       </Badge>
                     </div>
                     <div className="grid grid-cols-4 gap-2">
