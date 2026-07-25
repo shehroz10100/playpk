@@ -5,11 +5,11 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { AuthTokensResponse } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
-import { clearSession, getStoredUser, saveSession } from '@/lib/auth';
+import { clearSession, saveSession } from '@/lib/auth';
 import { homePathForRole, isPlayerRole } from '@/lib/roles';
 import { LOGIN_HERO_IMAGE } from '@/lib/venue-cover';
 import { AmbientGradient } from '@/components/ambient-gradient';
-import { GoogleSignInButton, rememberGoogleAccount } from '@/components/google-sign-in';
+import { GoogleSignInButton } from '@/components/google-sign-in';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,11 +80,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Keep Google accounts for the picker after sign-out.
-    const existing = getStoredUser();
-    if (existing?.email) {
-      rememberGoogleAccount({ email: existing.email, name: existing.name });
-    }
     clearSession();
   }, []);
 
@@ -116,9 +111,6 @@ export default function LoginPage() {
     if (!allowed.includes(String(data.user.role))) {
       setError('Unsupported account role for this portal.');
       return;
-    }
-    if (data.user.email) {
-      rememberGoogleAccount({ email: data.user.email, name: data.user.name });
     }
     saveSession(data);
     router.replace(safeNextPath(String(data.user.role)));

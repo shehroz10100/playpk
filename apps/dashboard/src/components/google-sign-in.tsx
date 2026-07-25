@@ -24,22 +24,36 @@ declare global {
   }
 }
 
+function isGoogleEmail(email: string): boolean {
+  const e = email.trim().toLowerCase();
+  // Never treat demo/staff portal emails as Google accounts.
+  if (e.endsWith('@playpk.demo')) return false;
+  return e.endsWith('@gmail.com') || e.endsWith('@googlemail.com');
+}
+
 export function loadLocalGoogleAccounts(): LocalGoogleAccount[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as LocalGoogleAccount[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    // Drop demo / non-Gmail entries left over from older builds.
+    const cleaned = parsed.filter((a) => a?.email && isGoogleEmail(a.email));
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch {
     return [];
   }
 }
 
+/** Only call after a real Google sign-in — never after email/password demo login. */
 export function rememberGoogleAccount(account: LocalGoogleAccount) {
   if (typeof window === 'undefined') return;
   const email = account.email.trim().toLowerCase();
-  if (!email.includes('@')) return;
+  if (!isGoogleEmail(email)) return;
   const name = (account.name || email.split('@')[0] || 'Player').trim();
   const next = [
     { email, name },
@@ -54,7 +68,12 @@ function loadLastGoogleAccount(): LocalGoogleAccount | null {
   try {
     const raw = localStorage.getItem(LAST_GOOGLE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as LocalGoogleAccount;
+    const account = JSON.parse(raw) as LocalGoogleAccount;
+    if (!account?.email || !isGoogleEmail(account.email)) {
+      localStorage.removeItem(LAST_GOOGLE_KEY);
+      return null;
+    }
+    return account;
   } catch {
     return null;
   }
@@ -151,6 +170,9 @@ export function GoogleSignInButton({ onSuccess, onError, disabled }: Props) {
     if (last) {
       setEmail(last.email);
       setName(last.name);
+    } else {
+      setEmail('');
+      setName('');
     }
     setOpen(true);
   }
@@ -161,8 +183,8 @@ export function GoogleSignInButton({ onSuccess, onError, disabled }: Props) {
 
   async function addAndContinue() {
     const cleaned = email.trim().toLowerCase();
-    if (!cleaned.includes('@')) {
-      onError('Enter a valid Gmail / Google email');
+    if (!isGoogleEmail(cleaned)) {
+      onError('Enter a Gmail address (e.g. you@gmail.com)');
       return;
     }
     const display = name.trim() || cleaned.split('@')[0] || 'Player';
@@ -194,8 +216,8 @@ export function GoogleSignInButton({ onSuccess, onError, disabled }: Props) {
                 <p className="text-sm font-bold text-navy">Choose a Google account</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {GOOGLE_CLIENT_ID
-                    ? 'Pick from Google’s list (accounts on this device/browser), or a saved account below.'
-                    : 'Select your Gmail below. Accounts you used before stay saved on this browser.'}
+                    ? 'Pick from Google’s list (accounts on this device/browser), or a saved Gmail below.'
+                    : 'Enter your Gmail (e.g. you@gmail.com). Demo emails like player@playpk.demo are not Google accounts — use Sign in for those.'}
                 </p>
               </div>
               <button
