@@ -16,5 +16,6 @@
       "source": "/uploads/:path*",
       "destination": "https://api-production-2057.up.railway.app/uploads/:path*"
     }
-  ]
+  ],
+  "outputDirectory": "apps/dashboard/.next"
 }
