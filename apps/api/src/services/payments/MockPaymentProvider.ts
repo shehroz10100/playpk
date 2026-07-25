@@ -6,16 +6,18 @@ import type {
   RefundInput,
   RefundResult,
 } from './PaymentProvider';
+import { assertMockPaymentsAllowed } from '../../lib/security-flags';
 
 /**
  * Mock payment provider for local development / MVP.
- * Always succeeds after a no-op "charge". Replace with JazzCash/Easypaisa adapters later.
+ * Always succeeds after a no-op "charge". Blocked when ALLOW_MOCK_PAYMENTS=false.
  */
 export class MockPaymentProvider implements PaymentProvider {
   readonly name = 'mock';
   private readonly intents = new Map<string, PaymentIntent>();
 
   async createPaymentIntent(input: CreatePaymentIntentInput): Promise<PaymentIntent> {
+    assertMockPaymentsAllowed('Auto-succeeding mock charges');
     const intent: PaymentIntent = {
       id: `mock_pi_${randomUUID()}`,
       status: 'succeeded',
@@ -44,6 +46,7 @@ export class MockPaymentProvider implements PaymentProvider {
   }
 
   async refund(input: RefundInput): Promise<RefundResult> {
+    assertMockPaymentsAllowed('Mock payment refunds');
     const intent = this.intents.get(input.paymentIntentId);
     if (intent) {
       intent.status = 'refunded';

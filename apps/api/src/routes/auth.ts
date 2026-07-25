@@ -3,6 +3,11 @@ import { Router } from 'express';
 import { UserRole } from '@prisma/client';
 import { validate } from '../middleware/validate';
 import { authenticate, requireRoles } from '../middleware/auth';
+import {
+  authRateLimiter,
+  otpRequestRateLimiter,
+  otpVerifyRateLimiter,
+} from '../middleware/rate-limit';
 import { sendSuccess } from '../lib/errors';
 import * as authService from '../services/auth.service';
 
@@ -17,7 +22,7 @@ const registerSchema = z
   })
   .refine((d) => Boolean(d.email || d.phone), { message: 'email or phone required' });
 
-authRouter.post('/register', validate(registerSchema), async (req, res, next) => {
+authRouter.post('/register', authRateLimiter, validate(registerSchema), async (req, res, next) => {
   try {
     const result = await authService.registerUser(req.body);
     sendSuccess(res, result, 201);
@@ -34,7 +39,7 @@ const loginSchema = z
   })
   .refine((d) => Boolean(d.email || d.phone), { message: 'email or phone required' });
 
-authRouter.post('/login', validate(loginSchema), async (req, res, next) => {
+authRouter.post('/login', authRateLimiter, validate(loginSchema), async (req, res, next) => {
   try {
     const result = await authService.loginWithPassword(req.body);
     sendSuccess(res, result);
@@ -45,11 +50,15 @@ authRouter.post('/login', validate(loginSchema), async (req, res, next) => {
 
 authRouter.post(
   '/otp/request',
+  otpRequestRateLimiter,
   validate(z.object({ phone: z.string().min(10) })),
   async (req, res, next) => {
     try {
       const result = await authService.requestOtp(req.body.phone);
-      sendSuccess(res, { message: 'OTP sent (see server logs in MVP)', ...result });
+      sendSuccess(res, {
+        message: 'If this phone is registered, an OTP has been sent.',
+        expiresInSeconds: result.expiresInSeconds,
+      });
     } catch (error) {
       next(error);
     }
@@ -58,6 +67,7 @@ authRouter.post(
 
 authRouter.post(
   '/otp/verify',
+  otpVerifyRateLimiter,
   validate(z.object({ phone: z.string().min(10), code: z.string().length(6) })),
   async (req, res, next) => {
     try {
@@ -71,6 +81,7 @@ authRouter.post(
 
 authRouter.post(
   '/refresh',
+  authRateLimiter,
   validate(z.object({ refreshToken: z.string().min(10) })),
   async (req, res, next) => {
     try {

@@ -18,6 +18,7 @@ import { notifyUser } from './notify.service';
 import { BOOKING_ADVANCE_PKR } from '@playpk/shared-types';
 import { resolvePrice } from '../pricing/resolvePrice';
 import { resolveWalkInCustomer } from './walkin-customer.service';
+import { mockPaymentsAllowed } from '../lib/security-flags';
 
 export type CreateBookingPaymentMethod =
   | 'mock'
@@ -51,6 +52,18 @@ export async function createBooking(input: CreateBookingInput) {
   const source = (input.source ?? BookingSource.ONLINE) as BookingSource;
   const method = (input.paymentMethod ?? (source === BookingSource.WALK_IN ? 'CASH' : 'mock')) as string;
   const isWalkInChannel = source === BookingSource.WALK_IN || source === BookingSource.PHONE;
+
+  // Instant "mock" success is free checkout — only allowed in local/demo.
+  if (
+    !isWalkInChannel &&
+    (method === 'mock' || method === 'MOCK') &&
+    !mockPaymentsAllowed()
+  ) {
+    throw new AppError(
+      'Mock payment is disabled. Use wallet, bank transfer, JazzCash, or Easypaisa with proof.',
+      { statusCode: 403, code: 'MOCK_PAYMENTS_DISABLED' },
+    );
+  }
 
   let userId = input.userId;
   let guestName: string | null = null;

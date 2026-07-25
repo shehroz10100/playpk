@@ -1,10 +1,12 @@
 import type { PaymentProvider } from '../PaymentProvider';
-import { MockPaymentProvider } from '../MockPaymentProvider';
 
 describe('MockPaymentProvider', () => {
   let provider: PaymentProvider;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    process.env.ALLOW_MOCK_PAYMENTS = 'true';
+    jest.resetModules();
+    const { MockPaymentProvider } = await import('../MockPaymentProvider');
     provider = new MockPaymentProvider();
   });
 

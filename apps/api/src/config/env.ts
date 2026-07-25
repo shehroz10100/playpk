@@ -21,6 +21,18 @@ const envSchema = z.object({
   LLM_PROVIDER: z.enum(['mock', 'openai']).default('mock'),
   OPENAI_API_KEY: z.string().optional().default(''),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
+  /**
+   * When false (default in production), free wallet top-ups and auto-succeeding
+   * mock payment charges are blocked. Enable only for local/demo.
+   */
+  ALLOW_MOCK_PAYMENTS: z.preprocess((v) => {
+    if (v === 'true' || v === true) return true;
+    if (v === 'false' || v === false) return false;
+    const env = process.env.NODE_ENV ?? 'development';
+    return env !== 'production';
+  }, z.boolean()),
+  /** Comma-separated browser origins allowed for CORS (production). */
+  CORS_ORIGINS: z.string().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -55,8 +67,13 @@ export const appConfig = {
     openaiApiKey: env.OPENAI_API_KEY,
     openaiModel: env.OPENAI_MODEL,
   },
+  allowMockPayments: env.ALLOW_MOCK_PAYMENTS,
+  corsOrigins: env.CORS_ORIGINS.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
   isDev: env.NODE_ENV === 'development',
   isTest: env.NODE_ENV === 'test',
+  isProd: env.NODE_ENV === 'production',
 } as const;
 
 export type AppConfig = typeof appConfig;

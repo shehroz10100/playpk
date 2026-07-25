@@ -14,10 +14,14 @@ type Company = {
 
 const STAFF_ROLES = new Set(['FRONT_DESK', 'BRANCH_MANAGER', 'COMPANY_OWNER', 'ADMIN']);
 
+const SHOW_DEMO_LOGINS =
+  process.env.NODE_ENV !== 'production' ||
+  process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === 'true';
+
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('frontdesk@playpk.demo');
-  const [password, setPassword] = useState('PlayPK@desk1');
+  const [email, setEmail] = useState(SHOW_DEMO_LOGINS ? 'frontdesk@playpk.demo' : '');
+  const [password, setPassword] = useState(SHOW_DEMO_LOGINS ? 'PlayPK@desk1' : '');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<Company[] | null>(null);
@@ -101,9 +105,11 @@ export default function LoginPage() {
             >
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
-            <p className="text-xs text-navy/50">
-              Demo: frontdesk@playpk.demo / PlayPK@desk1
-            </p>
+            {SHOW_DEMO_LOGINS ? (
+              <p className="text-xs text-navy/50">
+                Demo: frontdesk@playpk.demo / PlayPK@desk1
+              </p>
+            ) : null}
           </form>
         ) : (
           <div className="mt-8 space-y-3">

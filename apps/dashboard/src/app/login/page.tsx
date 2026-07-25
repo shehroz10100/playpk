@@ -20,38 +20,45 @@ type DemoAccount = {
   opens: string;
 };
 
-const DEMOS: DemoAccount[] = [
-  {
-    label: 'Customer 1',
-    email: 'player@playpk.demo',
-    password: 'PlayPK@player1',
-    opens: 'Book courts & play',
-  },
-  {
-    label: 'Customer 2',
-    email: 'player2@playpk.demo',
-    password: 'PlayPK@player2',
-    opens: 'Join matches & play',
-  },
-  {
-    label: 'Company · GameOn',
-    email: 'owner@playpk.demo',
-    password: 'PlayPK@demo1',
-    opens: 'Manage venues',
-  },
-  {
-    label: 'Company · 360 Arena',
-    email: 'owner360@playpk.demo',
-    password: 'PlayPK@3601',
-    opens: 'Manage venues',
-  },
-  {
-    label: 'Admin',
-    email: 'admin@playpk.demo',
-    password: 'PlayPK@admin1',
-    opens: 'Platform admin',
-  },
-];
+/** Demo credentials never ship in production builds unless explicitly enabled. */
+const SHOW_DEMO_LOGINS =
+  process.env.NODE_ENV !== 'production' ||
+  process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === 'true';
+
+const DEMOS: DemoAccount[] = SHOW_DEMO_LOGINS
+  ? [
+      {
+        label: 'Customer 1',
+        email: 'player@playpk.demo',
+        password: 'PlayPK@player1',
+        opens: 'Book courts & play',
+      },
+      {
+        label: 'Customer 2',
+        email: 'player2@playpk.demo',
+        password: 'PlayPK@player2',
+        opens: 'Join matches & play',
+      },
+      {
+        label: 'Company · GameOn',
+        email: 'owner@playpk.demo',
+        password: 'PlayPK@demo1',
+        opens: 'Manage venues',
+      },
+      {
+        label: 'Company · 360 Arena',
+        email: 'owner360@playpk.demo',
+        password: 'PlayPK@3601',
+        opens: 'Manage venues',
+      },
+      {
+        label: 'Admin',
+        email: 'admin@playpk.demo',
+        password: 'PlayPK@admin1',
+        opens: 'Platform admin',
+      },
+    ]
+  : [];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -145,7 +152,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-navy px-4 py-10 lg:bg-[#EEF3F0]">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
         <div className="pointer-events-none absolute inset-0 lg:hidden">
           <AmbientGradient intensity="subtle" />
           <div className="absolute inset-0 bg-navy/80" />
@@ -196,28 +203,30 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-              Quick demo accounts
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {DEMOS.map((demo) => (
-                <button
-                  key={demo.email}
-                  type="button"
-                  className="rounded-xl border border-border bg-[#EEF3F0] px-3 py-2.5 text-left transition hover:border-brand/40 hover:bg-brand/5"
-                  onClick={() => {
-                    setEmail(demo.email);
-                    setPassword(demo.password);
-                    setError(null);
-                  }}
-                >
-                  <span className="block text-sm font-semibold text-navy">{demo.label}</span>
-                  <span className="block text-[11px] text-muted-foreground">{demo.opens}</span>
-                </button>
-              ))}
+          {DEMOS.length > 0 ? (
+            <div className="mt-6 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                Quick demo accounts
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {DEMOS.map((demo) => (
+                  <button
+                    key={demo.email}
+                    type="button"
+                    className="rounded-xl border border-border bg-[#EEF3F0] px-3 py-2.5 text-left transition hover:border-brand/40 hover:bg-brand/5"
+                    onClick={() => {
+                      setEmail(demo.email);
+                      setPassword(demo.password);
+                      setError(null);
+                    }}
+                  >
+                    <span className="block text-sm font-semibold text-navy">{demo.label}</span>
+                    <span className="block text-[11px] text-muted-foreground">{demo.opens}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
     </div>

@@ -5,13 +5,25 @@ type Db = PrismaClient | Prisma.TransactionClient;
 
 export async function topUpWallet(
   db: Db,
-  input: { userId: string; amount: number; reason?: string },
+  input: {
+    userId: string;
+    amount: number;
+    reason?: string;
+    /** Admin/support credit — allowed even when mock payments are off. */
+    asAdmin?: boolean;
+  },
 ) {
   if (input.amount <= 0) {
     throw new AppError('Top-up amount must be positive', {
       statusCode: 400,
       code: 'VALIDATION_ERROR',
     });
+  }
+
+  // Self-serve top-up is free money unless a real PSP is wired — block outside mock mode.
+  if (!input.asAdmin) {
+    const { assertMockPaymentsAllowed } = await import('../lib/security-flags');
+    assertMockPaymentsAllowed('Self-serve wallet top-ups');
   }
 
   const user = await db.user.update({
@@ -24,7 +36,9 @@ export async function topUpWallet(
       userId: input.userId,
       amount: input.amount,
       type: WalletTxnType.TOPUP,
-      reason: input.reason ?? 'Mock wallet top-up',
+      reason:
+        input.reason ??
+        (input.asAdmin ? 'Admin wallet credit' : 'Mock wallet top-up'),
     },
   });
 

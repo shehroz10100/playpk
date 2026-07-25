@@ -8,13 +8,14 @@ import { appConfig } from './config/env';
 import { healthRouter } from './routes/health';
 import { apiRouter } from './routes';
 import { errorHandler, notFoundHandler } from './lib/errors';
+import { buildCorsOptions } from './lib/cors';
 
 export function createApp() {
   const app = express();
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(compression());
-  app.use(cors({ origin: true, credentials: true }));
+  app.use(cors(buildCorsOptions()));
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(morgan(appConfig.isDev ? 'dev' : 'combined'));

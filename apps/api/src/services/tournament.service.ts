@@ -10,6 +10,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { assertCanManageBranch } from './access.service';
 import { getPaymentProvider } from './payments/MockPaymentProvider';
+import { mockPaymentsAllowed } from '../lib/security-flags';
 
 function parseDate(value: string): Date {
   const d = new Date(`${value}T00:00:00.000Z`);
@@ -503,6 +504,12 @@ export async function registerForTournament(input: {
   paymentMethod?: 'mock' | 'wallet' | 'jazzcash' | 'easypaisa' | 'card';
 }) {
   const method = input.paymentMethod ?? 'mock';
+  if (method === 'mock' && !mockPaymentsAllowed()) {
+    throw new AppError(
+      'Mock payment is disabled. Use wallet or a transfer method with proof.',
+      { statusCode: 403, code: 'MOCK_PAYMENTS_DISABLED' },
+    );
+  }
   const tournament = await prisma.tournament.findUnique({
     where: { id: input.tournamentId },
     include: { _count: { select: { registrations: true } } },
