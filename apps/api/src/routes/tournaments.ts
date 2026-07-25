@@ -61,13 +61,14 @@ tournamentsRouter.get('/mine', authenticate, async (req, res, next) => {
 });
 
 /** Player-hosted community tournaments are disabled — only listed companies create events. */
-tournamentsRouter.post('/community', authenticate, async (_req, _res, next) => {
-  next(
-    new AppError('Only venue companies can create tournaments. Browse Events to register.', {
-      statusCode: 403,
+tournamentsRouter.post('/community', authenticate, (_req, res) => {
+  res.status(403).json({
+    success: false,
+    error: {
       code: 'FORBIDDEN',
-    }),
-  );
+      message: 'Only venue companies can create tournaments. Browse Events to register.',
+    },
+  });
 });
 
 tournamentsRouter.get('/:tournamentId', async (req, res, next) => {
