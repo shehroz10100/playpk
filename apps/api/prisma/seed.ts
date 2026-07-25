@@ -726,10 +726,19 @@ async function main(): Promise<void> {
     },
   });
 
-  const openCount = await prisma.openMatch.count({
-    where: { hostId: player.id, status: { in: ['OPEN', 'FULL'] } },
+  const upcomingOpenCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const liveOpenCount = await prisma.openMatch.count({
+    where: {
+      status: { in: ['OPEN', 'FULL'] },
+      city: { equals: 'Lahore', mode: 'insensitive' },
+      OR: [
+        { scheduledAt: { gte: upcomingOpenCutoff } },
+        { AND: [{ scheduledAt: null }, { createdAt: { gte: upcomingOpenCutoff } }] },
+      ],
+    },
   });
-  if (openCount === 0) {
+  if (liveOpenCount === 0) {
+    const cricketSport = sportByName.Cricket;
     await prisma.openMatch.create({
       data: {
         hostId: player.id,
@@ -753,7 +762,33 @@ async function main(): Promise<void> {
         },
       },
     });
-    console.log('✓ demo open match seeded');
+    if (cricketSport) {
+      await prisma.openMatch.create({
+        data: {
+          hostId: player2.id,
+          sportId: cricketSport.id,
+          branchId: branch.id,
+          title: 'Weekend cricket nets · 3 spots open',
+          notes: 'Casual nets session at GameOn. Bring your own kit.',
+          visibility: 'PUBLIC',
+          matchType: 'FRIENDLY',
+          format: 'CUSTOM',
+          customFormat: 'Nets',
+          skillMin: 'BEGINNER',
+          skillMax: 'INTERMEDIATE',
+          genderPreference: 'ANY',
+          pricePerPlayer: 500,
+          status: 'OPEN',
+          maxPlayers: 6,
+          city: 'Lahore',
+          scheduledAt: new Date(Date.now() + 36 * 60 * 60 * 1000),
+          players: {
+            create: { userId: player2.id, status: 'JOINED', side: 'HOME' },
+          },
+        },
+      });
+    }
+    console.log('✓ demo upcoming open matches seeded');
   }
 
   await prisma.socialPost.createMany({

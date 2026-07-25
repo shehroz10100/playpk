@@ -31,6 +31,65 @@ authRouter.post('/register', authRateLimiter, validate(registerSchema), async (r
   }
 });
 
+const registerStartSchema = z.object({
+  firstName: z.string().min(1).max(60),
+  lastName: z.string().min(1).max(60),
+  email: z.string().email(),
+  phone: z.string().min(10).max(20),
+  password: z.string().min(8).max(128),
+  confirmPassword: z.string().min(8).max(128),
+});
+
+authRouter.post(
+  '/register/start',
+  otpRequestRateLimiter,
+  validate(registerStartSchema),
+  async (req, res, next) => {
+    try {
+      const result = await authService.startPlayerRegistration(req.body);
+      sendSuccess(res, result, 201);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+authRouter.post(
+  '/register/verify',
+  otpVerifyRateLimiter,
+  validate(
+    z.object({
+      phone: z.string().min(10).max(20),
+      code: z.string().length(6),
+    }),
+  ),
+  async (req, res, next) => {
+    try {
+      const result = await authService.completePlayerRegistration(req.body);
+      sendSuccess(res, result, 201);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+const googleSchema = z
+  .object({
+    idToken: z.string().min(20).optional(),
+    email: z.string().email().optional(),
+    name: z.string().min(1).max(80).optional(),
+  })
+  .refine((d) => Boolean(d.idToken || d.email), { message: 'idToken or email required' });
+
+authRouter.post('/google', authRateLimiter, validate(googleSchema), async (req, res, next) => {
+  try {
+    const result = await authService.loginWithGoogle(req.body);
+    sendSuccess(res, result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 const loginSchema = z
   .object({
     email: z.string().email().optional(),

@@ -72,25 +72,32 @@ export async function listSportDiscounts(companyId: string) {
 export async function getActiveSportDiscounts(companyIds: string[]) {
   if (companyIds.length === 0) return [];
   const now = new Date();
-  const rows = await prisma.sportDiscount.findMany({
-    where: {
-      companyId: { in: companyIds },
-      active: true,
-      AND: [
-        { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
-        { OR: [{ validTo: null }, { validTo: { gte: now } }] },
-      ],
-    },
-    include: { sport: { select: { id: true, name: true } } },
-  });
-  return rows.map((r) => ({
-    id: r.id,
-    companyId: r.companyId,
-    sportId: r.sportId,
-    sportName: r.sport.name,
-    percentOff: Number(r.percentOff),
-    label: r.label,
-  }));
+  try {
+    const rows = await prisma.sportDiscount.findMany({
+      where: {
+        companyId: { in: companyIds },
+        active: true,
+        AND: [
+          { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
+          { OR: [{ validTo: null }, { validTo: { gte: now } }] },
+        ],
+      },
+      include: { sport: { select: { id: true, name: true } } },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      companyId: r.companyId,
+      sportId: r.sportId,
+      sportName: r.sport.name,
+      percentOff: Number(r.percentOff),
+      label: r.label,
+    }));
+  } catch (err) {
+    // Local DBs that haven't migrated SportDiscount yet should still list venues.
+    const code = (err as { code?: string } | null)?.code;
+    if (code === 'P2021') return [];
+    throw err;
+  }
 }
 
 export async function findActiveSportDiscount(companyId: string, sportId: string) {

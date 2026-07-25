@@ -13,7 +13,9 @@ function otpAttemptsKey(phone: string): string {
 }
 
 /** Mock SMS OTP provider — stores code in Redis. Never logs codes in production. */
-export async function issueOtp(phone: string): Promise<{ expiresInSeconds: number }> {
+export async function issueOtp(
+  phone: string,
+): Promise<{ expiresInSeconds: number; code?: string }> {
   const code = String(Math.floor(100000 + Math.random() * 900000));
   await redis.set(otpKey(phone), code, 'EX', OTP_TTL_SECONDS);
   await redis.del(otpAttemptsKey(phone));
@@ -21,10 +23,10 @@ export async function issueOtp(phone: string): Promise<{ expiresInSeconds: numbe
   if (!appConfig.isProd) {
     // Local/demo only — production must use a real SMS gateway without logging secrets.
     console.log(`[MockSMS] OTP for ${phone}: ${code}`);
-  } else {
-    console.log(`[SMS] OTP dispatched for phone ending …${phone.slice(-4)}`);
+    return { expiresInSeconds: OTP_TTL_SECONDS, code };
   }
 
+  console.log(`[SMS] OTP dispatched for phone ending …${phone.slice(-4)}`);
   return { expiresInSeconds: OTP_TTL_SECONDS };
 }
 

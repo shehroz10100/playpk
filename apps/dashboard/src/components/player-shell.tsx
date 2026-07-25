@@ -21,6 +21,7 @@ import { clearSession, getAccessToken, getStoredUser, type AuthUser } from '@/li
 import { homePathForRole, isPlayerRole } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/components/notifications-provider';
+import { rememberGoogleAccount } from '@/components/google-sign-in';
 
 const headerTabs = [
   {
@@ -67,6 +68,9 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
     }
     setUser(stored);
     setReady(true);
+    if (stored.email) {
+      rememberGoogleAccount({ email: stored.email, name: stored.name });
+    }
   }, [router]);
 
   useEffect(() => {
@@ -107,6 +111,9 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
               type="button"
               className="inline-flex h-10 min-w-10 cursor-pointer items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
               onClick={() => {
+                if (user?.email) {
+                  rememberGoogleAccount({ email: user.email, name: user.name });
+                }
                 clearSession();
                 router.replace('/login');
               }}

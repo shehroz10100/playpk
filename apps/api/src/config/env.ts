@@ -33,6 +33,18 @@ const envSchema = z.object({
   }, z.boolean()),
   /** Comma-separated browser origins allowed for CORS (production). */
   CORS_ORIGINS: z.string().optional().default(''),
+  /** Google OAuth Web client ID (GIS). Optional for local until configured. */
+  GOOGLE_CLIENT_ID: z.string().optional().default(''),
+  /**
+   * When true (default in non-production), allow local Google account picker
+   * without a real Google ID token. Never enable in production.
+   */
+  ALLOW_LOCAL_GOOGLE_AUTH: z.preprocess((v) => {
+    if (v === 'true' || v === true) return true;
+    if (v === 'false' || v === false) return false;
+    const env = process.env.NODE_ENV ?? 'development';
+    return env !== 'production';
+  }, z.boolean()),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -71,6 +83,8 @@ export const appConfig = {
   corsOrigins: env.CORS_ORIGINS.split(',')
     .map((s) => s.trim())
     .filter(Boolean),
+  googleClientId: env.GOOGLE_CLIENT_ID.trim(),
+  allowLocalGoogleAuth: env.ALLOW_LOCAL_GOOGLE_AUTH,
   isDev: env.NODE_ENV === 'development',
   isTest: env.NODE_ENV === 'test',
   isProd: env.NODE_ENV === 'production',
