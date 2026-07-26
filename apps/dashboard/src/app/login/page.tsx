@@ -731,7 +731,7 @@ export default function LoginPage() {
                     disabled={loading}
                     type="submit"
                   >
-                    {loading ? 'Sending code…' : 'Continue — verify email'}
+                    {loading ? 'Sending code…' : 'Continue — verify with mail'}
                   </Button>
                 </form>
               )}
