@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@playpk/shared-types": "*",
-    "@prisma/client": "^6.3.1",
     "@react-three/fiber": "^9.0.0",
     "@shadergradient/react": "^2.4.20",
     "@supabase/supabase-js": "^2.110.7",
@@ -24,6 +23,7 @@
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.24.0",
     "next": "^15.3.5",
+    "pg": "^8.16.0",
     "postcss": "^8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -42,7 +42,6 @@
     "@types/react-dom": "^19",
     "@types/three": "^0.180.0",
     "eslint": "^9",
-    "eslint-config-next": "15.1.0",
-    "prisma": "^6.3.1"
+    "eslint-config-next": "15.1.0"
   }
 }

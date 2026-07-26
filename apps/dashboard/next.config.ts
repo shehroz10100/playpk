@@ -35,6 +35,7 @@ const API_ORIGIN = resolveApiOrigin();
 
 const nextConfig = {
   transpilePackages: ['@playpk/shared-types', '@shadergradient/react'],
+  serverExternalPackages: ['pg', 'bcryptjs'],
   experimental: {
     optimizePackageImports: ['@shadergradient/react'],
   },

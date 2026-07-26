@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import {
   openPendingReset,
   railwayApiBase,
   resetCookieName,
   resetOtpMatches,
 } from '@/lib/email-otp';
-import { getPrisma } from '@/lib/prisma';
+import { updateUserPasswordByEmail } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
@@ -15,26 +14,6 @@ function jsonError(message: string, status: number, code: string) {
     { success: false, error: { code, message } },
     { status },
   );
-}
-
-async function applyPasswordWithDatabase(email: string, password: string) {
-  const prisma = getPrisma();
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || user.suspendedAt) {
-    throw Object.assign(new Error('Invalid or expired verification code'), {
-      status: 400,
-      code: 'INVALID_OTP',
-    });
-  }
-  const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { passwordHash },
-  });
-  await prisma.refreshToken.updateMany({
-    where: { userId: user.id, revokedAt: null },
-    data: { revokedAt: new Date() },
-  });
 }
 
 export async function POST(req: Request) {
@@ -98,7 +77,7 @@ export async function POST(req: Request) {
     }
 
     try {
-      await applyPasswordWithDatabase(email, password);
+      await updateUserPasswordByEmail(email, password);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not update password';
       const status =
