@@ -581,8 +581,12 @@ export default function LoginPage() {
                       className="h-11 rounded-xl"
                     />
                   </div>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-navy">
+                  <label
+                    htmlFor="remember-me"
+                    className="flex cursor-pointer items-center gap-2 text-sm text-navy"
+                  >
                     <input
+                      id="remember-me"
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => {
