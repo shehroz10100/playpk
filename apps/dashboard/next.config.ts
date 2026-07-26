@@ -46,20 +46,24 @@ const nextConfig = {
     return config;
   },
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${API_ORIGIN}/api/:path*`,
-      },
-      {
-        source: '/health',
-        destination: `${API_ORIGIN}/health`,
-      },
-      {
-        source: '/uploads/:path*',
-        destination: `${API_ORIGIN}/uploads/:path*`,
-      },
-    ];
+    // fallback = only proxy to Railway when no Next.js page/API route matches.
+    // This lets Vercel-local routes (auth OTP, channels, password reset) win.
+    return {
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: `${API_ORIGIN}/api/:path*`,
+        },
+        {
+          source: '/health',
+          destination: `${API_ORIGIN}/health`,
+        },
+        {
+          source: '/uploads/:path*',
+          destination: `${API_ORIGIN}/uploads/:path*`,
+        },
+      ],
+    };
   },
   images: {
     remotePatterns: [

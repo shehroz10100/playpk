@@ -3,19 +3,5 @@
   "framework": "nextjs",
   "installCommand": "bash scripts/vercel-install.sh",
   "buildCommand": "npm run build --workspace=@playpk/dashboard",
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://api-production-2057.up.railway.app/api/:path*"
-    },
-    {
-      "source": "/health",
-      "destination": "https://api-production-2057.up.railway.app/health"
-    },
-    {
-      "source": "/uploads/:path*",
-      "destination": "https://api-production-2057.up.railway.app/uploads/:path*"
-    }
-  ],
   "outputDirectory": "apps/dashboard/.next"
 }

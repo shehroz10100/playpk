@@ -1,4 +1,3 @@
-import type { Client } from 'pg';
 import {
   ensureChannelSchema,
   httpError,
@@ -8,6 +7,7 @@ import {
   requireUserId,
   withDb,
 } from '@/lib/channel-server';
+import type { Client } from 'pg';
 
 export const runtime = 'nodejs';
 
@@ -32,7 +32,26 @@ type ChannelRow = {
   myRole: string | null;
 };
 
-async function mapChannel(client: Client, row: ChannelRow, userId: string) {
+const channelSelect = `
+  SELECT c.*,
+    s.name AS "sportName",
+    b.name AS "venueName",
+    b.city AS "venueCity",
+    u.name AS "createdByName",
+    (SELECT COUNT(*) FROM "ChannelMember" cm WHERE cm."channelId" = c.id) AS "memberCount",
+    (SELECT COUNT(*) FROM "ChannelMessage" msg WHERE msg."channelId" = c.id AND msg."deletedAt" IS NULL) AS "messageCount",
+    (
+      SELECT cm2.role::text FROM "ChannelMember" cm2
+      WHERE cm2."channelId" = c.id AND cm2."userId" = $1
+      LIMIT 1
+    ) AS "myRole"
+  FROM "ChatChannel" c
+  LEFT JOIN "Sport" s ON s.id = c."sportId"
+  LEFT JOIN "Branch" b ON b.id = c."branchId"
+  LEFT JOIN "User" u ON u.id = c."createdById"
+`;
+
+async function mapChannel(client: Client, row: ChannelRow) {
   const last = await client.query<{
     body: string;
     createdAt: Date;
@@ -76,25 +95,6 @@ async function mapChannel(client: Client, row: ChannelRow, userId: string) {
   };
 }
 
-const channelSelect = `
-  SELECT c.*,
-    s.name AS "sportName",
-    b.name AS "venueName",
-    b.city AS "venueCity",
-    u.name AS "createdByName",
-    (SELECT COUNT(*) FROM "ChannelMember" cm WHERE cm."channelId" = c.id) AS "memberCount",
-    (SELECT COUNT(*) FROM "ChannelMessage" msg WHERE msg."channelId" = c.id AND msg."deletedAt" IS NULL) AS "messageCount",
-    (
-      SELECT cm2.role::text FROM "ChannelMember" cm2
-      WHERE cm2."channelId" = c.id AND cm2."userId" = $1
-      LIMIT 1
-    ) AS "myRole"
-  FROM "ChatChannel" c
-  LEFT JOIN "Sport" s ON s.id = c."sportId"
-  LEFT JOIN "Branch" b ON b.id = c."branchId"
-  LEFT JOIN "User" u ON u.id = c."createdById"
-`;
-
 async function requireMember(client: Client, channelId: string, userId: string) {
   const res = await client.query<{ role: string; mutedUntil: Date | null }>(
     `SELECT role::text AS role, "mutedUntil" FROM "ChannelMember"
@@ -121,19 +121,19 @@ async function requireAdmin(client: Client, channelId: string, userId: string) {
 }
 
 async function getChannelDto(client: Client, channelId: string, userId: string) {
-  const res = await client.query<ChannelRow>(`${channelSelect} WHERE c.id = $2 AND c."archivedAt" IS NULL`, [
-    userId,
-    channelId,
-  ]);
+  const res = await client.query<ChannelRow>(
+    `${channelSelect} WHERE c.id = $2 AND c."archivedAt" IS NULL`,
+    [userId, channelId],
+  );
   const row = res.rows[0];
   if (!row) throw httpError('Channel not found', 404, 'NOT_FOUND');
   if (row.visibility === 'INVITE' && !row.myRole) {
     throw httpError('This channel is invite-only', 403, 'INVITE_ONLY');
   }
-  return mapChannel(client, row, userId);
+  return mapChannel(client, row);
 }
 
-async function listMembers(client: Client, channelId: string, userId: string) {
+async function listMembersDto(client: Client, channelId: string, userId: string) {
   await requireMember(client, channelId, userId);
   const res = await client.query<{
     userId: string;
@@ -158,18 +158,15 @@ async function listMembers(client: Client, channelId: string, userId: string) {
   }));
 }
 
-async function handle(
-  req: Request,
-  path: string[],
-): Promise<Response> {
+/** Shared dispatcher used by /api/channels and /api/channels/[...path]. */
+export async function dispatchChannels(req: Request, path: string[]): Promise<Response> {
   const userId = requireUserId(req);
   const method = req.method.toUpperCase();
 
   return withDb(async (client) => {
     await ensureChannelSchema(client);
 
-    // GET /api/channels/mine
-    if (method === 'GET' && path.length === 1 && path[0] === 'mine') {
+    if (method === 'GET' && path[0] === 'mine' && path.length === 1) {
       const res = await client.query<ChannelRow>(
         `${channelSelect}
          WHERE c."archivedAt" IS NULL
@@ -181,12 +178,11 @@ async function handle(
         [userId],
       );
       const data = [];
-      for (const row of res.rows) data.push(await mapChannel(client, row, userId));
+      for (const row of res.rows) data.push(await mapChannel(client, row));
       return jsonOk(data);
     }
 
-    // GET /api/channels/discover
-    if (method === 'GET' && path.length === 1 && path[0] === 'discover') {
+    if (method === 'GET' && path[0] === 'discover' && path.length === 1) {
       const url = new URL(req.url);
       const q = url.searchParams.get('q')?.trim() || '';
       const params: unknown[] = [userId];
@@ -204,11 +200,10 @@ async function handle(
         params,
       );
       const data = [];
-      for (const row of res.rows) data.push(await mapChannel(client, row, userId));
+      for (const row of res.rows) data.push(await mapChannel(client, row));
       return jsonOk(data);
     }
 
-    // POST /api/channels
     if (method === 'POST' && path.length === 0) {
       const body = (await req.json()) as {
         name?: string;
@@ -249,7 +244,6 @@ async function handle(
       }
 
       const id = newId();
-      const memberId = newId();
       await client.query('BEGIN');
       try {
         await client.query(
@@ -271,7 +265,7 @@ async function handle(
         await client.query(
           `INSERT INTO "ChannelMember" (id, "channelId", "userId", role, "joinedAt")
            VALUES ($1,$2,$3,'ADMIN',NOW())`,
-          [memberId, id, userId],
+          [newId(), id, userId],
         );
         await client.query('COMMIT');
       } catch (e) {
@@ -281,18 +275,14 @@ async function handle(
       return jsonOk(await getChannelDto(client, id, userId), 201);
     }
 
-    if (path.length === 0) {
-      throw httpError('Resource not found', 404, 'NOT_FOUND');
-    }
+    if (path.length === 0) throw httpError('Resource not found', 404, 'NOT_FOUND');
 
     const channelId = path[0];
 
-    // GET /api/channels/:id
     if (method === 'GET' && path.length === 1) {
       return jsonOk(await getChannelDto(client, channelId, userId));
     }
 
-    // PATCH /api/channels/:id
     if (method === 'PATCH' && path.length === 1) {
       await requireAdmin(client, channelId, userId);
       const body = (await req.json()) as {
@@ -325,7 +315,6 @@ async function handle(
       return jsonOk(await getChannelDto(client, channelId, userId));
     }
 
-    // DELETE /api/channels/:id
     if (method === 'DELETE' && path.length === 1) {
       await requireAdmin(client, channelId, userId);
       await client.query(
@@ -335,8 +324,7 @@ async function handle(
       return jsonOk({ archived: true });
     }
 
-    // POST join / leave
-    if (method === 'POST' && path.length === 2 && path[1] === 'join') {
+    if (method === 'POST' && path[1] === 'join' && path.length === 2) {
       const ch = await client.query<{ visibility: string }>(
         `SELECT visibility::text AS visibility FROM "ChatChannel" WHERE id = $1 AND "archivedAt" IS NULL`,
         [channelId],
@@ -354,7 +342,7 @@ async function handle(
       return jsonOk(await getChannelDto(client, channelId, userId));
     }
 
-    if (method === 'POST' && path.length === 2 && path[1] === 'leave') {
+    if (method === 'POST' && path[1] === 'leave' && path.length === 2) {
       const member = await requireMember(client, channelId, userId);
       if (member.role === 'ADMIN') {
         const admins = await client.query(
@@ -372,26 +360,24 @@ async function handle(
               other.rows[0].id,
             ]);
           } else {
-            await client.query(
-              `UPDATE "ChatChannel" SET "archivedAt" = NOW() WHERE id = $1`,
-              [channelId],
-            );
+            await client.query(`UPDATE "ChatChannel" SET "archivedAt" = NOW() WHERE id = $1`, [
+              channelId,
+            ]);
           }
         }
       }
-      await client.query(
-        `DELETE FROM "ChannelMember" WHERE "channelId" = $1 AND "userId" = $2`,
-        [channelId, userId],
-      );
+      await client.query(`DELETE FROM "ChannelMember" WHERE "channelId" = $1 AND "userId" = $2`, [
+        channelId,
+        userId,
+      ]);
       return jsonOk({ left: true });
     }
 
-    // members
     if (path[1] === 'members') {
       if (method === 'GET' && path.length === 2) {
-        return jsonOk(await listMembers(client, channelId, userId));
+        return jsonOk(await listMembersDto(client, channelId, userId));
       }
-      if (method === 'GET' && path.length === 3 && path[2] === 'search') {
+      if (method === 'GET' && path[2] === 'search' && path.length === 3) {
         await requireStaff(client, channelId, userId);
         const q = new URL(req.url).searchParams.get('q')?.trim() || '';
         if (q.length < 2) return jsonOk([]);
@@ -424,60 +410,57 @@ async function handle(
            ON CONFLICT ("channelId", "userId") DO NOTHING`,
           [newId(), channelId, target],
         );
-        return jsonOk(await listMembers(client, channelId, userId));
+        return jsonOk(await listMembersDto(client, channelId, userId));
       }
-      if (method === 'DELETE' && path.length === 3) {
+      if ((method === 'DELETE' || method === 'PATCH') && path.length === 3) {
         const targetUserId = path[2];
-        if (targetUserId === userId) {
-          // reuse leave logic via recursive call style
-          const member = await requireMember(client, channelId, userId);
-          if (member.role === 'ADMIN') {
-            const admins = await client.query(
-              `SELECT COUNT(*)::int AS n FROM "ChannelMember" WHERE "channelId" = $1 AND role = 'ADMIN'`,
-              [channelId],
-            );
-            if ((admins.rows[0] as { n: number }).n <= 1) {
-              const other = await client.query<{ id: string }>(
-                `SELECT id FROM "ChannelMember" WHERE "channelId" = $1 AND "userId" <> $2
-                 ORDER BY "joinedAt" ASC LIMIT 1`,
-                [channelId, userId],
+        if (method === 'DELETE') {
+          if (targetUserId === userId) {
+            const member = await requireMember(client, channelId, userId);
+            if (member.role === 'ADMIN') {
+              const admins = await client.query(
+                `SELECT COUNT(*)::int AS n FROM "ChannelMember" WHERE "channelId" = $1 AND role = 'ADMIN'`,
+                [channelId],
               );
-              if (other.rows[0]) {
-                await client.query(`UPDATE "ChannelMember" SET role = 'ADMIN' WHERE id = $1`, [
-                  other.rows[0].id,
-                ]);
-              } else {
-                await client.query(
-                  `UPDATE "ChatChannel" SET "archivedAt" = NOW() WHERE id = $1`,
-                  [channelId],
+              if ((admins.rows[0] as { n: number }).n <= 1) {
+                const other = await client.query<{ id: string }>(
+                  `SELECT id FROM "ChannelMember" WHERE "channelId" = $1 AND "userId" <> $2
+                   ORDER BY "joinedAt" ASC LIMIT 1`,
+                  [channelId, userId],
                 );
+                if (other.rows[0]) {
+                  await client.query(`UPDATE "ChannelMember" SET role = 'ADMIN' WHERE id = $1`, [
+                    other.rows[0].id,
+                  ]);
+                } else {
+                  await client.query(`UPDATE "ChatChannel" SET "archivedAt" = NOW() WHERE id = $1`, [
+                    channelId,
+                  ]);
+                }
               }
             }
+            await client.query(
+              `DELETE FROM "ChannelMember" WHERE "channelId" = $1 AND "userId" = $2`,
+              [channelId, userId],
+            );
+            return jsonOk({ left: true });
+          }
+          const actor = await requireStaff(client, channelId, userId);
+          const target = await client.query<{ role: string }>(
+            `SELECT role::text AS role FROM "ChannelMember" WHERE "channelId" = $1 AND "userId" = $2`,
+            [channelId, targetUserId],
+          );
+          if (!target.rows[0]) throw httpError('Member not found', 404, 'NOT_FOUND');
+          if (target.rows[0].role === 'ADMIN' && actor.role !== 'ADMIN') {
+            throw httpError('Moderators cannot remove admins', 403, 'FORBIDDEN');
           }
           await client.query(
             `DELETE FROM "ChannelMember" WHERE "channelId" = $1 AND "userId" = $2`,
-            [channelId, userId],
+            [channelId, targetUserId],
           );
-          return jsonOk({ left: true });
+          return jsonOk(await listMembersDto(client, channelId, userId));
         }
-        const actor = await requireStaff(client, channelId, userId);
-        const target = await client.query<{ role: string }>(
-          `SELECT role::text AS role FROM "ChannelMember" WHERE "channelId" = $1 AND "userId" = $2`,
-          [channelId, targetUserId],
-        );
-        if (!target.rows[0]) throw httpError('Member not found', 404, 'NOT_FOUND');
-        if (target.rows[0].role === 'ADMIN' && actor.role !== 'ADMIN') {
-          throw httpError('Moderators cannot remove admins', 403, 'FORBIDDEN');
-        }
-        await client.query(
-          `DELETE FROM "ChannelMember" WHERE "channelId" = $1 AND "userId" = $2`,
-          [channelId, targetUserId],
-        );
-        return jsonOk(await listMembers(client, channelId, userId));
-      }
-      if (method === 'PATCH' && path.length === 3) {
         await requireAdmin(client, channelId, userId);
-        const targetUserId = path[2];
         const body = (await req.json()) as { role?: string };
         const role = body.role;
         if (!role || !['ADMIN', 'MODERATOR', 'MEMBER'].includes(role)) {
@@ -493,11 +476,10 @@ async function handle(
            WHERE "channelId" = $2 AND "userId" = $3`,
           [role, channelId, targetUserId],
         );
-        return jsonOk(await listMembers(client, channelId, userId));
+        return jsonOk(await listMembersDto(client, channelId, userId));
       }
     }
 
-    // messages
     if (path[1] === 'messages') {
       if (method === 'GET' && path.length === 2) {
         await requireMember(client, channelId, userId);
@@ -518,9 +500,7 @@ async function handle(
              ORDER BY m."createdAt" ASC LIMIT 100`,
             [channelId, new Date(after)],
           );
-          return jsonOk(
-            res.rows.map((m) => ({ ...m, mine: m.senderId === userId })),
-          );
+          return jsonOk(res.rows.map((m) => ({ ...m, mine: m.senderId === userId })));
         }
         const res = await client.query<{
           id: string;
@@ -537,8 +517,7 @@ async function handle(
            ORDER BY m."createdAt" DESC LIMIT 100`,
           [channelId],
         );
-        const rows = res.rows.reverse();
-        return jsonOk(rows.map((m) => ({ ...m, mine: m.senderId === userId })));
+        return jsonOk(res.rows.reverse().map((m) => ({ ...m, mine: m.senderId === userId })));
       }
 
       if (method === 'POST' && path.length === 2) {
@@ -553,18 +532,15 @@ async function handle(
           throw httpError('Message must be at most 2000 characters', 400, 'VALIDATION_ERROR');
         }
         const id = newId();
-        const nameRes = await client.query<{ name: string }>(
-          `SELECT name FROM "User" WHERE id = $1`,
-          [userId],
-        );
+        const nameRes = await client.query<{ name: string }>(`SELECT name FROM "User" WHERE id = $1`, [
+          userId,
+        ]);
         await client.query(
           `INSERT INTO "ChannelMessage" (id, "channelId", "senderId", body, "createdAt")
            VALUES ($1,$2,$3,$4,NOW())`,
           [id, channelId, userId, text],
         );
-        await client.query(`UPDATE "ChatChannel" SET "updatedAt" = NOW() WHERE id = $1`, [
-          channelId,
-        ]);
+        await client.query(`UPDATE "ChatChannel" SET "updatedAt" = NOW() WHERE id = $1`, [channelId]);
         return jsonOk(
           {
             id,
@@ -592,10 +568,9 @@ async function handle(
         if (msg.rows[0].senderId !== userId && !canMod) {
           throw httpError('You can only delete your own messages', 403, 'FORBIDDEN');
         }
-        await client.query(
-          `UPDATE "ChannelMessage" SET "deletedAt" = NOW() WHERE id = $1`,
-          [messageId],
-        );
+        await client.query(`UPDATE "ChannelMessage" SET "deletedAt" = NOW() WHERE id = $1`, [
+          messageId,
+        ]);
         return jsonOk({ deleted: true });
       }
     }
@@ -604,18 +579,10 @@ async function handle(
   });
 }
 
-type Ctx = { params: Promise<{ path?: string[] }> };
-
-async function run(req: Request, ctx: Ctx) {
+export async function runChannels(req: Request, path: string[]) {
   try {
-    const { path = [] } = await ctx.params;
-    return await handle(req, path);
+    return await dispatchChannels(req, path);
   } catch (err) {
     return jsonErr(err);
   }
 }
-
-export const GET = run;
-export const POST = run;
-export const PATCH = run;
-export const DELETE = run;
