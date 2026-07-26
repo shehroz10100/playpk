@@ -349,7 +349,7 @@ export default function LoginPage() {
               </p>
               {devOtp ? (
                 <p className="mt-3 rounded-xl bg-brand/10 px-3 py-2 text-xs font-semibold text-navy">
-                  Localhost mock email code:{' '}
+                  Verification code:{' '}
                   <span className="font-mono text-brand-700">{devOtp}</span>
                 </p>
               ) : null}
@@ -446,7 +446,7 @@ export default function LoginPage() {
               </p>
               {devOtp ? (
                 <p className="mt-3 rounded-xl bg-brand/10 px-3 py-2 text-xs font-semibold text-navy">
-                  Localhost mock email code:{' '}
+                  Verification code:{' '}
                   <span className="font-mono text-brand-700">{devOtp}</span>
                 </p>
               ) : null}
