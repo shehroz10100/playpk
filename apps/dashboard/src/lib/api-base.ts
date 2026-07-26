@@ -2,8 +2,8 @@
  * API base URL for dashboard fetch calls.
  *
  * - Local browser → http://localhost:4000 (or NEXT_PUBLIC_API_URL)
- * - Deployed browser (Vercel) → Railway HTTPS API directly
- *   (CORS is open on the API; avoids broken Vercel /api rewrites that may drop Authorization)
+ * - Deployed browser (Vercel) → same-origin `/api/*`
+ *   Next.js routes handle signup email OTP; other paths rewrite to Railway.
  * - Server-side on Vercel → Railway (never localhost)
  */
 
@@ -18,7 +18,7 @@ function isLoopback(url: string): boolean {
   }
 }
 
-/** Never call the Vercel app origin as the API — rewrites can drop Authorization. */
+/** Never treat the Vercel app origin as a remote API base for env overrides. */
 function isDashboardOrigin(url: string): boolean {
   try {
     const { hostname } = new URL(url);
@@ -53,7 +53,9 @@ export function getApiBase(): string {
       if (!isLoopback(local) && !isDashboardOrigin(local)) return local;
       return 'http://localhost:4000';
     }
-    return firstPublicApiUrl() ?? RAILWAY_API;
+    // Production browser: same-origin so Vercel can serve email-OTP signup routes
+    // and rewrite other /api/* calls to Railway.
+    return '';
   }
 
   const publicUrl = firstPublicApiUrl();

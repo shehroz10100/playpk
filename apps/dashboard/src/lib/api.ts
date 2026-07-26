@@ -89,13 +89,22 @@ export async function api<T>(
   }
 
   const base = getApiBase();
-  let res = await fetch(`${base}${path}`, { ...options, headers });
+  let res = await fetch(`${base}${path}`, {
+    ...options,
+    headers,
+    // Needed for signup email-OTP httpOnly cookie on same-origin Vercel routes.
+    credentials: options.credentials ?? 'include',
+  });
 
   if (res.status === 401 && useAuth) {
     token = await refreshAccessToken();
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
-      res = await fetch(`${base}${path}`, { ...options, headers });
+      res = await fetch(`${base}${path}`, {
+        ...options,
+        headers,
+        credentials: options.credentials ?? 'include',
+      });
     }
   }
 
