@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 import {
-  createPasswordBridge,
   openPendingReset,
   railwayApiBase,
   resetCookieName,
   resetOtpMatches,
 } from '@/lib/email-otp';
+import { getPrisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 
@@ -14,6 +15,26 @@ function jsonError(message: string, status: number, code: string) {
     { success: false, error: { code, message } },
     { status },
   );
+}
+
+async function applyPasswordWithDatabase(email: string, password: string) {
+  const prisma = getPrisma();
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || user.suspendedAt) {
+    throw Object.assign(new Error('Invalid or expired verification code'), {
+      status: 400,
+      code: 'INVALID_OTP',
+    });
+  }
+  const passwordHash = await bcrypt.hash(password, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash },
+  });
+  await prisma.refreshToken.updateMany({
+    where: { userId: user.id, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
 }
 
 export async function POST(req: Request) {
@@ -67,8 +88,8 @@ export async function POST(req: Request) {
       return jsonError('Passwords do not match', 400, 'PASSWORD_MISMATCH');
     }
 
-    const cookie = req.headers.get('cookie') ?? '';
-    const match = cookie.match(new RegExp(`${resetCookieName()}=([^;]+)`));
+    const cookieHeader = req.headers.get('cookie') ?? '';
+    const match = cookieHeader.match(new RegExp(`${resetCookieName()}=([^;]+)`));
     const token = match?.[1] ? decodeURIComponent(match[1]) : '';
     const pending = token ? openPendingReset(token) : null;
 
@@ -76,37 +97,26 @@ export async function POST(req: Request) {
       return jsonError('Invalid or expired verification code', 401, 'INVALID_OTP');
     }
 
-    const bridge = createPasswordBridge({ email, password });
-    const railwayRes = await fetch(`${railwayApiBase()}/api/auth/password/bridge-reset`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        password,
-        confirmPassword,
-        exp: bridge.exp,
-        sig: bridge.sig,
-      }),
-    });
-
-    const railwayJson = (await railwayRes.json()) as {
-      success?: boolean;
-      data?: { message?: string };
-      error?: { code?: string; message?: string };
-    };
-
-    if (!railwayRes.ok || !railwayJson.success) {
-      return jsonError(
-        railwayJson.error?.message ||
-          'Could not update password. Redeploy the Railway API if bridge-reset is missing.',
-        railwayRes.status || 502,
-        railwayJson.error?.code || 'RESET_FAILED',
-      );
+    try {
+      await applyPasswordWithDatabase(email, password);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not update password';
+      const status =
+        typeof err === 'object' && err && 'status' in err
+          ? Number((err as { status: number }).status)
+          : 502;
+      const codeName =
+        typeof err === 'object' && err && 'code' in err
+          ? String((err as { code: string }).code)
+          : message.includes('DATABASE_URL')
+            ? 'DATABASE_URL_REQUIRED'
+            : 'RESET_FAILED';
+      return jsonError(message, status || 502, codeName);
     }
 
     const res = NextResponse.json({
       success: true,
-      data: railwayJson.data ?? {
+      data: {
         message: 'Password updated. You can sign in with your new password.',
       },
     });

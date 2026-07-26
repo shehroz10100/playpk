@@ -16,7 +16,11 @@ NODE
 NPM_CONFIG_PRODUCTION=false npm install \
   --workspace=@playpk/dashboard \
   --workspace=@playpk/shared-types \
+  --workspace=@playpk/api \
   --include-workspace-root \
   --include=dev \
   --no-audit \
   --no-fund
+
+# Prisma client for password-reset updates from Vercel when DATABASE_URL is set.
+npx prisma generate --schema=apps/api/prisma/schema.prisma
