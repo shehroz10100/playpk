@@ -334,22 +334,13 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
 
       {/* Venues — mobile rail, md+ grid */}
       <section id="home-venues" className="scroll-mt-24 space-y-3 animate-rise" style={{ animationDelay: '60ms' }}>
-        <div className="flex items-baseline justify-between gap-2">
-          <div>
-            <h2 className="font-display text-lg font-bold uppercase tracking-tight text-navy sm:text-xl">
-              Venues in {applied.city || 'Pakistan'}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {isFetching ? 'Updating…' : `${venues.length} place${venues.length === 1 ? '' : 's'}`}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="cursor-pointer text-sm font-semibold text-brand hover:text-brand-700"
-            onClick={() => setFiltersOpen(true)}
-          >
-            Refine
-          </button>
+        <div>
+          <h2 className="font-display text-lg font-bold uppercase tracking-tight text-navy sm:text-xl">
+            Venues in {applied.city || 'Pakistan'}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {isFetching ? 'Updating…' : `${venues.length} place${venues.length === 1 ? '' : 's'}`}
+          </p>
         </div>
         {error ? (
           <p className="text-sm text-red-600">
