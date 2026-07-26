@@ -883,4 +883,73 @@ export interface DirectMessageDto {
   mine: boolean;
 }
 
+export enum ChannelKind {
+  SPORT = 'SPORT',
+  VENUE = 'VENUE',
+  AREA = 'AREA',
+  GENERAL = 'GENERAL',
+}
+
+export enum ChannelVisibility {
+  PUBLIC = 'PUBLIC',
+  INVITE = 'INVITE',
+}
+
+export enum ChannelMemberRole {
+  ADMIN = 'ADMIN',
+  MODERATOR = 'MODERATOR',
+  MEMBER = 'MEMBER',
+}
+
+export interface ChatChannelDto {
+  id: string;
+  name: string;
+  description: string | null;
+  kind: ChannelKind | string;
+  visibility: ChannelVisibility | string;
+  sportId: string | null;
+  branchId: string | null;
+  city: string | null;
+  sportName: string | null;
+  venueName: string | null;
+  venueCity: string | null;
+  createdById: string;
+  createdByName: string | null;
+  memberCount: number;
+  messageCount: number;
+  myRole: ChannelMemberRole | string | null;
+  lastMessage: {
+    body: string;
+    createdAt: string | Date;
+    senderName: string;
+  } | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface ChannelMemberDto {
+  userId: string;
+  name: string;
+  role: ChannelMemberRole | string;
+  joinedAt: string | Date;
+  muted: boolean;
+}
+
+export interface ChannelMessageDto {
+  id: string;
+  channelId: string;
+  senderId: string;
+  senderName: string;
+  body: string;
+  createdAt: string | Date;
+  mine: boolean;
+}
+
+export interface ChannelInviteHitDto {
+  userId: string;
+  name: string;
+  email: string | null;
+}
+
+
 

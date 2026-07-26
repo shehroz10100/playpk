@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   Bot,
   CalendarDays,
+  Hash,
   Home,
   LogOut,
   MessageSquarePlus,
@@ -41,6 +42,7 @@ const headerTabs = [
 const tabs = [
   { href: '/discover', label: 'Home', icon: Home },
   { href: '/play', label: 'Play', icon: Swords },
+  { href: '/channels', label: 'Chat', icon: Hash },
   { href: '/social', label: 'Social', icon: Users },
   { href: '/rank', label: 'Rank', icon: Trophy },
   { href: '/me', label: 'Me', icon: UserRound },
@@ -172,6 +174,19 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
               </span>
             </Link>
             <Link
+              href="/channels?tab=create"
+              className="flex cursor-pointer items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-brand/5"
+              onClick={() => setCreateOpen(false)}
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                <Hash className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block text-sm font-bold text-navy">Create channel</span>
+                <span className="text-xs text-muted-foreground">Sport, venue, or area chat room</span>
+              </span>
+            </Link>
+            <Link
               href="/social?compose=1"
               className="flex cursor-pointer items-center gap-3 border-t border-border px-4 py-3.5 transition hover:bg-brand/5"
               onClick={() => setCreateOpen(false)}
@@ -207,7 +222,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
         aria-label="Customer"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-white/95 shadow-[0_-8px_24px_rgba(11,31,58,0.06)] backdrop-blur-md"
       >
-        <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5 px-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5">
+        <div className="mx-auto grid max-w-lg grid-cols-6 gap-0.5 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5">
           {tabs.map((item) => {
             const Icon = item.icon;
             const active =

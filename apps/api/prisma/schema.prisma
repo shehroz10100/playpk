@@ -189,6 +189,24 @@ enum FollowStatus {
   ACCEPTED
 }
 
+enum ChannelKind {
+  SPORT
+  VENUE
+  AREA
+  GENERAL
+}
+
+enum ChannelVisibility {
+  PUBLIC
+  INVITE
+}
+
+enum ChannelMemberRole {
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
@@ -238,6 +256,9 @@ model User {
   dmThreadsAsOne      DirectThread[]       @relation("ThreadUserOne")
   dmThreadsAsTwo      DirectThread[]       @relation("ThreadUserTwo")
   directMessages      DirectMessage[]
+  chatChannelsCreated ChatChannel[]        @relation("ChannelCreator")
+  channelMemberships  ChannelMember[]
+  channelMessages     ChannelMessage[]
 
   @@index([role])
   @@index([loyaltyTier])
@@ -310,6 +331,7 @@ model Branch {
   tickets     SupportTicket[]
   openMatches OpenMatch[]
   pricingRules PricingRule[]
+  chatChannels ChatChannel[]
 
   @@index([companyId])
   @@index([city])
@@ -330,6 +352,7 @@ model Sport {
   openMatches    OpenMatch[]
   pricingRules   PricingRule[]
   sportDiscounts SportDiscount[]
+  chatChannels   ChatChannel[]
 }
 
 model Court {
@@ -934,4 +957,66 @@ model ContactHash {
 
   @@unique([userId, phoneHash])
   @@index([phoneHash])
+}
+
+// ─── Group chat channels (Discord-style sport / venue / area rooms) ───────────
+
+model ChatChannel {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  kind        ChannelKind       @default(GENERAL)
+  visibility  ChannelVisibility @default(PUBLIC)
+  sportId     String?
+  branchId    String?
+  city        String?
+  createdById String
+  archivedAt  DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  sport     Sport?           @relation(fields: [sportId], references: [id], onDelete: SetNull)
+  branch    Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy User             @relation("ChannelCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  members   ChannelMember[]
+  messages  ChannelMessage[]
+
+  @@index([kind])
+  @@index([visibility])
+  @@index([sportId])
+  @@index([branchId])
+  @@index([city])
+  @@index([createdById])
+  @@index([updatedAt])
+}
+
+model ChannelMember {
+  id         String            @id @default(cuid())
+  channelId  String
+  userId     String
+  role       ChannelMemberRole @default(MEMBER)
+  mutedUntil DateTime?
+  joinedAt   DateTime          @default(now())
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@index([userId])
+  @@index([channelId, role])
+}
+
+model ChannelMessage {
+  id        String    @id @default(cuid())
+  channelId String
+  senderId  String
+  body      String
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sender  User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, createdAt])
+  @@index([senderId])
 }

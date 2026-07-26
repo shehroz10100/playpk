@@ -14,6 +14,7 @@ import { aiRouter } from './ai';
 import { tournamentsRouter, teamsRouter, leaderboardRouter } from './tournaments';
 import { adminRouter, supportRouter } from './admin';
 import { socialRouter } from './social';
+import { channelsRouter } from './channels';
 import { pricingRouter } from './pricing';
 import { walkinRouter } from './walkin';
 import { brandingRouter } from './branding';
@@ -55,6 +56,7 @@ apiRouter.get('/', (_req, res) => {
         teams: '/api/teams',
         leaderboard: '/api/leaderboard',
         social: '/api/social',
+        channels: '/api/channels',
         admin: '/api/admin',
         support: '/api/support',
         pricing: 'GET /api/pricing/resolve',
@@ -86,6 +88,7 @@ apiRouter.use('/tournaments', tournamentsRouter);
 apiRouter.use('/teams', teamsRouter);
 apiRouter.use('/leaderboard', leaderboardRouter);
 apiRouter.use('/social', socialRouter);
+apiRouter.use('/channels', channelsRouter);
 apiRouter.use('/admin', adminRouter);
 apiRouter.use('/support', supportRouter);
 apiRouter.use('/pricing', pricingRouter);

@@ -43,4 +43,4 @@ EXPOSE 4000
 # Log migrate failures clearly; still fail fast so bad schema never serves traffic.
 CMD ["sh", "-c", "npx prisma migrate deploy && exec node dist/index.js"]
 
-# bridge-reset deploy 20260726230618
+# chat-channels deploy 20260727043500
