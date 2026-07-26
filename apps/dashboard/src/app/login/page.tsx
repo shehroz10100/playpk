@@ -21,7 +21,7 @@ type DemoAccount = {
   opens: string;
 };
 
-type Mode = 'signin' | 'signup' | 'verify';
+type Mode = 'signin' | 'signup' | 'verify' | 'forgot' | 'reset';
 
 /** Demo credentials never ship in production builds unless explicitly enabled. */
 const SHOW_DEMO_LOGINS =
@@ -75,12 +75,21 @@ export default function LoginPage() {
   const [otpCode, setOtpCode] = useState('');
   const [pendingPhone, setPendingPhone] = useState('');
   const [devOtp, setDevOtp] = useState<string | null>(null);
+  const [resetToken, setResetToken] = useState('');
+  const [devResetToken, setDevResetToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     clearSession();
+    const params = new URLSearchParams(window.location.search);
+    const modeParam = params.get('mode');
+    const tokenParam = params.get('token');
+    if (modeParam === 'reset' && tokenParam) {
+      setMode('reset');
+      setResetToken(tokenParam);
+    }
   }, []);
 
   function safeNextPath(role: string): string {
@@ -195,6 +204,84 @@ export default function LoginPage() {
     }
   }
 
+  async function onForgotPassword(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    setDevResetToken(null);
+    try {
+      const { data } = await api<{
+        message: string;
+        expiresInSeconds: number;
+        emailSent?: boolean;
+        provider?: 'resend' | 'mock';
+        devResetToken?: string;
+        resetUrl?: string;
+      }>('/api/auth/password/forgot', {
+        method: 'POST',
+        auth: false,
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+
+      // Localhost / mock email: jump straight to "create new password"
+      if (data.devResetToken) {
+        setResetToken(data.devResetToken);
+        setDevResetToken(data.devResetToken);
+        setPassword('');
+        setConfirmPassword('');
+        setMode('reset');
+        setInfo('Choose a new password for your account. (Email is mocked on localhost.)');
+        return;
+      }
+
+      setInfo(
+        data.emailSent
+          ? 'Check your inbox for a PlayPK reset link. Open it to create a new password.'
+          : data.message,
+      );
+    } catch (err) {
+      setError(formatAuthError(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onResetPassword(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+    try {
+      const { data } = await api<{ message: string }>('/api/auth/password/reset', {
+        method: 'POST',
+        auth: false,
+        body: JSON.stringify({
+          token: resetToken.trim(),
+          password,
+          confirmPassword,
+        }),
+      });
+      setInfo(data.message);
+      setPassword('');
+      setConfirmPassword('');
+      setResetToken('');
+      setDevResetToken(null);
+      setMode('signin');
+      // Drop token from URL without full reload
+      window.history.replaceState({}, '', '/login');
+    } catch (err) {
+      setError(formatAuthError(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="relative min-h-screen lg:grid lg:grid-cols-2">
       <div className="relative hidden min-h-screen overflow-hidden lg:block">
@@ -279,6 +366,111 @@ export default function LoginPage() {
                 </button>
               </form>
             </>
+          ) : mode === 'forgot' ? (
+            <>
+              <h2 className="font-display mt-4 text-2xl font-bold text-navy sm:text-3xl">
+                Forgot password
+              </h2>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                Enter your account email and we&apos;ll send a reset link.
+              </p>
+              <form className="mt-6 space-y-4" onSubmit={onForgotPassword}>
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-email">Email</Label>
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                {info ? <p className="text-sm text-brand-700">{info}</p> : null}
+                <Button
+                  className="h-11 w-full rounded-xl bg-navy text-base font-bold hover:bg-brand"
+                  disabled={loading}
+                  type="submit"
+                >
+                  {loading ? 'Sending…' : 'Send reset link'}
+                </Button>
+                <button
+                  type="button"
+                  className="w-full text-sm font-semibold text-muted-foreground hover:text-navy"
+                  onClick={() => {
+                    setMode('signin');
+                    setError(null);
+                    setInfo(null);
+                    setDevResetToken(null);
+                  }}
+                >
+                  ← Back to sign in
+                </button>
+              </form>
+            </>
+          ) : mode === 'reset' ? (
+            <>
+              <h2 className="font-display mt-4 text-2xl font-bold text-navy sm:text-3xl">
+                Create new password
+              </h2>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                Choose a new password for your PlayPK account.
+              </p>
+              <form className="mt-6 space-y-4" onSubmit={onResetPassword}>
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-new-password">Confirm password</Label>
+                  <Input
+                    id="confirm-new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                {info ? <p className="text-sm text-brand-700">{info}</p> : null}
+                <Button
+                  className="h-11 w-full rounded-xl bg-navy text-base font-bold hover:bg-brand"
+                  disabled={loading || resetToken.length < 32}
+                  type="submit"
+                >
+                  {loading ? 'Updating…' : 'Create new password'}
+                </Button>
+                <button
+                  type="button"
+                  className="w-full text-sm font-semibold text-muted-foreground hover:text-navy"
+                  onClick={() => {
+                    setMode('signin');
+                    setError(null);
+                    setInfo(null);
+                    setPassword('');
+                    setConfirmPassword('');
+                    window.history.replaceState({}, '', '/login');
+                  }}
+                >
+                  ← Back to sign in
+                </button>
+              </form>
+            </>
           ) : (
             <>
               <h2 className="font-display mt-4 text-2xl font-bold text-navy sm:text-3xl">
@@ -351,7 +543,21 @@ export default function LoginPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="password">Password</Label>
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-brand hover:text-brand-600"
+                        onClick={() => {
+                          setMode('forgot');
+                          setError(null);
+                          setInfo(null);
+                          setPassword('');
+                        }}
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
                     <Input
                       id="password"
                       type="password"
@@ -363,6 +569,7 @@ export default function LoginPage() {
                     />
                   </div>
                   {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                  {info ? <p className="text-sm text-brand-700">{info}</p> : null}
                   <Button
                     className="h-11 w-full rounded-xl bg-navy text-base font-bold hover:bg-brand"
                     disabled={loading}

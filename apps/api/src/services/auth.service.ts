@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'node:crypto';
 import { UserRole, type User } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
@@ -14,9 +15,15 @@ import { appConfig } from '../config/env';
 import { issueOtp, verifyOtp } from '../lib/otp';
 import { normalizePkPhone } from '../lib/phone';
 import { verifyGoogleIdToken } from '../lib/google-auth';
+import { sendEmail } from '../lib/email';
 import { redis } from '../lib/redis';
 
 const SIGNUP_TTL_SECONDS = 15 * 60;
+const RESET_TTL_SECONDS = 30 * 60;
+
+function resetKey(token: string): string {
+  return `pwdreset:${token}`;
+}
 
 type PendingSignup = {
   firstName: string;
@@ -366,6 +373,109 @@ export async function refreshSession(refreshToken: string) {
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: payload.sub } });
   return issueTokenPair(user);
+}
+
+/**
+ * Request a password reset email. Always returns a generic message to avoid
+ * email enumeration. In non-production (or mock email), may include `devResetToken`.
+ */
+export async function requestPasswordReset(input: { email: string }) {
+  const email = input.email.trim().toLowerCase();
+  const generic = {
+    message: 'If an account exists for that email, we sent a password reset link.',
+    expiresInSeconds: RESET_TTL_SECONDS,
+  };
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || user.suspendedAt) {
+    return generic;
+  }
+
+  const token = randomBytes(32).toString('hex');
+  await redis.set(resetKey(token), user.id, 'EX', RESET_TTL_SECONDS);
+
+  const resetUrl = `${appConfig.frontendUrl}/login?mode=reset&token=${token}`;
+  const text = [
+    'Reset your PlayPK password',
+    '',
+    `Open this link within 30 minutes:`,
+    resetUrl,
+    '',
+    'If you did not request this, you can ignore this email.',
+  ].join('\n');
+
+  const mail = await sendEmail({
+    to: email,
+    subject: 'Reset your PlayPK password',
+    text,
+    html: `<p>Reset your PlayPK password</p><p><a href="${resetUrl}">Choose a new password</a></p><p>This link expires in 30 minutes.</p>`,
+  });
+
+  return {
+    ...generic,
+    emailSent: mail.provider === 'resend',
+    provider: mail.provider,
+    // Only when email was mocked — UI auto-opens "Create new password".
+    ...(mail.provider === 'mock' ? { devResetToken: token, resetUrl } : {}),
+  };
+}
+
+export async function resetPassword(input: {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}) {
+  const token = input.token.trim();
+  if (token.length < 32) {
+    throw new AppError('Invalid or expired reset link', {
+      statusCode: 400,
+      code: 'INVALID_RESET_TOKEN',
+    });
+  }
+  if (input.password.length < 8) {
+    throw new AppError('Password must be at least 8 characters', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+  if (input.password !== input.confirmPassword) {
+    throw new AppError('Passwords do not match', {
+      statusCode: 400,
+      code: 'PASSWORD_MISMATCH',
+    });
+  }
+
+  const userId = await redis.get(resetKey(token));
+  if (!userId) {
+    throw new AppError('Invalid or expired reset link', {
+      statusCode: 400,
+      code: 'INVALID_RESET_TOKEN',
+    });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.suspendedAt) {
+    await redis.del(resetKey(token));
+    throw new AppError('Invalid or expired reset link', {
+      statusCode: 400,
+      code: 'INVALID_RESET_TOKEN',
+    });
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash },
+  });
+  await redis.del(resetKey(token));
+
+  // Invalidate existing sessions
+  await prisma.refreshToken.updateMany({
+    where: { userId: user.id, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+
+  return { message: 'Password updated. You can sign in with your new password.' };
 }
 
 export async function getMe(userId: string) {

@@ -45,6 +45,22 @@ const envSchema = z.object({
     const env = process.env.NODE_ENV ?? 'development';
     return env !== 'production';
   }, z.boolean()),
+  /** Twilio SMS (optional locally; required in production for phone OTP). */
+  TWILIO_ACCOUNT_SID: z.string().optional().default(''),
+  TWILIO_AUTH_TOKEN: z.string().optional().default(''),
+  /** E.164 sender, e.g. +12025550123 */
+  TWILIO_FROM_NUMBER: z.string().optional().default(''),
+  /** Alternative to FROM — Messaging Service SID (MG…). */
+  TWILIO_MESSAGING_SERVICE_SID: z.string().optional().default(''),
+  /**
+   * Public dashboard origin for password-reset links.
+   * e.g. http://localhost:3000 or https://playpk.vercel.app
+   */
+  FRONTEND_URL: z.string().url().optional().default('http://localhost:3000'),
+  /** Resend API key for transactional email (password reset). Optional locally. */
+  RESEND_API_KEY: z.string().optional().default(''),
+  /** From address verified in Resend, e.g. PlayPK <noreply@yourdomain.com> */
+  EMAIL_FROM: z.string().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -85,6 +101,19 @@ export const appConfig = {
     .filter(Boolean),
   googleClientId: env.GOOGLE_CLIENT_ID.trim(),
   allowLocalGoogleAuth: env.ALLOW_LOCAL_GOOGLE_AUTH,
+  sms: {
+    twilio: {
+      accountSid: env.TWILIO_ACCOUNT_SID.trim(),
+      authToken: env.TWILIO_AUTH_TOKEN.trim(),
+      fromNumber: env.TWILIO_FROM_NUMBER.trim(),
+      messagingServiceSid: env.TWILIO_MESSAGING_SERVICE_SID.trim(),
+    },
+  },
+  frontendUrl: env.FRONTEND_URL.replace(/\/$/, ''),
+  email: {
+    resendApiKey: env.RESEND_API_KEY.trim(),
+    emailFrom: env.EMAIL_FROM.trim(),
+  },
   isDev: env.NODE_ENV === 'development',
   isTest: env.NODE_ENV === 'test',
   isProd: env.NODE_ENV === 'production',

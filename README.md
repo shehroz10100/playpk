@@ -147,6 +147,8 @@ See `[.env.example](.env.example)` for the full list. Summary:
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`   | api            | JWT signing (change before deploy)        |
 | `STORAGE_*`                                  | api            | Local/S3-compatible uploads               |
 | `LLM_PROVIDER` / `OPENAI_API_KEY`            | api            | Chatbot intent parser (`mock` by default) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | api | Phone OTP SMS (required in production) |
+| `FRONTEND_URL` / `RESEND_API_KEY` / `EMAIL_FROM` | api | Password-reset emails (Resend; mocked locally) |
 | `NEXT_PUBLIC_API_URL`                        | dashboard      | API base URL                              |
 | `EXPO_PUBLIC_API_URL`                        | mobile         | API base URL                              |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | api (optional) | Seed sync into Supabase Auth              |

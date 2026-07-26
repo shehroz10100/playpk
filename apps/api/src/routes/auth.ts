@@ -108,6 +108,40 @@ authRouter.post('/login', authRateLimiter, validate(loginSchema), async (req, re
 });
 
 authRouter.post(
+  '/password/forgot',
+  otpRequestRateLimiter,
+  validate(z.object({ email: z.string().email() })),
+  async (req, res, next) => {
+    try {
+      const result = await authService.requestPasswordReset(req.body);
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+authRouter.post(
+  '/password/reset',
+  authRateLimiter,
+  validate(
+    z.object({
+      token: z.string().min(32).max(128),
+      password: z.string().min(8).max(128),
+      confirmPassword: z.string().min(8).max(128),
+    }),
+  ),
+  async (req, res, next) => {
+    try {
+      const result = await authService.resetPassword(req.body);
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+authRouter.post(
   '/otp/request',
   otpRequestRateLimiter,
   validate(z.object({ phone: z.string().min(10) })),
