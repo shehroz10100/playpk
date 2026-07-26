@@ -1,5 +1,5 @@
 import { redis } from './redis';
-import { appConfig } from '../config/env';
+import { sendSms } from './sms';
 
 const OTP_TTL_SECONDS = 5 * 60;
 const OTP_MAX_ATTEMPTS = 5;
@@ -12,7 +12,7 @@ function otpAttemptsKey(phone: string): string {
   return `otp:attempts:${phone}`;
 }
 
-/** Mock SMS OTP provider — stores code in Redis. Never logs codes in production. */
+/** Issue a phone OTP — stores in Redis and delivers via SMS (Twilio or mock). */
 export async function issueOtp(
   phone: string,
 ): Promise<{ expiresInSeconds: number; code?: string }> {
@@ -20,8 +20,11 @@ export async function issueOtp(
   await redis.set(otpKey(phone), code, 'EX', OTP_TTL_SECONDS);
   await redis.del(otpAttemptsKey(phone));
 
-  if (!appConfig.isProd) {
-    // Local/demo only — production must use a real SMS gateway without logging secrets.
+  const message = `Your PlayPK verification code is ${code}. It expires in 5 minutes.`;
+  const result = await sendSms(phone, message);
+
+  if (result.provider === 'mock') {
+    // Local/demo only — code is also returned as `devOtp` by the auth service.
     console.log(`[MockSMS] OTP for ${phone}: ${code}`);
     return { expiresInSeconds: OTP_TTL_SECONDS, code };
   }

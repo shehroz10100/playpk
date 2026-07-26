@@ -3,10 +3,11 @@ describe('Phase3 security: OTP must not leak codes in production', () => {
     jest.resetModules();
     jest.restoreAllMocks();
     jest.dontMock('../redis');
+    jest.dontMock('../sms');
     jest.dontMock('../../config/env');
   });
 
-  it('does not console.log full OTP when isProd', async () => {
+  it('does not console.log full OTP when Twilio sends in production', async () => {
     jest.resetModules();
     jest.doMock('../../config/env', () => ({
       appConfig: {
@@ -14,6 +15,55 @@ describe('Phase3 security: OTP must not leak codes in production', () => {
         isDev: false,
         isTest: false,
         allowMockPayments: false,
+        sms: {
+          twilio: {
+            accountSid: 'ACtest',
+            authToken: 'token',
+            fromNumber: '+12025550123',
+            messagingServiceSid: '',
+          },
+        },
+      },
+    }));
+    jest.doMock('../redis', () => ({
+      redis: {
+        set: jest.fn().mockResolvedValue('OK'),
+        del: jest.fn().mockResolvedValue(1),
+        get: jest.fn(),
+        multi: jest.fn(),
+      },
+    }));
+    jest.doMock('../sms', () => ({
+      sendSms: jest.fn().mockResolvedValue({ provider: 'twilio' }),
+    }));
+
+    const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    const { issueOtp } = await import('../otp');
+    const result = await issueOtp('+923001234567');
+
+    expect(result.code).toBeUndefined();
+    const joined = log.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(joined).not.toMatch(/OTP for \+923001234567: \d{6}/);
+    expect(joined).toMatch(/OTP dispatched for phone ending …4567/);
+    log.mockRestore();
+  });
+
+  it('fails closed in production when SMS is not configured', async () => {
+    jest.resetModules();
+    jest.doMock('../../config/env', () => ({
+      appConfig: {
+        isProd: true,
+        isDev: false,
+        isTest: false,
+        allowMockPayments: false,
+        sms: {
+          twilio: {
+            accountSid: '',
+            authToken: '',
+            fromNumber: '',
+            messagingServiceSid: '',
+          },
+        },
       },
     }));
     jest.doMock('../redis', () => ({
@@ -25,14 +75,11 @@ describe('Phase3 security: OTP must not leak codes in production', () => {
       },
     }));
 
-    const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     const { issueOtp } = await import('../otp');
-    await issueOtp('+923001234567');
-
-    const joined = log.mock.calls.map((c) => c.join(' ')).join('\n');
-    expect(joined).not.toMatch(/OTP for \+923001234567: \d{6}/);
-    expect(joined).toMatch(/OTP dispatched for phone ending …4567/);
-    log.mockRestore();
+    await expect(issueOtp('+923001234567')).rejects.toMatchObject({
+      code: 'SMS_NOT_CONFIGURED',
+      statusCode: 503,
+    });
   });
 
   it('logs OTP in non-production for local demo', async () => {
@@ -43,6 +90,14 @@ describe('Phase3 security: OTP must not leak codes in production', () => {
         isDev: true,
         isTest: false,
         allowMockPayments: true,
+        sms: {
+          twilio: {
+            accountSid: '',
+            authToken: '',
+            fromNumber: '',
+            messagingServiceSid: '',
+          },
+        },
       },
     }));
     jest.doMock('../redis', () => ({
