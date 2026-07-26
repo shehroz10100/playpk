@@ -262,3 +262,71 @@ export function railwayApiBase(): string {
     'https://api-production-2057.up.railway.app'
   );
 }
+
+const RESET_COOKIE_NAME = 'playpk_reset_otp';
+
+export type PendingResetPayload = {
+  email: string;
+  otpHash: string;
+  exp: number;
+};
+
+export function sealPendingReset(input: { email: string; code: string }): string {
+  const body: PendingResetPayload = {
+    email: input.email.trim().toLowerCase(),
+    otpHash: hashOtp(input.code),
+    exp: Date.now() + TTL_SECONDS * 1000,
+  };
+  const raw = Buffer.from(JSON.stringify(body)).toString('base64url');
+  const sig = createHmac('sha256', otpSecret()).update(raw).digest('base64url');
+  return `${raw}.${sig}`;
+}
+
+export function openPendingReset(token: string): PendingResetPayload | null {
+  const [raw, sig] = token.split('.');
+  if (!raw || !sig) return null;
+  const expected = createHmac('sha256', otpSecret()).update(raw).digest('base64url');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(raw, 'base64url').toString('utf8'),
+    ) as PendingResetPayload;
+    if (!parsed?.email || !parsed?.otpHash || !parsed?.exp) return null;
+    if (Date.now() > parsed.exp) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function resetOtpMatches(payload: PendingResetPayload, code: string): boolean {
+  const got = Buffer.from(hashOtp(code));
+  const expected = Buffer.from(payload.otpHash);
+  return got.length === expected.length && timingSafeEqual(got, expected);
+}
+
+export function resetCookieName(): string {
+  return RESET_COOKIE_NAME;
+}
+
+function bridgeSecret(): string {
+  // Must match apps/api bridgeResetPassword — do not use Brevo/Resend keys here.
+  return (
+    process.env.PASSWORD_RESET_BRIDGE_SECRET?.trim() ||
+    'playpk-password-reset-bridge-v1'
+  );
+}
+
+/** HMAC proof that Vercel verified the email OTP before asking Railway to set the password. */
+export function createPasswordBridge(input: {
+  email: string;
+  password: string;
+}): { exp: number; sig: string } {
+  const exp = Date.now() + 2 * 60 * 1000;
+  const email = input.email.trim().toLowerCase();
+  const base = `${email}.${exp}.${input.password}`;
+  const sig = createHmac('sha256', bridgeSecret()).update(base).digest('base64url');
+  return { exp, sig };
+}

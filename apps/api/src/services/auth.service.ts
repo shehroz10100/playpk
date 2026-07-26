@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { UserRole, type User } from '@prisma/client';
 import { prisma } from '../lib/prisma';
@@ -492,6 +493,75 @@ export async function resetPassword(input: {
   });
 
   // Invalidate existing sessions
+  await prisma.refreshToken.updateMany({
+    where: { userId: user.id, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+
+  return { message: 'Password updated. You can sign in with your new password.' };
+}
+
+/**
+ * Apply a password reset after Vercel verified the email OTP.
+ * Proof is an HMAC over email.exp.password using a shared bridge secret.
+ */
+export async function bridgeResetPassword(input: {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  exp: number;
+  sig: string;
+}) {
+  if (input.password.length < 8) {
+    throw new AppError('Password must be at least 8 characters', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+  if (input.password !== input.confirmPassword) {
+    throw new AppError('Passwords do not match', {
+      statusCode: 400,
+      code: 'PASSWORD_MISMATCH',
+    });
+  }
+
+  const email = input.email.trim().toLowerCase();
+  const exp = Number(input.exp);
+  if (!Number.isFinite(exp) || Date.now() > exp || Date.now() < exp - 5 * 60 * 1000) {
+    throw new AppError('Invalid or expired verification code', {
+      statusCode: 401,
+      code: 'INVALID_OTP',
+    });
+  }
+
+  const secret =
+    process.env.PASSWORD_RESET_BRIDGE_SECRET?.trim() ||
+    'playpk-password-reset-bridge-v1';
+
+  const base = `${email}.${exp}.${input.password}`;
+  const expected = createHmac('sha256', secret).update(base).digest('base64url');
+  const a = Buffer.from(String(input.sig));
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    throw new AppError('Invalid or expired verification code', {
+      statusCode: 401,
+      code: 'INVALID_OTP',
+    });
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || user.suspendedAt) {
+    throw new AppError('Invalid or expired verification code', {
+      statusCode: 400,
+      code: 'INVALID_OTP',
+    });
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash },
+  });
   await prisma.refreshToken.updateMany({
     where: { userId: user.id, revokedAt: null },
     data: { revokedAt: new Date() },

@@ -148,6 +148,28 @@ authRouter.post(
 );
 
 authRouter.post(
+  '/password/bridge-reset',
+  authRateLimiter,
+  validate(
+    z.object({
+      email: z.string().email(),
+      password: z.string().min(8).max(128),
+      confirmPassword: z.string().min(8).max(128),
+      exp: z.number().int().positive(),
+      sig: z.string().min(16).max(200),
+    }),
+  ),
+  async (req, res, next) => {
+    try {
+      const result = await authService.bridgeResetPassword(req.body);
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+authRouter.post(
   '/otp/request',
   otpRequestRateLimiter,
   validate(z.object({ phone: z.string().min(10) })),
