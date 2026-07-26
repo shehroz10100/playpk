@@ -42,3 +42,5 @@ WORKDIR /app/apps/api
 EXPOSE 4000
 # Log migrate failures clearly; still fail fast so bad schema never serves traffic.
 CMD ["sh", "-c", "npx prisma migrate deploy && exec node dist/index.js"]
+
+# bridge-reset deploy 20260726230618
