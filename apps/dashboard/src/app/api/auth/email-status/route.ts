@@ -11,6 +11,7 @@ export async function GET() {
       hasBrevoKey: Boolean(process.env.BREVO_API_KEY?.trim()),
       hasResendKey: Boolean(process.env.RESEND_API_KEY?.trim()),
       hasDatabaseUrl: Boolean(process.env.DATABASE_URL?.trim()),
+      hasJwtAccessSecret: Boolean(process.env.JWT_ACCESS_SECRET?.trim()),
       emailFrom,
       emailFromIsGmail: /@gmail\.com>/i.test(emailFrom) || /@gmail\.com$/i.test(emailFrom),
       emailFromIsResendDev: /@resend\.dev>/i.test(emailFrom) || /@resend\.dev$/i.test(emailFrom),
