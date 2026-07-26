@@ -241,7 +241,18 @@ export async function sendSignupEmail(input: {
   if (process.env.BREVO_API_KEY?.trim()) {
     return sendBrevoEmail(input);
   }
-  return sendResendEmail(input);
+
+  try {
+    return await sendResendEmail(input);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to send email';
+    if (/domain|only send|verified|testing emails|own email/i.test(message)) {
+      throw new Error(
+        'Inbox delivery needs Brevo without a custom domain. Add BREVO_API_KEY on Vercel (Production), set EMAIL_FROM to PlayPK <shehrozqureshi10100@gmail.com>, verify that Gmail as a Brevo sender, then redeploy.',
+      );
+    }
+    throw err;
+  }
 }
 
 export function railwayApiBase(): string {
