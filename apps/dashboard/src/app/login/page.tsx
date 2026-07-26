@@ -5,7 +5,13 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { AuthTokensResponse } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
-import { clearSession, saveSession } from '@/lib/auth';
+import {
+  clearRememberedCredentials,
+  clearSession,
+  getRememberedCredentials,
+  saveRememberedCredentials,
+  saveSession,
+} from '@/lib/auth';
 import { homePathForRole, isPlayerRole } from '@/lib/roles';
 import { LOGIN_HERO_IMAGE } from '@/lib/venue-cover';
 import { AmbientGradient } from '@/components/ambient-gradient';
@@ -79,9 +85,16 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     clearSession();
+    const remembered = getRememberedCredentials();
+    if (remembered) {
+      setEmail(remembered.email);
+      setPassword(remembered.password);
+      setRememberMe(true);
+    }
     const params = new URLSearchParams(window.location.search);
     const modeParam = params.get('mode');
     const tokenParam = params.get('token');
@@ -135,6 +148,11 @@ export default function LoginPage() {
         auth: false,
         body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
+      if (rememberMe) {
+        saveRememberedCredentials(email, password);
+      } else {
+        clearRememberedCredentials();
+      }
       completeAuth(data);
     } catch (err) {
       setError(formatAuthError(err));
@@ -563,6 +581,19 @@ export default function LoginPage() {
                       className="h-11 rounded-xl"
                     />
                   </div>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-navy">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setRememberMe(checked);
+                        if (!checked) clearRememberedCredentials();
+                      }}
+                      className="size-4 rounded border-border accent-brand"
+                    />
+                    Remember me
+                  </label>
                   {error ? <p className="text-sm text-red-600">{error}</p> : null}
                   {info ? <p className="text-sm text-brand-700">{info}</p> : null}
                   <Button
