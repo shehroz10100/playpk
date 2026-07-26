@@ -1,5 +1,4 @@
 import bcrypt from 'bcryptjs';
-import { randomBytes } from 'node:crypto';
 import { UserRole, type User } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
@@ -12,17 +11,21 @@ import {
   verifyRefreshToken,
 } from '../lib/jwt';
 import { appConfig } from '../config/env';
-import { issueOtp, verifyOtp } from '../lib/otp';
+import { issueEmailOtp, issueOtp, verifyOtp } from '../lib/otp';
 import { normalizePkPhone } from '../lib/phone';
 import { verifyGoogleIdToken } from '../lib/google-auth';
-import { sendEmail } from '../lib/email';
 import { redis } from '../lib/redis';
 
 const SIGNUP_TTL_SECONDS = 15 * 60;
 const RESET_TTL_SECONDS = 30 * 60;
+const OTP_RESET_TTL_SECONDS = 5 * 60;
 
 function resetKey(token: string): string {
   return `pwdreset:${token}`;
+}
+
+function resetEmailKey(email: string): string {
+  return `pwdreset:email:${email.trim().toLowerCase()}`;
 }
 
 type PendingSignup = {
@@ -33,8 +36,8 @@ type PendingSignup = {
   passwordHash: string;
 };
 
-function signupKey(phone: string): string {
-  return `signup:${phone}`;
+function signupKey(email: string): string {
+  return `signup:${email.trim().toLowerCase()}`;
 }
 
 function publicUser(user: User) {
@@ -181,21 +184,22 @@ export async function startPlayerRegistration(input: {
 
   const passwordHash = await bcrypt.hash(input.password, 10);
   const pending: PendingSignup = { firstName, lastName, email, phone, passwordHash };
-  await redis.set(signupKey(phone), JSON.stringify(pending), 'EX', SIGNUP_TTL_SECONDS);
+  await redis.set(signupKey(email), JSON.stringify(pending), 'EX', SIGNUP_TTL_SECONDS);
 
-  const otp = await issueOtp(phone);
+  const otp = await issueEmailOtp(email);
   return {
+    email,
     phone,
-    message: 'Verification code sent to your phone.',
+    message: 'Verification code sent to your email.',
     expiresInSeconds: otp.expiresInSeconds,
-    /** Local/dev only — real SMS is mocked; code is also in API logs. */
+    /** Local/dev only — email is mocked; code is also in API logs. */
     ...(otp.code ? { devOtp: otp.code } : {}),
   };
 }
 
-export async function completePlayerRegistration(input: { phone: string; code: string }) {
-  const phone = normalizePkPhone(input.phone);
-  const valid = await verifyOtp(phone, input.code.trim());
+export async function completePlayerRegistration(input: { email: string; code: string }) {
+  const email = input.email.trim().toLowerCase();
+  const valid = await verifyOtp(email, input.code.trim());
   if (!valid) {
     throw new AppError('Invalid or expired verification code', {
       statusCode: 401,
@@ -203,7 +207,7 @@ export async function completePlayerRegistration(input: { phone: string; code: s
     });
   }
 
-  const raw = await redis.get(signupKey(phone));
+  const raw = await redis.get(signupKey(email));
   if (!raw) {
     throw new AppError('Signup session expired. Please create your account again.', {
       statusCode: 410,
@@ -215,15 +219,15 @@ export async function completePlayerRegistration(input: { phone: string; code: s
   try {
     pending = JSON.parse(raw) as PendingSignup;
   } catch {
-    await redis.del(signupKey(phone));
+    await redis.del(signupKey(email));
     throw new AppError('Signup session invalid. Please create your account again.', {
       statusCode: 410,
       code: 'SIGNUP_EXPIRED',
     });
   }
 
-  if (pending.phone !== phone) {
-    throw new AppError('Phone mismatch for signup session', {
+  if (pending.email !== email) {
+    throw new AppError('Email mismatch for signup session', {
       statusCode: 400,
       code: 'VALIDATION_ERROR',
     });
@@ -232,12 +236,12 @@ export async function completePlayerRegistration(input: { phone: string; code: s
   // Re-check uniqueness in case another signup completed meanwhile
   const existingEmail = await prisma.user.findUnique({ where: { email: pending.email } });
   if (existingEmail) {
-    await redis.del(signupKey(phone));
+    await redis.del(signupKey(email));
     throw new AppError('Email already registered', { statusCode: 409, code: 'EMAIL_EXISTS' });
   }
-  const existingPhone = await prisma.user.findUnique({ where: { phone } });
+  const existingPhone = await prisma.user.findUnique({ where: { phone: pending.phone } });
   if (existingPhone) {
-    await redis.del(signupKey(phone));
+    await redis.del(signupKey(email));
     throw new AppError('Phone already registered', { statusCode: 409, code: 'PHONE_EXISTS' });
   }
 
@@ -257,7 +261,7 @@ export async function completePlayerRegistration(input: { phone: string; code: s
     },
   });
 
-  await redis.del(signupKey(phone));
+  await redis.del(signupKey(email));
   return issueTokenPair(user);
 }
 
@@ -376,14 +380,14 @@ export async function refreshSession(refreshToken: string) {
 }
 
 /**
- * Request a password reset email. Always returns a generic message to avoid
- * email enumeration. In non-production (or mock email), may include `devResetToken`.
+ * Request a password reset code by email. Always returns a generic message to
+ * avoid email enumeration. In non-production (or mock email), may include `devOtp`.
  */
 export async function requestPasswordReset(input: { email: string }) {
   const email = input.email.trim().toLowerCase();
   const generic = {
-    message: 'If an account exists for that email, we sent a password reset link.',
-    expiresInSeconds: RESET_TTL_SECONDS,
+    message: 'If an account exists for that email, we sent a password reset code.',
+    expiresInSeconds: OTP_RESET_TTL_SECONDS,
   };
 
   const user = await prisma.user.findUnique({ where: { email } });
@@ -391,47 +395,26 @@ export async function requestPasswordReset(input: { email: string }) {
     return generic;
   }
 
-  const token = randomBytes(32).toString('hex');
-  await redis.set(resetKey(token), user.id, 'EX', RESET_TTL_SECONDS);
-
-  const resetUrl = `${appConfig.frontendUrl}/login?mode=reset&token=${token}`;
-  const text = [
-    'Reset your PlayPK password',
-    '',
-    `Open this link within 30 minutes:`,
-    resetUrl,
-    '',
-    'If you did not request this, you can ignore this email.',
-  ].join('\n');
-
-  const mail = await sendEmail({
-    to: email,
-    subject: 'Reset your PlayPK password',
-    text,
-    html: `<p>Reset your PlayPK password</p><p><a href="${resetUrl}">Choose a new password</a></p><p>This link expires in 30 minutes.</p>`,
-  });
+  const otp = await issueEmailOtp(email, { subject: 'Your PlayPK password reset code' });
+  // Keep a longer-lived marker so reset can confirm the email was recently challenged.
+  await redis.set(resetEmailKey(email), user.id, 'EX', RESET_TTL_SECONDS);
 
   return {
     ...generic,
-    emailSent: mail.provider === 'resend',
-    provider: mail.provider,
-    // Only when email was mocked — UI auto-opens "Create new password".
-    ...(mail.provider === 'mock' ? { devResetToken: token, resetUrl } : {}),
+    emailSent: true,
+    provider: otp.code ? ('mock' as const) : ('resend' as const),
+    // Only when email was mocked — UI can show the code on localhost.
+    ...(otp.code ? { devOtp: otp.code } : {}),
   };
 }
 
 export async function resetPassword(input: {
-  token: string;
+  email?: string;
+  code?: string;
+  token?: string;
   password: string;
   confirmPassword: string;
 }) {
-  const token = input.token.trim();
-  if (token.length < 32) {
-    throw new AppError('Invalid or expired reset link', {
-      statusCode: 400,
-      code: 'INVALID_RESET_TOKEN',
-    });
-  }
   if (input.password.length < 8) {
     throw new AppError('Password must be at least 8 characters', {
       statusCode: 400,
@@ -445,20 +428,59 @@ export async function resetPassword(input: {
     });
   }
 
-  const userId = await redis.get(resetKey(token));
-  if (!userId) {
-    throw new AppError('Invalid or expired reset link', {
+  let userId: string | null = null;
+
+  const email = input.email?.trim().toLowerCase();
+  const code = input.code?.trim();
+  if (email && code) {
+    if (code.length !== 6) {
+      throw new AppError('Invalid or expired verification code', {
+        statusCode: 400,
+        code: 'INVALID_OTP',
+      });
+    }
+    const valid = await verifyOtp(email, code);
+    if (!valid) {
+      throw new AppError('Invalid or expired verification code', {
+        statusCode: 401,
+        code: 'INVALID_OTP',
+      });
+    }
+    userId =
+      (await redis.get(resetEmailKey(email))) ||
+      (await prisma.user.findUnique({ where: { email } }))?.id ||
+      null;
+    if (userId) await redis.del(resetEmailKey(email));
+  } else if (input.token?.trim()) {
+    // Legacy link-based reset (still accepted if an old email is opened).
+    const token = input.token.trim();
+    if (token.length < 32) {
+      throw new AppError('Invalid or expired reset link', {
+        statusCode: 400,
+        code: 'INVALID_RESET_TOKEN',
+      });
+    }
+    userId = await redis.get(resetKey(token));
+    if (userId) await redis.del(resetKey(token));
+  } else {
+    throw new AppError('Email and verification code are required', {
       statusCode: 400,
-      code: 'INVALID_RESET_TOKEN',
+      code: 'VALIDATION_ERROR',
+    });
+  }
+
+  if (!userId) {
+    throw new AppError('Invalid or expired verification code', {
+      statusCode: 400,
+      code: 'INVALID_OTP',
     });
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || user.suspendedAt) {
-    await redis.del(resetKey(token));
-    throw new AppError('Invalid or expired reset link', {
+    throw new AppError('Invalid or expired verification code', {
       statusCode: 400,
-      code: 'INVALID_RESET_TOKEN',
+      code: 'INVALID_OTP',
     });
   }
 
@@ -467,7 +489,6 @@ export async function resetPassword(input: {
     where: { id: user.id },
     data: { passwordHash },
   });
-  await redis.del(resetKey(token));
 
   // Invalidate existing sessions
   await prisma.refreshToken.updateMany({

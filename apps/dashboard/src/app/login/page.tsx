@@ -79,7 +79,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
-  const [pendingPhone, setPendingPhone] = useState('');
+  const [pendingEmail, setPendingEmail] = useState('');
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [resetToken, setResetToken] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -176,6 +176,7 @@ export default function LoginPage() {
 
     try {
       const { data } = await api<{
+        email: string;
         phone: string;
         message: string;
         expiresInSeconds: number;
@@ -192,7 +193,7 @@ export default function LoginPage() {
           confirmPassword,
         }),
       });
-      setPendingPhone(data.phone);
+      setPendingEmail(data.email);
       if (data.devOtp) setDevOtp(data.devOtp);
       setInfo(data.message);
       setMode('verify');
@@ -211,7 +212,7 @@ export default function LoginPage() {
       const { data } = await api<AuthTokensResponse>('/api/auth/register/verify', {
         method: 'POST',
         auth: false,
-        body: JSON.stringify({ phone: pendingPhone, code: otpCode.trim() }),
+        body: JSON.stringify({ email: pendingEmail, code: otpCode.trim() }),
       });
       completeAuth(data);
     } catch (err) {
@@ -226,34 +227,31 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     setInfo(null);
+    setDevOtp(null);
     try {
       const { data } = await api<{
         message: string;
         expiresInSeconds: number;
         emailSent?: boolean;
         provider?: 'resend' | 'mock';
-        devResetToken?: string;
-        resetUrl?: string;
+        devOtp?: string;
       }>('/api/auth/password/forgot', {
         method: 'POST',
         auth: false,
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
 
-      // Localhost / mock email: jump straight to "create new password"
-      if (data.devResetToken) {
-        setResetToken(data.devResetToken);
-        setPassword('');
-        setConfirmPassword('');
-        setMode('reset');
-        setInfo('Choose a new password for your account. (Email is mocked on localhost.)');
-        return;
-      }
-
+      setPendingEmail(email.trim().toLowerCase());
+      setPassword('');
+      setConfirmPassword('');
+      setOtpCode('');
+      setResetToken('');
+      if (data.devOtp) setDevOtp(data.devOtp);
+      setMode('reset');
       setInfo(
-        data.emailSent
-          ? 'Check your inbox for a PlayPK reset link. Open it to create a new password.'
-          : data.message,
+        data.devOtp
+          ? 'Enter the code below and choose a new password. (Email is mocked on localhost.)'
+          : 'Enter the 6-digit code we sent to your email, then choose a new password.',
       );
     } catch (err) {
       setError(formatAuthError(err));
@@ -273,21 +271,31 @@ export default function LoginPage() {
       return;
     }
     try {
+      const body =
+        resetToken.length >= 32
+          ? {
+              token: resetToken.trim(),
+              password,
+              confirmPassword,
+            }
+          : {
+              email: pendingEmail || email.trim().toLowerCase(),
+              code: otpCode.trim(),
+              password,
+              confirmPassword,
+            };
       const { data } = await api<{ message: string }>('/api/auth/password/reset', {
         method: 'POST',
         auth: false,
-        body: JSON.stringify({
-          token: resetToken.trim(),
-          password,
-          confirmPassword,
-        }),
+        body: JSON.stringify(body),
       });
       setInfo(data.message);
       setPassword('');
       setConfirmPassword('');
       setResetToken('');
+      setOtpCode('');
+      setDevOtp(null);
       setMode('signin');
-      // Drop token from URL without full reload
       window.history.replaceState({}, '', '/login');
     } catch (err) {
       setError(formatAuthError(err));
@@ -333,14 +341,16 @@ export default function LoginPage() {
           {mode === 'verify' ? (
             <>
               <h2 className="font-display mt-4 text-2xl font-bold text-navy sm:text-3xl">
-                Verify phone
+                Verify email
               </h2>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Enter the 6-digit code sent to <span className="font-semibold text-navy">{pendingPhone}</span>.
+                Enter the 6-digit code sent to{' '}
+                <span className="font-semibold text-navy">{pendingEmail}</span>.
               </p>
               {devOtp ? (
                 <p className="mt-3 rounded-xl bg-brand/10 px-3 py-2 text-xs font-semibold text-navy">
-                  Localhost mock SMS code: <span className="font-mono text-brand-700">{devOtp}</span>
+                  Localhost mock email code:{' '}
+                  <span className="font-mono text-brand-700">{devOtp}</span>
                 </p>
               ) : null}
               <form className="mt-6 space-y-4" onSubmit={onVerifyOtp}>
@@ -386,7 +396,7 @@ export default function LoginPage() {
                 Forgot password
               </h2>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Enter your account email and we&apos;ll send a reset link.
+                Enter your account email and we&apos;ll send a 6-digit reset code.
               </p>
               <form className="mt-6 space-y-4" onSubmit={onForgotPassword}>
                 <div className="space-y-2">
@@ -409,7 +419,7 @@ export default function LoginPage() {
                   disabled={loading}
                   type="submit"
                 >
-                  {loading ? 'Sending…' : 'Send reset link'}
+                  {loading ? 'Sending…' : 'Send reset code'}
                 </Button>
                 <button
                   type="button"
@@ -430,9 +440,32 @@ export default function LoginPage() {
                 Create new password
               </h2>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Choose a new password for your PlayPK account.
+                {resetToken.length >= 32
+                  ? 'Choose a new password for your PlayPK account.'
+                  : `Enter the code sent to ${pendingEmail || 'your email'}, then choose a new password.`}
               </p>
+              {devOtp ? (
+                <p className="mt-3 rounded-xl bg-brand/10 px-3 py-2 text-xs font-semibold text-navy">
+                  Localhost mock email code:{' '}
+                  <span className="font-mono text-brand-700">{devOtp}</span>
+                </p>
+              ) : null}
               <form className="mt-6 space-y-4" onSubmit={onResetPassword}>
+                {resetToken.length < 32 ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-otp">Email code</Label>
+                    <Input
+                      id="reset-otp"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="6-digit code"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      required
+                      className="h-11 rounded-xl tracking-[0.3em]"
+                    />
+                  </div>
+                ) : null}
                 <div className="space-y-2">
                   <Label htmlFor="new-password">New password</Label>
                   <Input
@@ -463,7 +496,10 @@ export default function LoginPage() {
                 {info ? <p className="text-sm text-brand-700">{info}</p> : null}
                 <Button
                   className="h-11 w-full rounded-xl bg-navy text-base font-bold hover:bg-brand"
-                  disabled={loading || resetToken.length < 32}
+                  disabled={
+                    loading ||
+                    (resetToken.length >= 32 ? false : otpCode.length !== 6)
+                  }
                   type="submit"
                 >
                   {loading ? 'Updating…' : 'Create new password'}
@@ -477,6 +513,9 @@ export default function LoginPage() {
                     setInfo(null);
                     setPassword('');
                     setConfirmPassword('');
+                    setOtpCode('');
+                    setDevOtp(null);
+                    setResetToken('');
                     window.history.replaceState({}, '', '/login');
                   }}
                 >
@@ -492,7 +531,7 @@ export default function LoginPage() {
               <p className="mt-1.5 text-sm text-muted-foreground">
                 {mode === 'signin'
                   ? 'Sign in to book courts or manage your venues.'
-                  : 'Register as a customer. We’ll verify your phone number.'}
+                  : 'Register as a customer. We’ll verify your email address.'}
               </p>
 
               <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-[#EEF3F0] p-1">
@@ -692,7 +731,7 @@ export default function LoginPage() {
                     disabled={loading}
                     type="submit"
                   >
-                    {loading ? 'Sending code…' : 'Continue — verify phone'}
+                    {loading ? 'Sending code…' : 'Continue — verify email'}
                   </Button>
                 </form>
               )}

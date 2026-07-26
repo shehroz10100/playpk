@@ -59,7 +59,7 @@ authRouter.post(
   otpVerifyRateLimiter,
   validate(
     z.object({
-      phone: z.string().min(10).max(20),
+      email: z.string().email(),
       code: z.string().length(6),
     }),
   ),
@@ -125,11 +125,17 @@ authRouter.post(
   '/password/reset',
   authRateLimiter,
   validate(
-    z.object({
-      token: z.string().min(32).max(128),
-      password: z.string().min(8).max(128),
-      confirmPassword: z.string().min(8).max(128),
-    }),
+    z
+      .object({
+        email: z.string().email().optional(),
+        code: z.string().length(6).optional(),
+        token: z.string().min(32).max(128).optional(),
+        password: z.string().min(8).max(128),
+        confirmPassword: z.string().min(8).max(128),
+      })
+      .refine((d) => Boolean(d.token || (d.email && d.code)), {
+        message: 'email+code or token required',
+      }),
   ),
   async (req, res, next) => {
     try {
