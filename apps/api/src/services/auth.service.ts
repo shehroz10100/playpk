@@ -190,6 +190,7 @@ export async function startPlayerRegistration(input: {
   return {
     email,
     phone,
+    delivery: 'email' as const,
     message: 'Verification code sent to your email.',
     expiresInSeconds: otp.expiresInSeconds,
     /** Local/dev only — email is mocked; code is also in API logs. */

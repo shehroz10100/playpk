@@ -6,6 +6,10 @@ export type SendEmailResult = { provider: 'resend' | 'mock' };
 /**
  * Send transactional email. Uses Resend when RESEND_API_KEY is set;
  * otherwise mocks in non-production (logs body). Production without Resend fails.
+ *
+ * For codes to reach any new signup email, verify your own domain in Resend and
+ * set EMAIL_FROM to an address on that domain (beth.t@example.com only delivers
+ * to the Resend account owner).
  */
 export async function sendEmail(input: {
   to: string;
@@ -38,17 +42,27 @@ export async function sendEmail(input: {
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
       try {
-        const data = (await res.json()) as { message?: string };
+        const data = (await res.json()) as { message?: string; name?: string };
         detail = data.message || detail;
       } catch {
         /* ignore */
       }
       console.error(`[Email] Resend error: ${detail}`);
-      throw new AppError('Failed to send email. Try again shortly.', {
-        statusCode: 502,
-        code: 'EMAIL_SEND_FAILED',
-        details: appConfig.isProd ? undefined : detail,
-      });
+
+      const needsDomain =
+        /domain|only send|verified|testing emails|own email/i.test(detail) ||
+        res.status === 403;
+
+      throw new AppError(
+        needsDomain
+          ? 'Email could not be delivered. Verify a domain in Resend and set EMAIL_FROM to an address on that domain so codes can reach every new user.'
+          : 'Failed to send email. Try again shortly.',
+        {
+          statusCode: 502,
+          code: needsDomain ? 'EMAIL_DOMAIN_REQUIRED' : 'EMAIL_SEND_FAILED',
+          details: appConfig.isProd ? undefined : detail,
+        },
+      );
     }
     console.log(`[Email] Sent via Resend to …${input.to.slice(-12)}`);
     return { provider: 'resend' };
