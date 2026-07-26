@@ -136,7 +136,7 @@ export async function sendResendEmail(input: {
       to: [input.to],
       subject: input.subject,
       text: input.text,
-      html: input.html,
+      ...(input.html ? { html: input.html } : {}),
     }),
   });
 
@@ -159,6 +159,89 @@ export async function sendResendEmail(input: {
   }
 
   return { provider: 'resend' };
+}
+
+/** Parse `Name <email@x.com>` or bare email into parts. */
+export function parseEmailFrom(raw: string): { name: string; email: string } {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^(.*)<([^>]+)>$/);
+  if (match) {
+    return {
+      name: match[1].trim().replace(/^"|"$/g, '') || 'PlayPK',
+      email: match[2].trim(),
+    };
+  }
+  return { name: 'PlayPK', email: trimmed };
+}
+
+/**
+ * Brevo (free) can send FROM a verified personal Gmail without owning a domain.
+ * https://app.brevo.com → Senders → Add sender → verify shehrozqureshi10100@gmail.com
+ */
+export async function sendBrevoEmail(input: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}): Promise<{ provider: 'brevo' }> {
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY is not set on Vercel');
+  }
+
+  const fromRaw =
+    process.env.EMAIL_FROM?.trim() || 'PlayPK <shehrozqureshi10100@gmail.com>';
+  const from = parseEmailFrom(fromRaw);
+
+  if (from.email.endsWith('@resend.dev')) {
+    throw new Error(
+      'EMAIL_FROM is still beth.t@example.com. For Brevo, set EMAIL_FROM to your verified Gmail, e.g. PlayPK <shehrozqureshi10100@gmail.com>',
+    );
+  }
+
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'api-key': apiKey,
+    },
+    body: JSON.stringify({
+      sender: { name: from.name, email: from.email },
+      to: [{ email: input.to }],
+      subject: input.subject,
+      htmlContent: input.html,
+      textContent: input.text,
+    }),
+  });
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const data = (await res.json()) as { message?: string };
+      detail = data.message || detail;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`Brevo email failed (${detail})`);
+  }
+
+  return { provider: 'brevo' };
+}
+
+/**
+ * Prefer Brevo (works with verified Gmail, no custom domain), then Resend.
+ */
+export async function sendSignupEmail(input: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}): Promise<{ provider: 'brevo' | 'resend' }> {
+  if (process.env.BREVO_API_KEY?.trim()) {
+    return sendBrevoEmail(input);
+  }
+  return sendResendEmail(input);
 }
 
 export function railwayApiBase(): string {

@@ -3,7 +3,7 @@ import {
   generateOtpCode,
   normalizePkPhone,
   sealPendingSignup,
-  sendResendEmail,
+  sendSignupEmail,
   signupCookieMaxAge,
   signupCookieName,
 } from '@/lib/email-otp';
@@ -69,46 +69,49 @@ export async function POST(req: Request) {
       code,
     });
 
+    // On-screen codes only when EMAIL_OTP_PREVIEW=true (explicit demo mode).
     const preview =
       process.env.EMAIL_OTP_PREVIEW === 'true' ||
       process.env.EMAIL_OTP_PREVIEW === '1';
 
-    let emailed = false;
-    let previewReason: string | null = null;
-
-    if (!preview) {
-      try {
-        await sendResendEmail({
-          to: email,
-          subject: 'Your PlayPK verification code',
-          text: [
-            'Your PlayPK verification code',
-            '',
-            `Code: ${code}`,
-            '',
-            'This code expires in 5 minutes.',
-            'If you did not request this, you can ignore this email.',
-          ].join('\n'),
-          html: `<p>Your PlayPK verification code is:</p><p style="font-size:24px;font-weight:700;letter-spacing:0.2em">${code}</p><p>This code expires in 5 minutes.</p>`,
-        });
-        emailed = true;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to send email';
-        // Without a verified domain, Resend can only mail the account owner.
-        // Fall back to on-screen code so signup still works on playpk.vercel.app.
-        if (
-          /domain|only send|verified|testing emails|own email|RESEND_API_KEY/i.test(
-            message,
-          )
-        ) {
-          previewReason = message;
-        } else {
-          throw err;
-        }
-      }
-    } else {
-      previewReason = 'EMAIL_OTP_PREVIEW is enabled';
+    if (preview) {
+      const res = NextResponse.json({
+        success: true,
+        data: {
+          email,
+          phone,
+          delivery: 'email',
+          message: 'Preview mode — enter the on-screen code to verify.',
+          expiresInSeconds: signupCookieMaxAge(),
+          devOtp: code,
+          preview: true,
+        },
+      });
+      res.cookies.set({
+        name: signupCookieName(),
+        value: token,
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: signupCookieMaxAge(),
+      });
+      return res;
     }
+
+    await sendSignupEmail({
+      to: email,
+      subject: 'Your PlayPK verification code',
+      text: [
+        'Your PlayPK verification code',
+        '',
+        `Code: ${code}`,
+        '',
+        'This code expires in 5 minutes.',
+        'If you did not request this, you can ignore this email.',
+      ].join('\n'),
+      html: `<p>Your PlayPK verification code is:</p><p style="font-size:24px;font-weight:700;letter-spacing:0.2em">${code}</p><p>This code expires in 5 minutes.</p>`,
+    });
 
     const res = NextResponse.json({
       success: true,
@@ -116,12 +119,8 @@ export async function POST(req: Request) {
         email,
         phone,
         delivery: 'email',
-        message: emailed
-          ? 'Verification code sent to your email.'
-          : 'No custom domain yet — enter the on-screen code to verify (email delivery needs a Resend domain later).',
+        message: 'Verification code sent to your email.',
         expiresInSeconds: signupCookieMaxAge(),
-        ...(!emailed ? { devOtp: code } : {}),
-        ...(previewReason && !emailed ? { preview: true } : {}),
       },
     });
 
@@ -138,11 +137,12 @@ export async function POST(req: Request) {
     return res;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Something went wrong';
-    const code = message.includes('RESEND_API_KEY')
-      ? 'EMAIL_NOT_CONFIGURED'
-      : message.includes('domain')
-        ? 'EMAIL_DOMAIN_REQUIRED'
-        : 'EMAIL_SEND_FAILED';
+    const code =
+      message.includes('BREVO_API_KEY') || message.includes('RESEND_API_KEY')
+        ? 'EMAIL_NOT_CONFIGURED'
+        : message.includes('domain') || message.includes('EMAIL_FROM')
+          ? 'EMAIL_DOMAIN_REQUIRED'
+          : 'EMAIL_SEND_FAILED';
     return jsonError(message, 502, code);
   }
 }
