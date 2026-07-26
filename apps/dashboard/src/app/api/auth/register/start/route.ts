@@ -69,19 +69,46 @@ export async function POST(req: Request) {
       code,
     });
 
-    await sendResendEmail({
-      to: email,
-      subject: 'Your PlayPK verification code',
-      text: [
-        'Your PlayPK verification code',
-        '',
-        `Code: ${code}`,
-        '',
-        'This code expires in 5 minutes.',
-        'If you did not request this, you can ignore this email.',
-      ].join('\n'),
-      html: `<p>Your PlayPK verification code is:</p><p style="font-size:24px;font-weight:700;letter-spacing:0.2em">${code}</p><p>This code expires in 5 minutes.</p>`,
-    });
+    const preview =
+      process.env.EMAIL_OTP_PREVIEW === 'true' ||
+      process.env.EMAIL_OTP_PREVIEW === '1';
+
+    let emailed = false;
+    let previewReason: string | null = null;
+
+    if (!preview) {
+      try {
+        await sendResendEmail({
+          to: email,
+          subject: 'Your PlayPK verification code',
+          text: [
+            'Your PlayPK verification code',
+            '',
+            `Code: ${code}`,
+            '',
+            'This code expires in 5 minutes.',
+            'If you did not request this, you can ignore this email.',
+          ].join('\n'),
+          html: `<p>Your PlayPK verification code is:</p><p style="font-size:24px;font-weight:700;letter-spacing:0.2em">${code}</p><p>This code expires in 5 minutes.</p>`,
+        });
+        emailed = true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to send email';
+        // Without a verified domain, Resend can only mail the account owner.
+        // Fall back to on-screen code so signup still works on playpk.vercel.app.
+        if (
+          /domain|only send|verified|testing emails|own email|RESEND_API_KEY/i.test(
+            message,
+          )
+        ) {
+          previewReason = message;
+        } else {
+          throw err;
+        }
+      }
+    } else {
+      previewReason = 'EMAIL_OTP_PREVIEW is enabled';
+    }
 
     const res = NextResponse.json({
       success: true,
@@ -89,8 +116,12 @@ export async function POST(req: Request) {
         email,
         phone,
         delivery: 'email',
-        message: 'Verification code sent to your email.',
+        message: emailed
+          ? 'Verification code sent to your email.'
+          : 'No custom domain yet — enter the on-screen code to verify (email delivery needs a Resend domain later).',
         expiresInSeconds: signupCookieMaxAge(),
+        ...(!emailed ? { devOtp: code } : {}),
+        ...(previewReason && !emailed ? { preview: true } : {}),
       },
     });
 
