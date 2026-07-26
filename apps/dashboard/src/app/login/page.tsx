@@ -76,7 +76,6 @@ export default function LoginPage() {
   const [pendingPhone, setPendingPhone] = useState('');
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [resetToken, setResetToken] = useState('');
-  const [devResetToken, setDevResetToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -209,7 +208,6 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     setInfo(null);
-    setDevResetToken(null);
     try {
       const { data } = await api<{
         message: string;
@@ -227,7 +225,6 @@ export default function LoginPage() {
       // Localhost / mock email: jump straight to "create new password"
       if (data.devResetToken) {
         setResetToken(data.devResetToken);
-        setDevResetToken(data.devResetToken);
         setPassword('');
         setConfirmPassword('');
         setMode('reset');
@@ -271,7 +268,6 @@ export default function LoginPage() {
       setPassword('');
       setConfirmPassword('');
       setResetToken('');
-      setDevResetToken(null);
       setMode('signin');
       // Drop token from URL without full reload
       window.history.replaceState({}, '', '/login');
@@ -404,7 +400,6 @@ export default function LoginPage() {
                     setMode('signin');
                     setError(null);
                     setInfo(null);
-                    setDevResetToken(null);
                   }}
                 >
                   ← Back to sign in
