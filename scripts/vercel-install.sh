@@ -23,4 +23,6 @@ NPM_CONFIG_PRODUCTION=false npm install \
   --no-fund
 
 # Prisma client for password-reset updates from Vercel when DATABASE_URL is set.
-npx prisma generate --schema=apps/api/prisma/schema.prisma
+# Dummy URL is only for generate (no DB connection); real DATABASE_URL is used at runtime.
+DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/postgres}" \
+  npx prisma generate --schema=apps/api/prisma/schema.prisma
