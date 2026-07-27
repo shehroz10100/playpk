@@ -140,6 +140,8 @@ describe('createBooking conflict prevention', () => {
       dayType: 'WEEKDAY' as never,
       appliedRuleId: null,
       appliedRuleLabel: null,
+      discountPercent: null,
+      discountLabel: null,
     });
   });
 

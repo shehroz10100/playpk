@@ -16,8 +16,10 @@ import { creditWalletRefund, debitWallet } from './wallet.service';
 import { promoteNextWaitlistedUser } from './waitlist.service';
 import { notifyUser } from './notify.service';
 import { resolvePrice } from '../pricing/resolvePrice';
+import { resolveAdvanceAmount } from '../pricing/resolveAdvance';
 import { resolveWalkInCustomer } from './walkin-customer.service';
 import { mockPaymentsAllowed } from '../lib/security-flags';
+
 
 export type CreateBookingPaymentMethod =
   | 'mock'
@@ -138,9 +140,11 @@ export async function createBooking(input: CreateBookingInput) {
         isWalkInChannel ? 'WALK_IN' : 'ONLINE',
       );
 
-      // Online + walk-in both charge the resolved (discounted) slot price.
-      // Multi-slot checkout sums these per-slot amounts on the client and in createBookings.
-      const chargeAmount = resolved.price;
+      // Online: flat advance per slot (discounted when a sport offer applies).
+      // Customer pays remaining court price at the venue. Walk-in charges full price now.
+      const chargeAmount = isWalkInChannel
+        ? resolved.price
+        : resolveAdvanceAmount(resolved.discountPercent);
       const paymentStatus = isWalkInChannel ? PaymentStatus.PAID : PaymentStatus.PENDING;
       const status = isWalkInChannel ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
 
@@ -323,9 +327,15 @@ export async function getPaymentInfoForSlots(slotIds: string[]) {
   }
 
   let amountDue = 0;
+  let courtTotal = 0;
+  let discountPercent: number | null = null;
   for (const slot of slots) {
     const resolved = await resolvePrice(slot.courtId, slot.date, slot.startTime, 'ONLINE');
-    amountDue += resolved.price;
+    amountDue += resolveAdvanceAmount(resolved.discountPercent);
+    courtTotal += resolved.price;
+    if (resolved.discountPercent != null) {
+      discountPercent = resolved.discountPercent;
+    }
   }
 
   const company = slots[0]!.court.branch.company;
@@ -333,9 +343,11 @@ export async function getPaymentInfoForSlots(slotIds: string[]) {
   const court = slots[0]!.court;
 
   return {
-    /** @deprecated use amountDue — kept for older clients */
     advanceAmount: amountDue,
     amountDue,
+    courtTotal,
+    remainingAtVenue: Math.max(0, courtTotal - amountDue),
+    discountPercent,
     slotCount: slots.length,
     company: {
       id: company.id,
@@ -354,8 +366,8 @@ export async function getPaymentInfoForSlots(slotIds: string[]) {
 }
 
 /**
- * Book one or more slots in one checkout. Online total = sum of resolved slot prices.
- * Shared payment proof / wallet debit covers the full sum.
+ * Book one or more slots in one checkout.
+ * Online charge = sum of per-slot advances (discounted when offers apply).
  */
 export async function createBookings(input: {
   slotIds: string[];

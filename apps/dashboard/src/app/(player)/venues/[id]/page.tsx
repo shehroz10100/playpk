@@ -33,6 +33,7 @@ import {
 } from '@/lib/match-details';
 import { formatLabel } from '@/lib/match-formats';
 import { resolveVenuePreviewClip } from '@/lib/media-assets';
+import { bookingAdvanceTotal } from '@/lib/booking-advance';
 import { cn, formatPkr } from '@/lib/utils';
 import { resolveVenueCover } from '@/lib/venue-cover';
 
@@ -52,6 +53,8 @@ type Availability = {
     id: string;
     name: string;
     pricePerHour: number;
+    basePricePerHour?: number;
+    discountPercent?: number | null;
     indoor: boolean;
     hasAC: boolean;
     sport: { name: string };
@@ -292,21 +295,30 @@ export default function VenueDetailPage() {
     if (!availability || slots.length === 0) return;
     const sorted = [...slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
     const total = sorted.reduce((sum, s) => sum + s.price, 0);
+    const discount = availability.court.discountPercent ?? null;
+    const advance = bookingAdvanceTotal(sorted.length, discount);
     const q = new URLSearchParams({
       slotIds: sorted.map((s) => s.id).join(','),
+      slotId: sorted[0]!.id,
       courtName: availability.court.name,
       branchName: availability.court.branch.name,
       date: sorted[0]!.date,
       startTime: sorted[0]!.startTime,
       endTime: sorted[sorted.length - 1]!.endTime,
       total: String(total),
+      advance: String(advance),
       times: sorted.map((s) => `${s.startTime}-${s.endTime}`).join(','),
       rates: sorted.map((s) => String(s.price)).join(','),
     });
+    if (discount != null) q.set('discountPercent', String(discount));
     router.push(`/book/confirm?${q.toString()}`);
   }
 
-  const selectedTotal = selectedSlots.reduce((sum, s) => sum + s.price, 0);
+  const selectedCourtTotal = selectedSlots.reduce((sum, s) => sum + s.price, 0);
+  const selectedAdvance = bookingAdvanceTotal(
+    selectedSlots.length,
+    availability?.court.discountPercent,
+  );
 
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!venue) return <StadiumSkeleton className="mt-2" lines={5} />;
@@ -569,11 +581,13 @@ export default function VenueDetailPage() {
             </div>
             {bookCourt ? (
               <p className="mt-2 text-xs text-muted-foreground">
-                Court · {bookCourt.name} · from {formatPkr(bookCourt.pricePerHour)}/hr
-                {bookCourt.discountPercent
-                  ? ` · ${bookCourt.discountPercent}% off`
+                Court · {bookCourt.name} · from{' '}
+                {formatPkr(availability?.court.pricePerHour ?? bookCourt.pricePerHour)}/hr
+                {availability?.court.discountPercent
+                  ? ` · ${availability.court.discountPercent}% off`
                   : ''}{' '}
-                · tap multiple slots to book together
+                · {formatPkr(bookingAdvanceTotal(1, availability?.court.discountPercent))}{' '}
+                advance/slot · tap multiple slots
               </p>
             ) : null}
           </div>
@@ -708,13 +722,14 @@ export default function VenueDetailPage() {
           {selectedSlots.length > 0 ? (
             <div className="fixed inset-x-0 bottom-[5.25rem] z-40 border-t border-border bg-white/95 p-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
               <p className="mb-2 text-center text-xs font-semibold text-muted-foreground sm:text-left">
-                {selectedSlots.length} slot{selectedSlots.length === 1 ? '' : 's'} selected
+                {selectedSlots.length} slot{selectedSlots.length === 1 ? '' : 's'} · court{' '}
+                {formatPkr(selectedCourtTotal)} · advance {formatPkr(selectedAdvance)}
               </p>
               <Button
                 className="h-12 w-full rounded-xl bg-brand font-bold text-white hover:bg-brand-600"
                 onClick={() => continueBooking(selectedSlots)}
               >
-                Continue · {formatPkr(selectedTotal)}
+                Continue · {formatPkr(selectedAdvance)} advance
               </Button>
             </div>
           ) : null}

@@ -61,7 +61,7 @@ bookingsRouter.get('/me', authenticate, async (req, res, next) => {
 // e.g. "payment-info" as a booking id and the player checkout never loads bank details.
 bookingsRouter.get('/payment-info', authenticate, async (req, res, next) => {
   try {
-    const raw = req.query.slotId ?? req.query.slotIds;
+    const raw = req.query.slotIds ?? req.query.slotId;
     const slotIds =
       typeof raw === 'string'
         ? raw.split(',').map((s) => s.trim()).filter(Boolean)

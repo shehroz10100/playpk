@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { bookingAdvanceTotal } from '@/lib/booking-advance';
 import { cn, formatPkr } from '@/lib/utils';
 import { BookingStepPanel, BookingStepper } from '@/components/motion/booking-stepper';
 import { StadiumSkeleton } from '@/components/motion/stadium-skeleton';
@@ -26,6 +27,7 @@ type Availability = {
     id: string;
     name: string;
     pricePerHour: number;
+    discountPercent?: number | null;
     indoor: boolean;
     hasAC: boolean;
     sport: { name: string };
@@ -117,7 +119,11 @@ export default function CourtBookPage() {
     .filter((s) => s.date === selectedDate)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-  const selectedTotal = selectedSlots.reduce((sum, s) => sum + s.price, 0);
+  const selectedCourtTotal = selectedSlots.reduce((sum, s) => sum + s.price, 0);
+  const selectedAdvance = bookingAdvanceTotal(
+    selectedSlots.length,
+    data?.court.discountPercent,
+  );
 
   function toggleSlot(slot: Slot) {
     if (slot.status !== 'AVAILABLE') return;
@@ -133,17 +139,22 @@ export default function CourtBookPage() {
     if (!data || selectedSlots.length === 0) return;
     const sorted = [...selectedSlots].sort((a, b) => a.startTime.localeCompare(b.startTime));
     const total = sorted.reduce((sum, s) => sum + s.price, 0);
+    const discount = data.court.discountPercent ?? null;
+    const advance = bookingAdvanceTotal(sorted.length, discount);
     const q = new URLSearchParams({
       slotIds: sorted.map((s) => s.id).join(','),
+      slotId: sorted[0]!.id,
       courtName: data.court.name,
       branchName: data.court.branch.name,
       date: selectedDate,
       startTime: sorted[0]!.startTime,
       endTime: sorted[sorted.length - 1]!.endTime,
       total: String(total),
+      advance: String(advance),
       times: sorted.map((s) => `${s.startTime}-${s.endTime}`).join(','),
       rates: sorted.map((s) => String(s.price)).join(','),
     });
+    if (discount != null) q.set('discountPercent', String(discount));
     router.push(`/book/confirm?${q.toString()}`);
   }
 
@@ -282,7 +293,7 @@ export default function CourtBookPage() {
           <Card className="border-0 bg-transparent shadow-none sm:flex-1">
             <CardContent className="p-0 text-sm text-muted-foreground">
               {selectedSlots.length > 0
-                ? `${selectedDate} · ${selectedSlots.length} slot${selectedSlots.length === 1 ? '' : 's'} · ${formatPkr(selectedTotal)}`
+                ? `${selectedDate} · ${selectedSlots.length} slot${selectedSlots.length === 1 ? '' : 's'} · court ${formatPkr(selectedCourtTotal)} · advance ${formatPkr(selectedAdvance)}`
                 : 'Select a date and one or more available slots'}
             </CardContent>
           </Card>
@@ -291,7 +302,7 @@ export default function CourtBookPage() {
             disabled={selectedSlots.length === 0}
             onClick={continueBooking}
           >
-            Continue · {formatPkr(selectedTotal)}
+            Continue · {formatPkr(selectedAdvance)} advance
           </Button>
         </div>
       </div>

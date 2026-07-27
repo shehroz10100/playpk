@@ -6,6 +6,7 @@ import { type AuthUser } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 import { getApiBase } from '@/lib/api-base';
+import { bookingAdvanceTotal } from '@/lib/booking-advance';
 import { cn, formatPkr } from '@/lib/utils';
 import { BookingStepper } from '@/components/motion/booking-stepper';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,9 @@ type PayMethod = 'mock' | 'wallet' | 'jazzcash' | 'easypaisa' | 'card' | 'bank_t
 type PaymentInfo = {
   advanceAmount: number;
   amountDue?: number;
+  courtTotal?: number;
+  remainingAtVenue?: number;
+  discountPercent?: number | null;
   company: {
     id: string;
     name: string;
@@ -54,6 +58,7 @@ export default function BookConfirmPage() {
   const date = search.get('date') ?? '';
   const startTime = search.get('startTime') ?? '';
   const endTime = search.get('endTime') ?? '';
+  const discountPercent = Number(search.get('discountPercent') ?? 0) || null;
 
   const slotLines = useMemo(() => {
     const times = (search.get('times') ?? '')
@@ -77,15 +82,19 @@ export default function BookConfirmPage() {
     return [];
   }, [search, startTime, endTime]);
 
-  const totalFromQuery = Number(search.get('total') ?? 0);
-  const totalFromLines = slotLines.reduce((sum, s) => sum + s.price, 0);
-  const fallbackRate = Number(search.get('rate') ?? search.get('price') ?? 0);
-  const clientTotal =
-    totalFromQuery > 0
-      ? totalFromQuery
-      : totalFromLines > 0
-        ? totalFromLines
-        : fallbackRate;
+  const courtTotalFromLines = slotLines.reduce((sum, s) => sum + s.price, 0);
+  const courtTotalFromQuery = Number(search.get('total') ?? 0);
+  const clientCourtTotal =
+    courtTotalFromQuery > 0
+      ? courtTotalFromQuery
+      : courtTotalFromLines > 0
+        ? courtTotalFromLines
+        : Number(search.get('rate') ?? search.get('price') ?? 0);
+
+  const clientAdvance = bookingAdvanceTotal(
+    Math.max(slotIds.length, 1),
+    discountPercent,
+  );
 
   const [method, setMethod] = useState<PayMethod>('bank_transfer');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
@@ -97,7 +106,10 @@ export default function BookConfirmPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const amountDue = paymentInfo?.amountDue ?? paymentInfo?.advanceAmount ?? clientTotal;
+  const amountDue = paymentInfo?.amountDue ?? paymentInfo?.advanceAmount ?? clientAdvance;
+  const courtTotal = paymentInfo?.courtTotal ?? clientCourtTotal;
+  const remainingAtVenue =
+    paymentInfo?.remainingAtVenue ?? Math.max(0, courtTotal - amountDue);
 
   const methods = useMemo<PayMethod[]>(
     () => ['bank_transfer', 'wallet', 'jazzcash', 'easypaisa', 'card', 'mock'],
@@ -119,20 +131,66 @@ export default function BookConfirmPage() {
 
   useEffect(() => {
     if (slotIds.length === 0) return;
+    let cancelled = false;
     setPaymentInfoError(null);
-    const qs = new URLSearchParams({ slotIds: slotIds.join(',') });
-    api<PaymentInfo>(`/api/bookings/payment-info?${qs.toString()}`)
-      .then(({ data }) => {
-        setPaymentInfo(data);
-        setPaymentInfoError(null);
-      })
-      .catch((err: unknown) => {
-        setPaymentInfo(null);
-        setPaymentInfoError(
-          err instanceof ApiError ? err.message : 'Could not load company bank details',
-        );
+
+    async function loadPaymentInfo() {
+      const primary = new URLSearchParams({
+        slotIds: slotIds.join(','),
+        slotId: slotIds[0]!,
       });
-  }, [slotIds]);
+      try {
+        const { data } = await api<PaymentInfo>(
+          `/api/bookings/payment-info?${primary.toString()}`,
+        );
+        if (!cancelled) {
+          setPaymentInfo(data);
+          setPaymentInfoError(null);
+        }
+        return;
+      } catch (err: unknown) {
+        // Fallback for APIs that only expose /slots/:slotId/payment-info
+        try {
+          const { data } = await api<PaymentInfo>(
+            `/api/slots/${encodeURIComponent(slotIds[0]!)}/payment-info`,
+          );
+          if (!cancelled) {
+            const advance = bookingAdvanceTotal(
+              slotIds.length,
+              data.discountPercent ?? discountPercent,
+            );
+            const total =
+              data.courtTotal != null
+                ? data.courtTotal
+                : clientCourtTotal > 0
+                  ? clientCourtTotal
+                  : data.advanceAmount;
+            setPaymentInfo({
+              ...data,
+              advanceAmount: advance,
+              amountDue: advance,
+              courtTotal: total,
+              remainingAtVenue: Math.max(0, total - advance),
+            });
+            setPaymentInfoError(null);
+          }
+          return;
+        } catch {
+          if (!cancelled) {
+            setPaymentInfo(null);
+            setPaymentInfoError(
+              err instanceof ApiError ? err.message : 'Could not load company bank details',
+            );
+          }
+        }
+      }
+    }
+
+    void loadPaymentInfo();
+    return () => {
+      cancelled = true;
+    };
+  }, [slotIds, discountPercent, clientCourtTotal]);
 
   useEffect(() => {
     if (!proofFile) {
@@ -201,6 +259,7 @@ export default function BookConfirmPage() {
         method: 'POST',
         body: JSON.stringify({
           slotIds,
+          slotId: slotIds[0],
           paymentMethod: method,
           paymentProofUrl,
         }),
@@ -226,8 +285,9 @@ export default function BookConfirmPage() {
           Confirm &amp; pay
         </h1>
         <p className="text-sm text-muted-foreground">
-          Total is the sum of selected slot prices after discount
-          {slotIds.length > 1 ? ` (${slotIds.length} slots)` : ''}.
+          Pay the booking advance now
+          {slotIds.length > 1 ? ` (${slotIds.length} slots)` : ''}. Remaining court fee is due at the
+          venue.
         </p>
       </header>
 
@@ -258,10 +318,22 @@ export default function BookConfirmPage() {
               </span>
             </div>
           )}
-          <div className="flex justify-between gap-4 border-t border-navy/5 pt-2.5">
-            <span className="font-semibold text-navy">Total due now</span>
+          {courtTotal > 0 ? (
+            <div className="flex justify-between gap-4 border-t border-navy/5 pt-2.5">
+              <span className="text-muted-foreground">Court total</span>
+              <span className="text-navy">{formatPkr(courtTotal)}</span>
+            </div>
+          ) : null}
+          <div className="flex justify-between gap-4">
+            <span className="font-semibold text-navy">Advance due now</span>
             <span className="font-display text-xl font-bold text-navy">{formatPkr(amountDue)}</span>
           </div>
+          {remainingAtVenue > 0 ? (
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Pay at venue</span>
+              <span className="font-medium text-navy">{formatPkr(remainingAtVenue)}</span>
+            </div>
+          ) : null}
           {walletBalance != null ? (
             <p className="text-xs text-muted-foreground">Wallet balance: {formatPkr(walletBalance)}</p>
           ) : null}
@@ -295,7 +367,8 @@ export default function BookConfirmPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold text-navy">Transfer details</CardTitle>
               <CardDescription>
-                Send {formatPkr(amountDue)} to this company account, then upload your screenshot.
+                Send {formatPkr(amountDue)} advance to this company account, then upload your
+                screenshot.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
@@ -373,7 +446,7 @@ export default function BookConfirmPage() {
           type="submit"
           disabled={loading || slotIds.length === 0}
         >
-          {loading ? 'Processing…' : `Pay ${formatPkr(amountDue)}`}
+          {loading ? 'Processing…' : `Pay ${formatPkr(amountDue)} advance`}
         </Button>
       </form>
     </div>
