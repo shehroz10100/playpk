@@ -7,6 +7,7 @@ import { Hash, Plus, Search, Users } from 'lucide-react';
 import type { ChatChannelDto, SportDto } from '@playpk/shared-types';
 import { ChannelKind, ChannelVisibility } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
+import { channelJoinPath } from '@/lib/channel-paths';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -159,7 +160,7 @@ export default function ChannelsPage() {
   async function join(channelId: string) {
     setBusy(true);
     try {
-      await api(`/api/channels/${channelId}/join`, { method: 'POST' });
+      await api(channelJoinPath(channelId), { method: 'POST' });
       await Promise.all([loadMine(), loadDiscover()]);
       setTab('mine');
     } catch (err) {

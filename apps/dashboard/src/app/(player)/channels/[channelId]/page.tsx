@@ -22,6 +22,16 @@ import type {
 import { ChannelMemberRole, ChannelVisibility } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
+import {
+  channelJoinPath,
+  channelLeavePath,
+  channelMemberPath,
+  channelMembersPath,
+  channelMembersSearchPath,
+  channelMessagePath,
+  channelMessagesPath,
+  channelRoomPath,
+} from '@/lib/channel-paths';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -49,7 +59,7 @@ export default function ChannelRoomPage() {
   const isAdmin = channel?.myRole === ChannelMemberRole.ADMIN;
 
   const loadChannel = useCallback(async () => {
-    const { data } = await api<ChatChannelDto>(`/api/channels/${channelId}`);
+    const { data } = await api<ChatChannelDto>(channelRoomPath(channelId));
     setChannel(data);
     if (!data.myRole) {
       throw new ApiError('Join this channel to chat', 403, 'NOT_A_MEMBER');
@@ -58,10 +68,7 @@ export default function ChannelRoomPage() {
 
   const loadMessages = useCallback(
     async (after?: string) => {
-      const qs = after ? `?after=${encodeURIComponent(after)}` : '';
-      const { data } = await api<ChannelMessageDto[]>(
-        `/api/channels/${channelId}/messages${qs}`,
-      );
+      const { data } = await api<ChannelMessageDto[]>(channelMessagesPath(channelId, after));
       if (after) {
         setMessages((prev) => {
           const seen = new Set(prev.map((m) => m.id));
@@ -76,7 +83,7 @@ export default function ChannelRoomPage() {
   );
 
   const loadMembers = useCallback(async () => {
-    const { data } = await api<ChannelMemberDto[]>(`/api/channels/${channelId}/members`);
+    const { data } = await api<ChannelMemberDto[]>(channelMembersPath(channelId));
     setMembers(data);
   }, [channelId]);
 
@@ -120,7 +127,7 @@ export default function ChannelRoomPage() {
     if (!draft.trim()) return;
     setBusy(true);
     try {
-      const { data } = await api<ChannelMessageDto>(`/api/channels/${channelId}/messages`, {
+      const { data } = await api<ChannelMessageDto>(channelMessagesPath(channelId), {
         method: 'POST',
         body: JSON.stringify({ body: draft }),
       });
@@ -135,7 +142,7 @@ export default function ChannelRoomPage() {
 
   async function deleteMsg(messageId: string) {
     try {
-      await api(`/api/channels/${channelId}/messages/${messageId}`, { method: 'DELETE' });
+      await api(channelMessagePath(channelId, messageId), { method: 'DELETE' });
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to delete');
@@ -145,7 +152,7 @@ export default function ChannelRoomPage() {
   async function leave() {
     if (!confirm('Leave this channel?')) return;
     try {
-      await api(`/api/channels/${channelId}/leave`, { method: 'POST' });
+      await api(channelLeavePath(channelId), { method: 'POST' });
       router.push('/channels');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to leave');
@@ -155,7 +162,7 @@ export default function ChannelRoomPage() {
   async function archive() {
     if (!confirm('Archive this channel for everyone?')) return;
     try {
-      await api(`/api/channels/${channelId}`, { method: 'DELETE' });
+      await api(channelRoomPath(channelId), { method: 'DELETE' });
       router.push('/channels');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to archive');
@@ -170,7 +177,7 @@ export default function ChannelRoomPage() {
     }
     try {
       const { data } = await api<ChannelInviteHitDto[]>(
-        `/api/channels/${channelId}/members/search?q=${encodeURIComponent(q.trim())}`,
+        channelMembersSearchPath(channelId, q.trim()),
       );
       setInviteHits(data);
     } catch {
@@ -180,7 +187,7 @@ export default function ChannelRoomPage() {
 
   async function addMember(userId: string) {
     try {
-      const { data } = await api<ChannelMemberDto[]>(`/api/channels/${channelId}/members`, {
+      const { data } = await api<ChannelMemberDto[]>(channelMembersPath(channelId), {
         method: 'POST',
         body: JSON.stringify({ userId }),
       });
@@ -194,10 +201,9 @@ export default function ChannelRoomPage() {
 
   async function removeMember(userId: string) {
     try {
-      const { data } = await api<ChannelMemberDto[]>(
-        `/api/channels/${channelId}/members/${userId}`,
-        { method: 'DELETE' },
-      );
+      const { data } = await api<ChannelMemberDto[]>(channelMemberPath(channelId, userId), {
+        method: 'DELETE',
+      });
       if (Array.isArray(data)) setMembers(data);
       else router.push('/channels');
     } catch (err) {
@@ -207,10 +213,10 @@ export default function ChannelRoomPage() {
 
   async function setRole(userId: string, role: ChannelMemberRole) {
     try {
-      const { data } = await api<ChannelMemberDto[]>(
-        `/api/channels/${channelId}/members/${userId}`,
-        { method: 'PATCH', body: JSON.stringify({ role }) },
-      );
+      const { data } = await api<ChannelMemberDto[]>(channelMemberPath(channelId, userId), {
+        method: 'PATCH',
+        body: JSON.stringify({ role }),
+      });
       setMembers(data);
       await loadChannel();
     } catch (err) {
@@ -220,7 +226,7 @@ export default function ChannelRoomPage() {
 
   async function saveVisibility(visibility: ChannelVisibility) {
     try {
-      const { data } = await api<ChatChannelDto>(`/api/channels/${channelId}`, {
+      const { data } = await api<ChatChannelDto>(channelRoomPath(channelId), {
         method: 'PATCH',
         body: JSON.stringify({ visibility }),
       });
