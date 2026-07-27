@@ -27,6 +27,7 @@ type Availability = {
     id: string;
     name: string;
     pricePerHour: number;
+    basePricePerHour?: number;
     discountPercent?: number | null;
     indoor: boolean;
     hasAC: boolean;
@@ -77,9 +78,19 @@ export default function CourtBookPage() {
           `/api/slots/court/${params.id}/availability?days=7`,
           { auth: false },
         );
+        const listRate = res.court.basePricePerHour ?? res.court.pricePerHour;
         const normalized = {
           ...res,
-          slots: res.slots.map((s) => ({ ...s, date: toIsoDate(String(s.date)) })),
+          court: {
+            ...res.court,
+            pricePerHour: listRate,
+            basePricePerHour: listRate,
+          },
+          slots: res.slots.map((s) => ({
+            ...s,
+            date: toIsoDate(String(s.date)),
+            price: s.status === 'AVAILABLE' ? listRate : Number(s.price),
+          })),
         };
         setData(normalized);
         setError(null);

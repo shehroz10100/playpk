@@ -188,9 +188,24 @@ export default function VenueDetailPage() {
         `/api/slots/court/${bookCourt.id}/availability?days=7`,
         { auth: false },
       );
+      const listRate =
+        res.court.basePricePerHour ??
+        bookCourt.basePricePerHour ??
+        res.court.pricePerHour ??
+        bookCourt.pricePerHour;
       const normalized = {
         ...res,
-        slots: res.slots.map((s) => ({ ...s, date: toIsoDate(String(s.date)) })),
+        court: {
+          ...res.court,
+          pricePerHour: listRate,
+          basePricePerHour: listRate,
+        },
+        slots: res.slots.map((s) => ({
+          ...s,
+          date: toIsoDate(String(s.date)),
+          // Always show company court rate on available slots (not stale/discounted values).
+          price: s.status === 'AVAILABLE' ? listRate : Number(s.price),
+        })),
       };
       setAvailability(normalized);
       setSelectedSlots([]);
@@ -579,7 +594,13 @@ export default function VenueDetailPage() {
             {bookCourt ? (
               <p className="mt-2 text-xs text-muted-foreground">
                 Court · {bookCourt.name} · from{' '}
-                {formatPkr(availability?.court.pricePerHour ?? bookCourt.pricePerHour)}/hr
+                {formatPkr(
+                  availability?.court.basePricePerHour ??
+                    availability?.court.pricePerHour ??
+                    bookCourt.basePricePerHour ??
+                    bookCourt.pricePerHour,
+                )}
+                /hr
                 {availability?.court.discountPercent
                   ? ` · ${availability.court.discountPercent}% off`
                   : ''}{' '}

@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { getAccessToken, getStoredUser } from '@/lib/auth';
-import { homePathForRole } from '@/lib/roles';
+import {
+  getAccessToken,
+  getRefreshToken,
+  getStoredUser,
+  saveSession,
+  type AuthUser,
+} from '@/lib/auth';
+import { homePathForRole, isStaffRole } from '@/lib/roles';
 import { api } from '@/lib/api';
 import { Sidebar } from '@/components/sidebar';
 import { CompanyNotifications } from '@/components/company-notifications';
@@ -23,7 +29,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       router.replace('/login');
       return;
     }
-    if (!['COMPANY_OWNER', 'BRANCH_MANAGER', 'ADMIN'].includes(user.role)) {
+    if (!isStaffRole(user.role)) {
       router.replace(homePathForRole(user.role));
       return;
     }
@@ -37,6 +43,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     let cancelled = false;
     async function resolveCompany() {
+      // Confirm role from API — prevents a stale PLAYER session bouncing company pages to /discover.
+      try {
+        const { data } = await api<AuthUser>('/api/auth/me');
+        const access = getAccessToken();
+        const refresh = getRefreshToken();
+        if (access && refresh) {
+          saveSession({ accessToken: access, refreshToken: refresh, user: data });
+        }
+        if (!isStaffRole(data.role)) {
+          if (!cancelled) router.replace(homePathForRole(data.role));
+          return;
+        }
+      } catch {
+        /* keep stored session */
+      }
+
       if (nextCompanyId) {
         if (!cancelled) setCompanyId(nextCompanyId);
         return;

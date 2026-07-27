@@ -18,8 +18,9 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
-import { clearSession, getAccessToken, getStoredUser, type AuthUser } from '@/lib/auth';
-import { homePathForRole, isPlayerRole } from '@/lib/roles';
+import { clearSession, getAccessToken, getRefreshToken, getStoredUser, saveSession, type AuthUser } from '@/lib/auth';
+import { canUsePlayerApp, homePathForRole, isStaffRole } from '@/lib/roles';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/components/notifications-provider';
 
@@ -63,12 +64,30 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
       router.replace('/login');
       return;
     }
-    if (!isPlayerRole(stored.role)) {
+    // Company staff may browse discover/book; do not kick them to /companies.
+    if (!canUsePlayerApp(stored.role)) {
       router.replace(homePathForRole(stored.role));
       return;
     }
     setUser(stored);
     setReady(true);
+
+    // Refresh role from API so a stale localStorage role cannot bounce routes.
+    void api<AuthUser>('/api/auth/me')
+      .then(({ data }) => {
+        const refresh = getRefreshToken();
+        const access = getAccessToken();
+        if (access && refresh) {
+          saveSession({ accessToken: access, refreshToken: refresh, user: data });
+        }
+        setUser(data);
+        if (!canUsePlayerApp(data.role)) {
+          router.replace(homePathForRole(data.role));
+        }
+      })
+      .catch(() => {
+        /* keep stored session */
+      });
   }, [router]);
 
   useEffect(() => {
@@ -101,6 +120,14 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
             Play<span className="text-brand">PK</span>
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
+            {user && isStaffRole(user.role) ? (
+              <Link
+                href="/companies"
+                className="hidden rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10 sm:inline-flex"
+              >
+                Company dashboard
+              </Link>
+            ) : null}
             <div className="hidden text-right text-xs sm:block">
               <div className="font-semibold text-white">{user?.name ?? 'Player'}</div>
               <div className="truncate text-white/70">{user?.email}</div>

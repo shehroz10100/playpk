@@ -17,6 +17,11 @@ export function isStaffRole(role: string): boolean {
   return role === 'COMPANY_OWNER' || role === 'BRANCH_MANAGER' || role === 'ADMIN';
 }
 
+/** Players and company staff can browse the customer app (discover, book, etc.). */
+export function canUsePlayerApp(role: string): boolean {
+  return role === 'PLAYER' || isStaffRole(role);
+}
+
 export function isPlayerRole(role: string): boolean {
   return role === 'PLAYER';
 }
