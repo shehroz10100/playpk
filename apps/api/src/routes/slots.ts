@@ -158,17 +158,31 @@ slotsRouter.get('/court/:courtId/availability', async (req, res, next) => {
       '../services/sport-discount.service'
     );
     const discount = await findActiveSportDiscount(court.branch.companyId, court.sportId);
+    const listPrice = Number(court.pricePerHour);
     const mapPrice = (base: number) =>
       discount ? applyPercentOff(base, discount.percentOff) : base;
+
+    // Keep open-slot list prices aligned with the company court rate (fixes stale 800-style values).
+    const stale = slots.filter(
+      (s) => s.status === SlotStatus.AVAILABLE && Number(s.price) !== listPrice,
+    );
+    if (stale.length > 0) {
+      await prisma.slot.updateMany({
+        where: {
+          id: { in: stale.map((s) => s.id) },
+          status: SlotStatus.AVAILABLE,
+        },
+        data: { price: listPrice },
+      });
+    }
 
     sendSuccess(res, {
       court: {
         id: court.id,
         name: court.name,
-        // Show the company-set rate on the book UI; discount applies at remaining balance.
-        pricePerHour: Number(court.pricePerHour),
-        basePricePerHour: Number(court.pricePerHour),
-        discountedPricePerHour: mapPrice(Number(court.pricePerHour)),
+        pricePerHour: listPrice,
+        basePricePerHour: listPrice,
+        discountedPricePerHour: mapPrice(listPrice),
         discountPercent: discount?.percentOff ?? null,
         indoor: court.indoor,
         hasAC: court.hasAC,
@@ -176,12 +190,15 @@ slotsRouter.get('/court/:courtId/availability', async (req, res, next) => {
         sport: court.sport,
         branch: court.branch,
       },
-      slots: slots.map((s) => ({
-        ...s,
-        price: Number(s.price),
-        discountedPrice: mapPrice(Number(s.price)),
-        date: s.date.toISOString().slice(0, 10),
-      })),
+      slots: slots.map((s) => {
+        const price = s.status === SlotStatus.AVAILABLE ? listPrice : Number(s.price);
+        return {
+          ...s,
+          price,
+          discountedPrice: mapPrice(price),
+          date: s.date.toISOString().slice(0, 10),
+        };
+      }),
     });
   } catch (error) {
     next(error);

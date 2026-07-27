@@ -140,13 +140,8 @@ async function fetchVenues(q: ListVenuesQuery) {
     const companyDiscounts = discountsByCompany.get(branch.company.id) ?? [];
     const sportIds = new Set(branch.courts.map((c) => c.sport.id));
     const sportDiscounts = companyDiscounts.filter((d) => sportIds.has(d.sportId));
-    const discountBySport = new Map(sportDiscounts.map((d) => [d.sportId, d.percentOff]));
 
-    const prices = branch.courts.map((c) => {
-      const base = Number(c.pricePerHour);
-      const pct = discountBySport.get(c.sport.id);
-      return pct != null ? applyPercentOff(base, pct) : base;
-    });
+    const prices = branch.courts.map((c) => Number(c.pricePerHour));
     const sports = [...new Map(branch.courts.map((c) => [c.sport.id, c.sport])).values()];
     const photos = [...new Set(branch.courts.flatMap((c) => c.photos))].slice(0, 6);
     const rating = ratingByBranch.get(branch.id);
@@ -259,13 +254,14 @@ export async function getVenueDetail(branchId: string) {
     courts: branch.courts.map((c) => {
       const base = Number(c.pricePerHour);
       const disc = discountBySport.get(c.sportId);
-      const pricePerHour = disc ? applyPercentOff(base, disc.percentOff) : base;
       return {
         id: c.id,
         name: c.name,
         capacity: c.capacity,
-        pricePerHour,
+        // Always expose the company-set rate; discount applies only to remaining at venue.
+        pricePerHour: base,
         basePricePerHour: base,
+        discountedPricePerHour: disc ? applyPercentOff(base, disc.percentOff) : base,
         discountPercent: disc?.percentOff ?? null,
         indoor: c.indoor,
         hasAC: c.hasAC,
