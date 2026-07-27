@@ -41,8 +41,13 @@ async function refreshAccessToken(): Promise<string | null> {
     try {
       const res = await fetch(`${getApiBase()}/api/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+        },
         body: JSON.stringify({ refreshToken }),
+        cache: 'no-store',
+        credentials: 'include',
       });
       if (!res.ok) {
         clearSession();
@@ -81,6 +86,9 @@ export async function api<T>(
   if (!(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
+  // Avoid browser/CDN reuse of authenticated responses across accounts.
+  headers.set('Cache-Control', 'no-store');
+  headers.set('Pragma', 'no-cache');
 
   const useAuth = options.auth !== false;
   let token = useAuth ? await ensureAccessToken() : getAccessToken();
@@ -89,21 +97,23 @@ export async function api<T>(
   }
 
   const base = getApiBase();
-  let res = await fetch(`${base}${path}`, {
+  const fetchInit: RequestInit = {
     ...options,
     headers,
+    cache: 'no-store',
     // Needed for signup email-OTP httpOnly cookie on same-origin Vercel routes.
     credentials: options.credentials ?? 'include',
-  });
+  };
+
+  let res = await fetch(`${base}${path}`, fetchInit);
 
   if (res.status === 401 && useAuth) {
     token = await refreshAccessToken();
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
       res = await fetch(`${base}${path}`, {
-        ...options,
+        ...fetchInit,
         headers,
-        credentials: options.credentials ?? 'include',
       });
     }
   }

@@ -133,6 +133,8 @@ export default function LoginPage() {
       setError('Unsupported account role for this portal.');
       return;
     }
+    // Always wipe any prior session before writing the new login.
+    clearSession();
     saveSession(data);
     router.replace(safeNextPath(String(data.user.role)));
   }

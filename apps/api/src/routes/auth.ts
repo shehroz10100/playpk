@@ -216,6 +216,8 @@ authRouter.post(
 
 authRouter.get('/me', authenticate, async (req, res, next) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
     const me = await authService.getMe(req.user!.id);
     sendSuccess(res, me);
   } catch (error) {

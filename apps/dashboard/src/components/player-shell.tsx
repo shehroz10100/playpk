@@ -18,7 +18,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
-import { clearSession, getAccessToken, getRefreshToken, getStoredUser, saveSession, type AuthUser } from '@/lib/auth';
+import { clearSession, getAccessToken, getStoredUser, applyMeUserToSession, type AuthUser } from '@/lib/auth';
 import { canUsePlayerApp, homePathForRole, isStaffRole } from '@/lib/roles';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -72,14 +72,10 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
     setUser(stored);
     setReady(true);
 
-    // Refresh role from API so a stale localStorage role cannot bounce routes.
+    // Refresh profile from API, but never swap to another account's /me payload.
     void api<AuthUser>('/api/auth/me')
       .then(({ data }) => {
-        const refresh = getRefreshToken();
-        const access = getAccessToken();
-        if (access && refresh) {
-          saveSession({ accessToken: access, refreshToken: refresh, user: data });
-        }
+        if (!applyMeUserToSession(data)) return;
         setUser(data);
         if (!canUsePlayerApp(data.role)) {
           router.replace(homePathForRole(data.role));
@@ -111,6 +107,15 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen pb-[calc(5.25rem+env(safe-area-inset-bottom))]">
+      {user && isStaffRole(user.role) ? (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-950 sm:px-6">
+          Browsing as company staff ({user.email}). Player bookings use this account —{' '}
+          <Link href="/companies" className="font-semibold underline">
+            open company dashboard
+          </Link>{' '}
+          or sign out to use a player login.
+        </div>
+      ) : null}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-navy/95 text-white backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link

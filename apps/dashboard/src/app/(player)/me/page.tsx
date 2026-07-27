@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { AuthUser, LoyaltyStatusDto, WalletStatusDto } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
-import { clearSession, getStoredUser, saveSession, getAccessToken, getRefreshToken } from '@/lib/auth';
+import { clearSession, getStoredUser, applyMeUserToSession } from '@/lib/auth';
 import { formatPkr } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,11 +33,10 @@ export default function MePage() {
   const refresh = useCallback(async () => {
     try {
       const { data } = await api<AuthUser>('/api/auth/me');
-      setUser(data);
-      const access = getAccessToken();
-      const refreshTok = getRefreshToken();
-      if (access && refreshTok) {
-        saveSession({ accessToken: access, refreshToken: refreshTok, user: data });
+      if (applyMeUserToSession(data)) {
+        setUser(data);
+      } else {
+        setUser(getStoredUser());
       }
     } catch {
       setUser(getStoredUser());

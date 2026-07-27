@@ -14,6 +14,28 @@ export type RememberedCredentials = {
   password: string;
 };
 
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const normalized = part.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+    const json = atob(padded);
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/** User id (`sub`) from the current access token, if present. */
+export function getAccessTokenSubject(token?: string | null): string | null {
+  const raw = token ?? (typeof window !== 'undefined' ? localStorage.getItem(ACCESS_KEY) : null);
+  if (!raw) return null;
+  const payload = decodeJwtPayload(raw);
+  const sub = payload?.sub;
+  return typeof sub === 'string' && sub.length > 0 ? sub : null;
+}
+
 export function saveSession(input: {
   accessToken: string;
   refreshToken: string;
@@ -22,6 +44,20 @@ export function saveSession(input: {
   localStorage.setItem(ACCESS_KEY, input.accessToken);
   localStorage.setItem(REFRESH_KEY, input.refreshToken);
   localStorage.setItem(USER_KEY, JSON.stringify(input.user));
+}
+
+/**
+ * Persist `/api/auth/me` into localStorage only when the profile id matches
+ * the access-token subject. Prevents a cached/stale /me response from swapping accounts.
+ */
+export function applyMeUserToSession(user: AuthUser): boolean {
+  const access = getAccessToken();
+  const refresh = getRefreshToken();
+  if (!access || !refresh) return false;
+  const sub = getAccessTokenSubject(access);
+  if (!sub || sub !== user.id) return false;
+  saveSession({ accessToken: access, refreshToken: refresh, user });
+  return true;
 }
 
 export function clearSession() {

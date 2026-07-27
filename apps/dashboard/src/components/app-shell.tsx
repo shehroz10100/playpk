@@ -4,9 +4,8 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   getAccessToken,
-  getRefreshToken,
   getStoredUser,
-  saveSession,
+  applyMeUserToSession,
   type AuthUser,
 } from '@/lib/auth';
 import { homePathForRole, isStaffRole } from '@/lib/roles';
@@ -43,15 +42,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     let cancelled = false;
     async function resolveCompany() {
-      // Confirm role from API — prevents a stale PLAYER session bouncing company pages to /discover.
+      // Confirm role from API — only apply if /me matches the access-token subject.
       try {
         const { data } = await api<AuthUser>('/api/auth/me');
-        const access = getAccessToken();
-        const refresh = getRefreshToken();
-        if (access && refresh) {
-          saveSession({ accessToken: access, refreshToken: refresh, user: data });
-        }
-        if (!isStaffRole(data.role)) {
+        if (applyMeUserToSession(data) && !isStaffRole(data.role)) {
           if (!cancelled) router.replace(homePathForRole(data.role));
           return;
         }
