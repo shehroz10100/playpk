@@ -15,7 +15,6 @@ import { awardLoyaltyForBooking } from './loyalty.service';
 import { creditWalletRefund, debitWallet } from './wallet.service';
 import { promoteNextWaitlistedUser } from './waitlist.service';
 import { notifyUser } from './notify.service';
-import { BOOKING_ADVANCE_PKR } from '@playpk/shared-types';
 import { resolvePrice } from '../pricing/resolvePrice';
 import { resolveWalkInCustomer } from './walkin-customer.service';
 import { mockPaymentsAllowed } from '../lib/security-flags';
@@ -139,8 +138,9 @@ export async function createBooking(input: CreateBookingInput) {
         isWalkInChannel ? 'WALK_IN' : 'ONLINE',
       );
 
-      // Online keeps flat advance; walk-in / phone charge resolved court price at counter.
-      const chargeAmount = isWalkInChannel ? resolved.price : BOOKING_ADVANCE_PKR;
+      // Online + walk-in both charge the resolved (discounted) slot price.
+      // Multi-slot checkout sums these per-slot amounts on the client and in createBookings.
+      const chargeAmount = resolved.price;
       const paymentStatus = isWalkInChannel ? PaymentStatus.PAID : PaymentStatus.PENDING;
       const status = isWalkInChannel ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
 
@@ -278,8 +278,17 @@ export async function createBooking(input: CreateBookingInput) {
 }
 
 export async function getPaymentInfoForSlot(slotId: string) {
-  const slot = await prisma.slot.findUnique({
-    where: { id: slotId },
+  return getPaymentInfoForSlots([slotId]);
+}
+
+export async function getPaymentInfoForSlots(slotIds: string[]) {
+  const uniqueIds = [...new Set(slotIds.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    throw new AppError('slotId is required', { statusCode: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  const slots = await prisma.slot.findMany({
+    where: { id: { in: uniqueIds } },
     include: {
       court: {
         include: {
@@ -300,12 +309,34 @@ export async function getPaymentInfoForSlot(slotId: string) {
       },
     },
   });
-  if (!slot) {
+
+  if (slots.length !== uniqueIds.length) {
     throw new AppError('Slot not found', { statusCode: 404, code: 'NOT_FOUND' });
   }
-  const company = slot.court.branch.company;
+
+  const companyId = slots[0]!.court.branch.company.id;
+  if (slots.some((s) => s.court.branch.company.id !== companyId)) {
+    throw new AppError('All slots must belong to the same venue company', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+
+  let amountDue = 0;
+  for (const slot of slots) {
+    const resolved = await resolvePrice(slot.courtId, slot.date, slot.startTime, 'ONLINE');
+    amountDue += resolved.price;
+  }
+
+  const company = slots[0]!.court.branch.company;
+  const branch = slots[0]!.court.branch;
+  const court = slots[0]!.court;
+
   return {
-    advanceAmount: BOOKING_ADVANCE_PKR,
+    /** @deprecated use amountDue — kept for older clients */
+    advanceAmount: amountDue,
+    amountDue,
+    slotCount: slots.length,
     company: {
       id: company.id,
       name: company.name,
@@ -314,11 +345,56 @@ export async function getPaymentInfoForSlot(slotId: string) {
       bankName: company.bankName,
     },
     branch: {
-      id: slot.court.branch.id,
-      name: slot.court.branch.name,
-      city: slot.court.branch.city,
+      id: branch.id,
+      name: branch.name,
+      city: branch.city,
     },
-    court: { id: slot.court.id, name: slot.court.name },
+    court: { id: court.id, name: court.name },
+  };
+}
+
+/**
+ * Book one or more slots in one checkout. Online total = sum of resolved slot prices.
+ * Shared payment proof / wallet debit covers the full sum.
+ */
+export async function createBookings(input: {
+  slotIds: string[];
+  userId: string;
+  paymentMethod?: CreateBookingPaymentMethod;
+  paymentProofUrl?: string;
+}) {
+  const uniqueIds = [...new Set(input.slotIds.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    throw new AppError('At least one slotId is required', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+    });
+  }
+  if (uniqueIds.length === 1) {
+    return createBooking({
+      userId: input.userId,
+      slotId: uniqueIds[0]!,
+      paymentMethod: input.paymentMethod,
+      paymentProofUrl: input.paymentProofUrl,
+    });
+  }
+
+  const results = [];
+  for (const slotId of uniqueIds) {
+    results.push(
+      await createBooking({
+        userId: input.userId,
+        slotId,
+        paymentMethod: input.paymentMethod,
+        paymentProofUrl: input.paymentProofUrl,
+      }),
+    );
+  }
+  return {
+    ...results[0]!,
+    bookings: results,
+    ids: results.map((b) => b.id),
+    totalAmount: results.reduce((sum, b) => sum + Number(b.totalAmount), 0),
   };
 }
 

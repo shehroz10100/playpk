@@ -61,11 +61,17 @@ bookingsRouter.get('/me', authenticate, async (req, res, next) => {
 // e.g. "payment-info" as a booking id and the player checkout never loads bank details.
 bookingsRouter.get('/payment-info', authenticate, async (req, res, next) => {
   try {
-    const slotId = typeof req.query.slotId === 'string' ? req.query.slotId : '';
-    if (!slotId) {
+    const raw = req.query.slotId ?? req.query.slotIds;
+    const slotIds =
+      typeof raw === 'string'
+        ? raw.split(',').map((s) => s.trim()).filter(Boolean)
+        : Array.isArray(raw)
+          ? raw.flatMap((v) => String(v).split(',')).map((s) => s.trim()).filter(Boolean)
+          : [];
+    if (slotIds.length === 0) {
       throw new AppError('slotId is required', { statusCode: 400, code: 'VALIDATION_ERROR' });
     }
-    sendSuccess(res, await bookingService.getPaymentInfoForSlot(slotId));
+    sendSuccess(res, await bookingService.getPaymentInfoForSlots(slotIds));
   } catch (error) {
     next(error);
   }
@@ -143,19 +149,28 @@ bookingsRouter.post(
   '/',
   authenticate,
   validate(
-    z.object({
-      slotId: z.string().min(1),
-      paymentMethod: z
-        .enum(['mock', 'wallet', 'jazzcash', 'easypaisa', 'card', 'bank_transfer'])
-        .optional(),
-      paymentProofUrl: z.string().min(1).optional(),
-    }),
+    z
+      .object({
+        slotId: z.string().min(1).optional(),
+        slotIds: z.array(z.string().min(1)).min(1).optional(),
+        paymentMethod: z
+          .enum(['mock', 'wallet', 'jazzcash', 'easypaisa', 'card', 'bank_transfer'])
+          .optional(),
+        paymentProofUrl: z.string().min(1).optional(),
+      })
+      .refine((b) => Boolean(b.slotId) || (b.slotIds && b.slotIds.length > 0), {
+        message: 'slotId or slotIds is required',
+      }),
   ),
   async (req, res, next) => {
     try {
-      const booking = await bookingService.createBooking({
+      const slotIds: string[] =
+        Array.isArray(req.body.slotIds) && req.body.slotIds.length > 0
+          ? req.body.slotIds
+          : [req.body.slotId as string];
+      const booking = await bookingService.createBookings({
         userId: req.user!.id,
-        slotId: req.body.slotId,
+        slotIds,
         paymentMethod: req.body.paymentMethod,
         paymentProofUrl: req.body.paymentProofUrl,
       });

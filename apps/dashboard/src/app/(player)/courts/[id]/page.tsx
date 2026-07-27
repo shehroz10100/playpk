@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { BOOKING_ADVANCE_PKR } from '@playpk/shared-types';
 import { api } from '@/lib/api';
 import { cn, formatPkr } from '@/lib/utils';
 import { BookingStepPanel, BookingStepper } from '@/components/motion/booking-stepper';
@@ -64,7 +63,7 @@ export default function CourtBookPage() {
   const days = useMemo(() => nextSevenDays(), []);
   const [selectedDate, setSelectedDate] = useState(days[0]?.iso ?? '');
   const [data, setData] = useState<Availability | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [selectedSlots, setSelectedSlots] = useState<Slot[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -82,11 +81,11 @@ export default function CourtBookPage() {
         };
         setData(normalized);
         setError(null);
-        setSelectedSlot((prev) => {
-          if (!prev) return null;
-          const still = normalized.slots.find((s) => s.id === prev.id && s.status === 'AVAILABLE');
-          return still ?? null;
-        });
+        setSelectedSlots((prev) =>
+          prev
+            .map((s) => normalized.slots.find((n) => n.id === s.id && n.status === 'AVAILABLE'))
+            .filter((s): s is Slot => Boolean(s)),
+        );
         setSelectedDate((current) => {
           if (normalized.slots.some((s) => s.date === current && s.status === 'AVAILABLE')) {
             return current;
@@ -118,10 +117,40 @@ export default function CourtBookPage() {
     .filter((s) => s.date === selectedDate)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
+  const selectedTotal = selectedSlots.reduce((sum, s) => sum + s.price, 0);
+
+  function toggleSlot(slot: Slot) {
+    if (slot.status !== 'AVAILABLE') return;
+    setSelectedSlots((prev) => {
+      if (prev.some((s) => s.id === slot.id)) {
+        return prev.filter((s) => s.id !== slot.id);
+      }
+      return [...prev, slot].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    });
+  }
+
+  function continueBooking() {
+    if (!data || selectedSlots.length === 0) return;
+    const sorted = [...selectedSlots].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const total = sorted.reduce((sum, s) => sum + s.price, 0);
+    const q = new URLSearchParams({
+      slotIds: sorted.map((s) => s.id).join(','),
+      courtName: data.court.name,
+      branchName: data.court.branch.name,
+      date: selectedDate,
+      startTime: sorted[0]!.startTime,
+      endTime: sorted[sorted.length - 1]!.endTime,
+      total: String(total),
+      times: sorted.map((s) => `${s.startTime}-${s.endTime}`).join(','),
+      rates: sorted.map((s) => String(s.price)).join(','),
+    });
+    router.push(`/book/confirm?${q.toString()}`);
+  }
+
   if (loading && !data) return <StadiumSkeleton className="mt-2" lines={4} />;
   if (error || !data) return <p className="text-sm text-red-600">{error ?? 'Court not found'}</p>;
 
-  const bookingStep = selectedSlot ? 1 : 0;
+  const bookingStep = selectedSlots.length > 0 ? 1 : 0;
 
   return (
     <div className="space-y-5 pb-44">
@@ -138,8 +167,8 @@ export default function CourtBookPage() {
           {data.court.name}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {data.court.sport.name} · advance {formatPkr(BOOKING_ADVANCE_PKR)} · rate{' '}
-          {formatPkr(data.court.pricePerHour)}/hr
+          {data.court.sport.name} · rate {formatPkr(data.court.pricePerHour)}/hr · tap multiple
+          slots
         </p>
         <div className="mt-2 flex gap-2">
           <Badge variant="success">{data.court.indoor ? 'Indoor' : 'Outdoor'}</Badge>
@@ -164,7 +193,7 @@ export default function CourtBookPage() {
                   type="button"
                   onClick={() => {
                     setSelectedDate(day.iso);
-                    setSelectedSlot(null);
+                    setSelectedSlots([]);
                   }}
                   className={cn(
                     'flex min-w-[4.5rem] shrink-0 cursor-pointer flex-col items-center rounded-xl border px-3 py-2.5 transition duration-200',
@@ -199,7 +228,7 @@ export default function CourtBookPage() {
 
         <div className="mt-5 space-y-2">
           <h2 className="font-display text-sm font-bold uppercase tracking-tight text-navy">
-            2 · Pick a slot
+            2 · Pick slots
           </h2>
           {daySlots.length === 0 ? (
             <p className="rounded-xl border border-dashed border-navy/15 bg-white px-4 py-5 text-sm text-muted-foreground">
@@ -208,13 +237,13 @@ export default function CourtBookPage() {
           ) : (
             daySlots.map((slot) => {
               const available = slot.status === 'AVAILABLE';
-              const selected = selectedSlot?.id === slot.id;
+              const selected = selectedSlots.some((s) => s.id === slot.id);
               return (
                 <button
                   key={slot.id}
                   type="button"
                   disabled={!available}
-                  onClick={() => setSelectedSlot(slot)}
+                  onClick={() => toggleSlot(slot)}
                   className={cn(
                     'flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition duration-200',
                     selected
@@ -228,10 +257,7 @@ export default function CourtBookPage() {
                     <div className="font-semibold text-navy">
                       {slot.startTime} – {slot.endTime}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      Advance {formatPkr(BOOKING_ADVANCE_PKR)}
-                      <span className="text-xs"> · rate {formatPkr(slot.price)}/hr</span>
-                    </div>
+                    <div className="text-sm text-muted-foreground">{formatPkr(slot.price)}</div>
                   </div>
                   <Badge
                     variant={
@@ -255,21 +281,17 @@ export default function CourtBookPage() {
         <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Card className="border-0 bg-transparent shadow-none sm:flex-1">
             <CardContent className="p-0 text-sm text-muted-foreground">
-              {selectedSlot
-                ? `${selectedDate} · ${selectedSlot.startTime}–${selectedSlot.endTime} · advance ${formatPkr(BOOKING_ADVANCE_PKR)}`
-                : 'Select a date and available slot'}
+              {selectedSlots.length > 0
+                ? `${selectedDate} · ${selectedSlots.length} slot${selectedSlots.length === 1 ? '' : 's'} · ${formatPkr(selectedTotal)}`
+                : 'Select a date and one or more available slots'}
             </CardContent>
           </Card>
           <Button
             className="h-11 w-full rounded-xl bg-brand font-bold text-white hover:bg-brand-600 sm:w-auto"
-            disabled={!selectedSlot}
-            onClick={() =>
-              router.push(
-                `/book/confirm?slotId=${selectedSlot!.id}&courtName=${encodeURIComponent(data.court.name)}&branchName=${encodeURIComponent(data.court.branch.name)}&date=${selectedDate}&startTime=${selectedSlot!.startTime}&endTime=${selectedSlot!.endTime}&price=${BOOKING_ADVANCE_PKR}&rate=${selectedSlot!.price}`,
-              )
-            }
+            disabled={selectedSlots.length === 0}
+            onClick={continueBooking}
           >
-            Continue to pay
+            Continue · {formatPkr(selectedTotal)}
           </Button>
         </div>
       </div>

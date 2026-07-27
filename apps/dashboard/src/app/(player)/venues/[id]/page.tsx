@@ -15,7 +15,7 @@ import {
   Users,
   Wallet,
 } from 'lucide-react';
-import { BOOKING_ADVANCE_PKR, type OpenMatchDto } from '@playpk/shared-types';
+import { type OpenMatchDto } from '@playpk/shared-types';
 import { resolveSportCover } from '@playpk/shared-types';
 import { HeroMedia } from '@/components/media/hero-media';
 import { StadiumSkeleton } from '@/components/motion/stadium-skeleton';
@@ -134,7 +134,7 @@ export default function VenueDetailPage() {
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState<string | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [selectedSlots, setSelectedSlots] = useState<Slot[]>([]);
 
   const [matches, setMatches] = useState<OpenMatchDto[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(false);
@@ -190,7 +190,7 @@ export default function VenueDetailPage() {
         slots: res.slots.map((s) => ({ ...s, date: toIsoDate(String(s.date)) })),
       };
       setAvailability(normalized);
-      setSelectedSlot(null);
+      setSelectedSlots([]);
       const lengths = normalized.slots
         .filter((s) => s.status === 'AVAILABLE')
         .map((s) => slotMinutes(s.startTime, s.endTime));
@@ -278,20 +278,35 @@ export default function VenueDetailPage() {
     }
   }
 
-  function continueBooking(slot: Slot) {
-    if (!availability) return;
+  function toggleSlot(slot: Slot) {
+    if (slot.status !== 'AVAILABLE') return;
+    setSelectedSlots((prev) => {
+      if (prev.some((s) => s.id === slot.id)) {
+        return prev.filter((s) => s.id !== slot.id);
+      }
+      return [...prev, slot].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    });
+  }
+
+  function continueBooking(slots: Slot[]) {
+    if (!availability || slots.length === 0) return;
+    const sorted = [...slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const total = sorted.reduce((sum, s) => sum + s.price, 0);
     const q = new URLSearchParams({
-      slotId: slot.id,
+      slotIds: sorted.map((s) => s.id).join(','),
       courtName: availability.court.name,
       branchName: availability.court.branch.name,
-      date: slot.date,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      price: String(BOOKING_ADVANCE_PKR),
-      rate: String(slot.price),
+      date: sorted[0]!.date,
+      startTime: sorted[0]!.startTime,
+      endTime: sorted[sorted.length - 1]!.endTime,
+      total: String(total),
+      times: sorted.map((s) => `${s.startTime}-${s.endTime}`).join(','),
+      rates: sorted.map((s) => String(s.price)).join(','),
     });
     router.push(`/book/confirm?${q.toString()}`);
   }
+
+  const selectedTotal = selectedSlots.reduce((sum, s) => sum + s.price, 0);
 
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!venue) return <StadiumSkeleton className="mt-2" lines={5} />;
@@ -532,7 +547,7 @@ export default function VenueDetailPage() {
                     type="button"
                     onClick={() => {
                       setBookSportKey(s.key);
-                      setSelectedSlot(null);
+                      setSelectedSlots([]);
                     }}
                     className={cn(
                       'flex w-24 shrink-0 flex-col items-center gap-2 rounded-2xl border px-2 py-3 text-center transition',
@@ -558,7 +573,7 @@ export default function VenueDetailPage() {
                 {bookCourt.discountPercent
                   ? ` · ${bookCourt.discountPercent}% off`
                   : ''}{' '}
-                · advance {formatPkr(BOOKING_ADVANCE_PKR)}
+                · tap multiple slots to book together
               </p>
             ) : null}
           </div>
@@ -582,7 +597,7 @@ export default function VenueDetailPage() {
                     type="button"
                     onClick={() => {
                       setSelectedDate(day.iso);
-                      setSelectedSlot(null);
+                      setSelectedSlots([]);
                     }}
                     className={cn(
                       'flex min-w-[4.75rem] shrink-0 flex-col items-center rounded-xl border px-3 py-2.5 transition',
@@ -618,7 +633,7 @@ export default function VenueDetailPage() {
                   type="button"
                   onClick={() => {
                     setDuration(mins);
-                    setSelectedSlot(null);
+                    setSelectedSlots([]);
                   }}
                   className={cn(
                     'rounded-xl border px-3 py-2.5 text-sm font-bold transition',
@@ -661,14 +676,14 @@ export default function VenueDetailPage() {
             ) : (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {daySlots.map((slot) => {
-                  const active = selectedSlot?.id === slot.id;
+                  const active = selectedSlots.some((s) => s.id === slot.id);
                   const open = slot.status === 'AVAILABLE';
                   return (
                     <button
                       key={slot.id}
                       type="button"
                       disabled={!open}
-                      onClick={() => setSelectedSlot(slot)}
+                      onClick={() => toggleSlot(slot)}
                       className={cn(
                         'rounded-xl border px-3 py-3 text-left transition',
                         !open && 'cursor-not-allowed opacity-45',
@@ -690,13 +705,16 @@ export default function VenueDetailPage() {
             )}
           </div>
 
-          {selectedSlot ? (
+          {selectedSlots.length > 0 ? (
             <div className="fixed inset-x-0 bottom-[5.25rem] z-40 border-t border-border bg-white/95 p-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+              <p className="mb-2 text-center text-xs font-semibold text-muted-foreground sm:text-left">
+                {selectedSlots.length} slot{selectedSlots.length === 1 ? '' : 's'} selected
+              </p>
               <Button
                 className="h-12 w-full rounded-xl bg-brand font-bold text-white hover:bg-brand-600"
-                onClick={() => continueBooking(selectedSlot)}
+                onClick={() => continueBooking(selectedSlots)}
               >
-                Continue · {formatPkr(selectedSlot.price)}
+                Continue · {formatPkr(selectedTotal)}
               </Button>
             </div>
           ) : null}
@@ -830,7 +848,7 @@ export default function VenueDetailPage() {
                         setSportFilter(s.key);
                         setSportSheetOpen(false);
                         setTab('book');
-                        setSelectedSlot(null);
+                        setSelectedSlots([]);
                       }}
                       className={cn(
                         'flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition',

@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { BOOKING_ADVANCE_PKR, type AuthUser } from '@playpk/shared-types';
+import { type AuthUser } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 import { getApiBase } from '@/lib/api-base';
@@ -15,6 +15,7 @@ type PayMethod = 'mock' | 'wallet' | 'jazzcash' | 'easypaisa' | 'card' | 'bank_t
 
 type PaymentInfo = {
   advanceAmount: number;
+  amountDue?: number;
   company: {
     id: string;
     name: string;
@@ -38,14 +39,53 @@ const METHOD_LABEL: Record<PayMethod, string> = {
 export default function BookConfirmPage() {
   const router = useRouter();
   const search = useSearchParams();
-  const slotId = search.get('slotId') ?? '';
+
+  const slotIds = useMemo(() => {
+    const multi = search.get('slotIds');
+    if (multi) {
+      return multi.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+    const single = search.get('slotId');
+    return single ? [single] : [];
+  }, [search]);
+
   const courtName = search.get('courtName') ?? '';
   const branchName = search.get('branchName') ?? '';
   const date = search.get('date') ?? '';
   const startTime = search.get('startTime') ?? '';
   const endTime = search.get('endTime') ?? '';
-  const rate = Number(search.get('rate') ?? search.get('price') ?? 0);
-  const advance = BOOKING_ADVANCE_PKR;
+
+  const slotLines = useMemo(() => {
+    const times = (search.get('times') ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const rates = (search.get('rates') ?? '')
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isFinite(n));
+    if (times.length > 0) {
+      return times.map((t, i) => ({
+        label: t,
+        price: rates[i] ?? 0,
+      }));
+    }
+    if (startTime && endTime) {
+      const rate = Number(search.get('rate') ?? search.get('price') ?? 0);
+      return [{ label: `${startTime}–${endTime}`, price: rate }];
+    }
+    return [];
+  }, [search, startTime, endTime]);
+
+  const totalFromQuery = Number(search.get('total') ?? 0);
+  const totalFromLines = slotLines.reduce((sum, s) => sum + s.price, 0);
+  const fallbackRate = Number(search.get('rate') ?? search.get('price') ?? 0);
+  const clientTotal =
+    totalFromQuery > 0
+      ? totalFromQuery
+      : totalFromLines > 0
+        ? totalFromLines
+        : fallbackRate;
 
   const [method, setMethod] = useState<PayMethod>('bank_transfer');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
@@ -56,6 +96,8 @@ export default function BookConfirmPage() {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const amountDue = paymentInfo?.amountDue ?? paymentInfo?.advanceAmount ?? clientTotal;
 
   const methods = useMemo<PayMethod[]>(
     () => ['bank_transfer', 'wallet', 'jazzcash', 'easypaisa', 'card', 'mock'],
@@ -76,9 +118,10 @@ export default function BookConfirmPage() {
   }, []);
 
   useEffect(() => {
-    if (!slotId) return;
+    if (slotIds.length === 0) return;
     setPaymentInfoError(null);
-    api<PaymentInfo>(`/api/slots/${encodeURIComponent(slotId)}/payment-info`)
+    const qs = new URLSearchParams({ slotIds: slotIds.join(',') });
+    api<PaymentInfo>(`/api/bookings/payment-info?${qs.toString()}`)
       .then(({ data }) => {
         setPaymentInfo(data);
         setPaymentInfoError(null);
@@ -89,7 +132,7 @@ export default function BookConfirmPage() {
           err instanceof ApiError ? err.message : 'Could not load company bank details',
         );
       });
-  }, [slotId]);
+  }, [slotIds]);
 
   useEffect(() => {
     if (!proofFile) {
@@ -135,16 +178,16 @@ export default function BookConfirmPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!slotId) {
+    if (slotIds.length === 0) {
       setError('Missing slot. Go back and pick a time again.');
       return;
     }
-    if (method === 'wallet' && walletBalance != null && walletBalance < advance) {
-      setError('Insufficient wallet balance for the advance.');
+    if (method === 'wallet' && walletBalance != null && walletBalance < amountDue) {
+      setError('Insufficient wallet balance for this booking.');
       return;
     }
     if (needsProof && !proofFile) {
-      setError('Upload a screenshot of your advance payment transfer.');
+      setError('Upload a screenshot of your payment transfer.');
       return;
     }
     setLoading(true);
@@ -154,15 +197,16 @@ export default function BookConfirmPage() {
       if (needsProof) {
         paymentProofUrl = await uploadProof();
       }
-      const { data } = await api<{ id: string }>('/api/bookings', {
+      const { data } = await api<{ id: string; ids?: string[] }>('/api/bookings', {
         method: 'POST',
         body: JSON.stringify({
-          slotId,
+          slotIds,
           paymentMethod: method,
           paymentProofUrl,
         }),
       });
-      router.replace(`/my-bookings?booked=${data.id}`);
+      const bookedId = data.ids?.[0] ?? data.id;
+      router.replace(`/my-bookings?booked=${bookedId}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Booking failed');
     } finally {
@@ -182,7 +226,8 @@ export default function BookConfirmPage() {
           Confirm &amp; pay
         </h1>
         <p className="text-sm text-muted-foreground">
-          Calm step — pay a flat advance of {formatPkr(advance)}. Remaining balance at the venue.
+          Total is the sum of selected slot prices after discount
+          {slotIds.length > 1 ? ` (${slotIds.length} slots)` : ''}.
         </p>
       </header>
 
@@ -195,20 +240,27 @@ export default function BookConfirmPage() {
         </CardHeader>
         <CardContent className="space-y-2.5 text-sm">
           <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Slot</span>
-            <span className="text-right font-medium text-navy">
-              {date} · {startTime}–{endTime}
-            </span>
+            <span className="text-muted-foreground">Date</span>
+            <span className="text-right font-medium text-navy">{date || '—'}</span>
           </div>
-          {rate > 0 ? (
+          {slotLines.length > 0 ? (
+            slotLines.map((line) => (
+              <div key={line.label} className="flex justify-between gap-4">
+                <span className="text-muted-foreground">{line.label}</span>
+                <span className="text-navy">{formatPkr(line.price)}</span>
+              </div>
+            ))
+          ) : (
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Court rate</span>
-              <span className="text-navy">{formatPkr(rate)}/hr</span>
+              <span className="text-muted-foreground">Slot</span>
+              <span className="text-right font-medium text-navy">
+                {startTime}–{endTime}
+              </span>
             </div>
-          ) : null}
+          )}
           <div className="flex justify-between gap-4 border-t border-navy/5 pt-2.5">
-            <span className="font-semibold text-navy">Advance due now</span>
-            <span className="font-display text-xl font-bold text-navy">{formatPkr(advance)}</span>
+            <span className="font-semibold text-navy">Total due now</span>
+            <span className="font-display text-xl font-bold text-navy">{formatPkr(amountDue)}</span>
           </div>
           {walletBalance != null ? (
             <p className="text-xs text-muted-foreground">Wallet balance: {formatPkr(walletBalance)}</p>
@@ -243,8 +295,7 @@ export default function BookConfirmPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold text-navy">Transfer details</CardTitle>
               <CardDescription>
-                Send {formatPkr(paymentInfo?.advanceAmount ?? advance)} to this company account, then
-                upload your screenshot.
+                Send {formatPkr(amountDue)} to this company account, then upload your screenshot.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
@@ -295,7 +346,7 @@ export default function BookConfirmPage() {
             <p className="text-sm font-semibold text-navy">Payment screenshot</p>
             <p className="text-xs text-muted-foreground">
               Required for bank / JazzCash / Easypaisa / card. Venue staff see this on their bookings
-              dashboard to verify your advance.
+              dashboard to verify payment.
             </p>
             <input
               type="file"
@@ -320,9 +371,9 @@ export default function BookConfirmPage() {
         <Button
           className="h-12 w-full rounded-xl bg-navy font-bold text-white hover:bg-navy-700"
           type="submit"
-          disabled={loading || !slotId}
+          disabled={loading || slotIds.length === 0}
         >
-          {loading ? 'Processing…' : `Pay ${formatPkr(advance)} advance`}
+          {loading ? 'Processing…' : `Pay ${formatPkr(amountDue)}`}
         </Button>
       </form>
     </div>
