@@ -91,7 +91,7 @@ courtsRouter.patch('/:courtId', validate(courtBodySchema.partial()), async (req,
       await prisma.slot.updateMany({
         where: {
           courtId: existing.id,
-          status: 'AVAILABLE',
+          status: SlotStatus.AVAILABLE,
           date: { gte: new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z') },
         },
         data: { price: req.body.pricePerHour },
