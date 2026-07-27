@@ -16,7 +16,7 @@ import { creditWalletRefund, debitWallet } from './wallet.service';
 import { promoteNextWaitlistedUser } from './waitlist.service';
 import { notifyUser } from './notify.service';
 import { resolvePrice } from '../pricing/resolvePrice';
-import { resolveAdvanceAmount } from '../pricing/resolveAdvance';
+import { resolveAdvanceAmount, resolveAdvanceTotal } from '../pricing/resolveAdvance';
 import { resolveWalkInCustomer } from './walkin-customer.service';
 import { mockPaymentsAllowed } from '../lib/security-flags';
 
@@ -326,18 +326,20 @@ export async function getPaymentInfoForSlots(slotIds: string[]) {
     });
   }
 
-  let amountDue = 0;
-  let courtTotal = 0;
+  let listCourtTotal = 0;
+  let discountedCourtTotal = 0;
   let discountPercent: number | null = null;
   for (const slot of slots) {
     const resolved = await resolvePrice(slot.courtId, slot.date, slot.startTime, 'ONLINE');
-    amountDue += resolveAdvanceAmount(resolved.discountPercent);
-    courtTotal += resolved.price;
+    listCourtTotal += resolved.basePrice;
+    // Prefer resolved.price (includes pricing rules + sport discount) for venue remainder.
+    discountedCourtTotal += resolved.price;
     if (resolved.discountPercent != null) {
       discountPercent = resolved.discountPercent;
     }
   }
 
+  const amountDue = resolveAdvanceTotal(uniqueIds.length);
   const company = slots[0]!.court.branch.company;
   const branch = slots[0]!.court.branch;
   const court = slots[0]!.court;
@@ -345,10 +347,13 @@ export async function getPaymentInfoForSlots(slotIds: string[]) {
   return {
     advanceAmount: amountDue,
     amountDue,
-    courtTotal,
-    remainingAtVenue: Math.max(0, courtTotal - amountDue),
+    /** List / company court total before sport discount */
+    courtTotal: listCourtTotal,
+    /** Court total after sport discount (used for pay-at-venue) */
+    discountedCourtTotal,
+    remainingAtVenue: Math.max(0, discountedCourtTotal - amountDue),
     discountPercent,
-    slotCount: slots.length,
+    slotCount: uniqueIds.length,
     company: {
       id: company.id,
       name: company.name,

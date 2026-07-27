@@ -18,8 +18,10 @@ type PaymentInfo = {
   advanceAmount: number;
   amountDue?: number;
   courtTotal?: number;
+  discountedCourtTotal?: number;
   remainingAtVenue?: number;
   discountPercent?: number | null;
+  slotCount?: number;
   company: {
     id: string;
     name: string;
@@ -28,6 +30,11 @@ type PaymentInfo = {
     bankName: string | null;
   };
 };
+
+function applyPercentOff(price: number, percentOff: number): number {
+  const pct = Math.min(90, Math.max(0, percentOff));
+  return Math.round(price * (1 - pct / 100) * 100) / 100;
+}
 
 const BANK_METHODS: PayMethod[] = ['bank_transfer', 'jazzcash', 'easypaisa', 'card'];
 
@@ -91,10 +98,7 @@ export default function BookConfirmPage() {
         ? courtTotalFromLines
         : Number(search.get('rate') ?? search.get('price') ?? 0);
 
-  const clientAdvance = bookingAdvanceTotal(
-    Math.max(slotIds.length, 1),
-    discountPercent,
-  );
+  const clientAdvance = bookingAdvanceTotal(Math.max(slotIds.length, 1));
 
   const [method, setMethod] = useState<PayMethod>('bank_transfer');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
@@ -106,10 +110,25 @@ export default function BookConfirmPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const amountDue = paymentInfo?.amountDue ?? paymentInfo?.advanceAmount ?? clientAdvance;
+  // Always charge Rs 1000 × slots; never let a stale API response undercharge multi-slot.
+  const amountDue = Math.max(
+    clientAdvance,
+    paymentInfo?.amountDue ?? 0,
+    paymentInfo?.advanceAmount ?? 0,
+  );
   const courtTotal = paymentInfo?.courtTotal ?? clientCourtTotal;
+  const effectiveDiscount =
+    paymentInfo?.discountPercent ?? discountPercent;
+  const discountedCourtTotal =
+    paymentInfo?.discountedCourtTotal ??
+    (effectiveDiscount != null && effectiveDiscount > 0
+      ? applyPercentOff(courtTotal, effectiveDiscount)
+      : courtTotal);
   const remainingAtVenue =
-    paymentInfo?.remainingAtVenue ?? Math.max(0, courtTotal - amountDue);
+    paymentInfo?.remainingAtVenue != null &&
+    (paymentInfo.amountDue ?? paymentInfo.advanceAmount ?? 0) >= clientAdvance
+      ? paymentInfo.remainingAtVenue
+      : Math.max(0, discountedCourtTotal - amountDue);
 
   const methods = useMemo<PayMethod[]>(
     () => ['bank_transfer', 'wallet', 'jazzcash', 'easypaisa', 'card', 'mock'],
@@ -155,22 +174,25 @@ export default function BookConfirmPage() {
             `/api/slots/${encodeURIComponent(slotIds[0]!)}/payment-info`,
           );
           if (!cancelled) {
-            const advance = bookingAdvanceTotal(
-              slotIds.length,
-              data.discountPercent ?? discountPercent,
-            );
-            const total =
-              data.courtTotal != null
+            const advance = bookingAdvanceTotal(slotIds.length);
+            const listTotal =
+              data.courtTotal != null && data.courtTotal > 0
                 ? data.courtTotal
-                : clientCourtTotal > 0
-                  ? clientCourtTotal
-                  : data.advanceAmount;
+                : clientCourtTotal;
+            const discounted =
+              data.discountedCourtTotal ??
+              (data.discountPercent != null && data.discountPercent > 0
+                ? applyPercentOff(listTotal, data.discountPercent)
+                : discountPercent != null && discountPercent > 0
+                  ? applyPercentOff(listTotal, discountPercent)
+                  : listTotal);
             setPaymentInfo({
               ...data,
               advanceAmount: advance,
               amountDue: advance,
-              courtTotal: total,
-              remainingAtVenue: Math.max(0, total - advance),
+              courtTotal: listTotal,
+              discountedCourtTotal: discounted,
+              remainingAtVenue: Math.max(0, discounted - advance),
             });
             setPaymentInfoError(null);
           }
@@ -285,9 +307,9 @@ export default function BookConfirmPage() {
           Confirm &amp; pay
         </h1>
         <p className="text-sm text-muted-foreground">
-          Pay the booking advance now
-          {slotIds.length > 1 ? ` (${slotIds.length} slots)` : ''}. Remaining court fee is due at the
-          venue.
+          Pay Rs 1,000 advance per slot now
+          {slotIds.length > 1 ? ` (${slotIds.length} × Rs 1,000)` : ''}. Sport discounts apply to
+          the remaining balance at the venue, not the advance.
         </p>
       </header>
 
@@ -322,6 +344,18 @@ export default function BookConfirmPage() {
             <div className="flex justify-between gap-4 border-t border-navy/5 pt-2.5">
               <span className="text-muted-foreground">Court total</span>
               <span className="text-navy">{formatPkr(courtTotal)}</span>
+            </div>
+          ) : null}
+          {effectiveDiscount != null && effectiveDiscount > 0 ? (
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Online discount ({effectiveDiscount}%)</span>
+              <span className="text-navy">−{formatPkr(Math.max(0, courtTotal - discountedCourtTotal))}</span>
+            </div>
+          ) : null}
+          {effectiveDiscount != null && effectiveDiscount > 0 && discountedCourtTotal > 0 ? (
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">After discount</span>
+              <span className="text-navy">{formatPkr(discountedCourtTotal)}</span>
             </div>
           ) : null}
           <div className="flex justify-between gap-4">

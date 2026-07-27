@@ -586,8 +586,7 @@ export default function VenueDetailPage() {
                 {availability?.court.discountPercent
                   ? ` · ${availability.court.discountPercent}% off`
                   : ''}{' '}
-                · {formatPkr(bookingAdvanceTotal(1, availability?.court.discountPercent))}{' '}
-                advance/slot · tap multiple slots
+                · {formatPkr(bookingAdvanceTotal(1))} advance/slot · tap multiple slots
               </p>
             ) : null}
           </div>

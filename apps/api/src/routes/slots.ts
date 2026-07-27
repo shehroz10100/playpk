@@ -165,8 +165,10 @@ slotsRouter.get('/court/:courtId/availability', async (req, res, next) => {
       court: {
         id: court.id,
         name: court.name,
-        pricePerHour: mapPrice(Number(court.pricePerHour)),
+        // Show the company-set rate on the book UI; discount applies at remaining balance.
+        pricePerHour: Number(court.pricePerHour),
         basePricePerHour: Number(court.pricePerHour),
+        discountedPricePerHour: mapPrice(Number(court.pricePerHour)),
         discountPercent: discount?.percentOff ?? null,
         indoor: court.indoor,
         hasAC: court.hasAC,
@@ -176,7 +178,8 @@ slotsRouter.get('/court/:courtId/availability', async (req, res, next) => {
       },
       slots: slots.map((s) => ({
         ...s,
-        price: mapPrice(Number(s.price)),
+        price: Number(s.price),
+        discountedPrice: mapPrice(Number(s.price)),
         date: s.date.toISOString().slice(0, 10),
       })),
     });
