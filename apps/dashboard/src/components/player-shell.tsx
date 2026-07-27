@@ -6,9 +6,9 @@ import { useEffect, useState } from 'react';
 import {
   Bot,
   CalendarDays,
-  Hash,
   Home,
   LogOut,
+  MessageCircle,
   MessageSquarePlus,
   Plus,
   Swords,
@@ -42,7 +42,7 @@ const headerTabs = [
 const tabs = [
   { href: '/discover', label: 'Home', icon: Home },
   { href: '/play', label: 'Play', icon: Swords },
-  { href: '/channels', label: 'Chat', icon: Hash },
+  { href: '/channels', label: 'Chat', icon: MessageCircle },
   { href: '/social', label: 'Social', icon: Users },
   { href: '/rank', label: 'Rank', icon: Trophy },
   { href: '/me', label: 'Me', icon: UserRound },
@@ -179,7 +179,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
               onClick={() => setCreateOpen(false)}
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
-                <Hash className="h-5 w-5" />
+                <MessageCircle className="h-5 w-5" />
               </span>
               <span>
                 <span className="block text-sm font-bold text-navy">Create channel</span>
