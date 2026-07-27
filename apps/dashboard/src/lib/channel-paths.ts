@@ -1,34 +1,50 @@
-/** Channel room APIs use static paths + channelId query (dynamic /api/channels/[id] does not match on Vercel). */
+/** Channel room APIs use static /api/channels/room?channelId=&op= */
+
+function room(channelId: string, op: string, extra?: Record<string, string>): string {
+  const params = new URLSearchParams({ channelId, op, ...extra });
+  return `/api/channels/room?${params.toString()}`;
+}
 
 export function channelRoomPath(channelId: string): string {
-  return `/api/channels/room?channelId=${encodeURIComponent(channelId)}`;
+  return room(channelId, 'get');
 }
 
 export function channelJoinPath(channelId: string): string {
-  return `/api/channels/room/join?channelId=${encodeURIComponent(channelId)}`;
+  return room(channelId, 'join');
 }
 
 export function channelLeavePath(channelId: string): string {
-  return `/api/channels/room/leave?channelId=${encodeURIComponent(channelId)}`;
+  return room(channelId, 'leave');
 }
 
 export function channelMembersPath(channelId: string): string {
-  return `/api/channels/room/members?channelId=${encodeURIComponent(channelId)}`;
+  return room(channelId, 'members');
 }
 
 export function channelMembersSearchPath(channelId: string, q: string): string {
-  return `/api/channels/room/members/search?channelId=${encodeURIComponent(channelId)}&q=${encodeURIComponent(q)}`;
+  return room(channelId, 'membersSearch', { q });
 }
 
 export function channelMemberPath(channelId: string, userId: string): string {
-  return `/api/channels/room/members/member?channelId=${encodeURIComponent(channelId)}&userId=${encodeURIComponent(userId)}`;
+  return room(channelId, 'member', { userId });
 }
 
 export function channelMessagesPath(channelId: string, after?: string): string {
-  const base = `/api/channels/room/messages?channelId=${encodeURIComponent(channelId)}`;
-  return after ? `${base}&after=${encodeURIComponent(after)}` : base;
+  return after ? room(channelId, 'messages', { after }) : room(channelId, 'messages');
+}
+
+export function channelSendPath(channelId: string): string {
+  return room(channelId, 'send');
 }
 
 export function channelMessagePath(channelId: string, messageId: string): string {
-  return `/api/channels/room/messages/message?channelId=${encodeURIComponent(channelId)}&messageId=${encodeURIComponent(messageId)}`;
+  return room(channelId, 'deleteMessage', { messageId });
+}
+
+export function channelArchivePath(channelId: string): string {
+  return room(channelId, 'archive');
+}
+
+export function channelPatchPath(channelId: string): string {
+  return room(channelId, 'patch');
 }

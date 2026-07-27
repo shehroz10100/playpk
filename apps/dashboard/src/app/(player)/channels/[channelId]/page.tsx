@@ -23,14 +23,16 @@ import { ChannelMemberRole, ChannelVisibility } from '@playpk/shared-types';
 import { api, ApiError } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
 import {
-  channelJoinPath,
+  channelArchivePath,
   channelLeavePath,
   channelMemberPath,
   channelMembersPath,
   channelMembersSearchPath,
   channelMessagePath,
   channelMessagesPath,
+  channelPatchPath,
   channelRoomPath,
+  channelSendPath,
 } from '@/lib/channel-paths';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -127,7 +129,7 @@ export default function ChannelRoomPage() {
     if (!draft.trim()) return;
     setBusy(true);
     try {
-      const { data } = await api<ChannelMessageDto>(channelMessagesPath(channelId), {
+      const { data } = await api<ChannelMessageDto>(channelSendPath(channelId), {
         method: 'POST',
         body: JSON.stringify({ body: draft }),
       });
@@ -162,7 +164,7 @@ export default function ChannelRoomPage() {
   async function archive() {
     if (!confirm('Archive this channel for everyone?')) return;
     try {
-      await api(channelRoomPath(channelId), { method: 'DELETE' });
+      await api(channelArchivePath(channelId), { method: 'DELETE' });
       router.push('/channels');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to archive');
@@ -226,7 +228,7 @@ export default function ChannelRoomPage() {
 
   async function saveVisibility(visibility: ChannelVisibility) {
     try {
-      const { data } = await api<ChatChannelDto>(channelRoomPath(channelId), {
+      const { data } = await api<ChatChannelDto>(channelPatchPath(channelId), {
         method: 'PATCH',
         body: JSON.stringify({ visibility }),
       });
