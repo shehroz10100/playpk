@@ -296,7 +296,7 @@ export default function VenueDetailPage() {
     const sorted = [...slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
     const total = sorted.reduce((sum, s) => sum + s.price, 0);
     const discount = availability.court.discountPercent ?? null;
-    const advance = bookingAdvanceTotal(sorted.length, discount);
+    const advance = bookingAdvanceTotal(sorted.length);
     const q = new URLSearchParams({
       slotIds: sorted.map((s) => s.id).join(','),
       slotId: sorted[0]!.id,
@@ -315,10 +315,7 @@ export default function VenueDetailPage() {
   }
 
   const selectedCourtTotal = selectedSlots.reduce((sum, s) => sum + s.price, 0);
-  const selectedAdvance = bookingAdvanceTotal(
-    selectedSlots.length,
-    availability?.court.discountPercent,
-  );
+  const selectedAdvance = bookingAdvanceTotal(selectedSlots.length);
 
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!venue) return <StadiumSkeleton className="mt-2" lines={5} />;

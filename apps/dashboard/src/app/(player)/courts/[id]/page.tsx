@@ -120,10 +120,7 @@ export default function CourtBookPage() {
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   const selectedCourtTotal = selectedSlots.reduce((sum, s) => sum + s.price, 0);
-  const selectedAdvance = bookingAdvanceTotal(
-    selectedSlots.length,
-    data?.court.discountPercent,
-  );
+  const selectedAdvance = bookingAdvanceTotal(selectedSlots.length);
 
   function toggleSlot(slot: Slot) {
     if (slot.status !== 'AVAILABLE') return;
@@ -140,7 +137,7 @@ export default function CourtBookPage() {
     const sorted = [...selectedSlots].sort((a, b) => a.startTime.localeCompare(b.startTime));
     const total = sorted.reduce((sum, s) => sum + s.price, 0);
     const discount = data.court.discountPercent ?? null;
-    const advance = bookingAdvanceTotal(sorted.length, discount);
+    const advance = bookingAdvanceTotal(sorted.length);
     const q = new URLSearchParams({
       slotIds: sorted.map((s) => s.id).join(','),
       slotId: sorted[0]!.id,

@@ -144,7 +144,7 @@ export async function createBooking(input: CreateBookingInput) {
       // Customer pays remaining court price at the venue. Walk-in charges full price now.
       const chargeAmount = isWalkInChannel
         ? resolved.price
-        : resolveAdvanceAmount(resolved.discountPercent);
+        : resolveAdvanceAmount();
       const paymentStatus = isWalkInChannel ? PaymentStatus.PAID : PaymentStatus.PENDING;
       const status = isWalkInChannel ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
 

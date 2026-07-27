@@ -4,7 +4,7 @@ import { BOOKING_ADVANCE_PKR } from '@playpk/shared-types';
  * Flat online advance (PKR) per slot. Sport discounts never reduce the advance —
  * they only reduce the remaining balance paid at the venue.
  */
-export function resolveAdvanceAmount(_discountPercent?: number | null): number {
+export function resolveAdvanceAmount(): number {
   return BOOKING_ADVANCE_PKR;
 }
 
