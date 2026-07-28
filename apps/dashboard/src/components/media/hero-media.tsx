@@ -43,7 +43,7 @@ export function HeroMedia({
             if (src !== DEFAULT_SPORT_COVER) setSrc(DEFAULT_SPORT_COVER);
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-navy/80 via-navy/35 to-navy/15" />
+        <div className="absolute inset-0 bg-gradient-to-t from-navy/90 via-navy/55 to-navy/25" />
         <div className="relative z-10 flex h-full flex-col justify-end">{children}</div>
       </div>
     </div>

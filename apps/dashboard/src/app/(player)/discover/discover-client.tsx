@@ -108,30 +108,30 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
     Boolean(applied.minRating);
 
   return (
-    <div className="space-y-7 sm:space-y-9">
-      {/* Hero — brand + headline + search CTA (marketplace pattern) */}
-      <section className="-mx-4 overflow-hidden sm:-mx-6 sm:rounded-3xl animate-fade-in">
+    <div className="space-y-5 sm:space-y-9">
+      {/* Hero — flush under header, full-bleed on mobile */}
+      <section className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen overflow-hidden sm:left-auto sm:right-auto sm:ml-0 sm:mr-0 sm:w-auto sm:-mx-6 sm:rounded-3xl animate-fade-in">
         <HeroMedia
           clip={HERO_CLIP}
           autoPlay
           className="sm:rounded-3xl"
-          minClassName="min-h-[280px] sm:min-h-[320px]"
+          minClassName="min-h-[300px] sm:min-h-[320px]"
         >
-          <div className="flex min-h-[280px] flex-col justify-end gap-5 px-5 py-6 sm:min-h-[320px] sm:px-8 sm:py-9">
+          <div className="flex min-h-[300px] flex-col justify-end gap-3.5 px-4 py-5 sm:min-h-[320px] sm:gap-5 sm:px-8 sm:py-9">
             <div>
-              <p className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              <p className="hidden font-display text-2xl font-bold tracking-tight text-white sm:block sm:text-3xl">
                 Play<span className="text-brand">PK</span>
               </p>
-              <h1 className="font-display mt-3 max-w-xl text-3xl font-bold uppercase leading-[0.95] tracking-tight text-white sm:text-5xl">
+              <h1 className="font-display max-w-xl text-[1.65rem] font-bold uppercase leading-[0.98] tracking-tight text-white drop-shadow-sm sm:mt-3 sm:text-5xl">
                 Book courts across Pakistan
               </h1>
-              <p className="mt-3 max-w-md text-sm text-white/75 sm:text-base">
+              <p className="mt-2 max-w-md text-[13px] leading-snug text-white/90 sm:mt-3 sm:text-base">
                 Find padel, futsal, cricket, and more — then join an open match.
               </p>
             </div>
 
             <form
-              className="flex w-full max-w-xl flex-col gap-2 sm:flex-row sm:items-stretch"
+              className="flex w-full max-w-xl flex-col gap-2.5 sm:flex-row sm:items-stretch"
               onSubmit={(e) => {
                 e.preventDefault();
                 searchFromHero();
@@ -147,43 +147,41 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
                   value={draft.city}
                   onChange={(e) => setDraft((f) => ({ ...f, city: e.target.value }))}
                   placeholder="Lahore, Karachi, Islamabad…"
-                  className="h-12 rounded-xl border-0 bg-white pl-10 text-navy shadow-panel"
+                  className="h-11 rounded-xl border-0 bg-white pl-10 text-base text-navy shadow-panel sm:h-12"
                 />
               </div>
               <Button
                 type="submit"
-                className="h-12 shrink-0 rounded-xl bg-brand px-6 font-bold text-white hover:bg-brand-600"
+                className="h-11 shrink-0 rounded-xl bg-brand px-6 font-bold text-white hover:bg-brand-600 sm:h-12"
               >
                 Find courts
               </Button>
             </form>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href="/play?create=1"
-                className="text-sm font-semibold text-white/85 underline-offset-4 hover:text-white hover:underline"
-              >
-                Or create an open match
-              </Link>
-            </div>
+            <Link
+              href="/play?create=1"
+              className="self-start text-[13px] font-semibold text-white/90 underline-offset-4 hover:text-white hover:underline"
+            >
+              Or create an open match
+            </Link>
           </div>
         </HeroMedia>
       </section>
 
       {/* Sport filters */}
-      <section className="space-y-3 animate-rise" style={{ animationDelay: '40ms' }}>
+      <section className="space-y-2.5 animate-rise sm:space-y-3" style={{ animationDelay: '40ms' }}>
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h2 className="font-display text-lg font-bold uppercase tracking-tight text-navy sm:text-xl">
+            <h2 className="font-display text-base font-bold uppercase tracking-tight text-navy sm:text-xl">
               Sports
             </h2>
-            <p className="text-sm text-muted-foreground">Filter venues by sport</p>
+            <p className="text-xs text-muted-foreground sm:text-sm">Filter venues by sport</p>
           </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="shrink-0 gap-1.5 rounded-xl border-navy/15"
+            className="h-9 shrink-0 gap-1.5 rounded-xl border-navy/15"
             onClick={() => setFiltersOpen((o) => !o)}
             aria-expanded={filtersOpen}
           >
@@ -198,7 +196,7 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
           onChange={onSportChange}
           featuredOnly={false}
           showAll
-          size="md"
+          size="sm"
         />
       </section>
 
