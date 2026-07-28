@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import type { AuthUser, AuthTokensResponse } from '@playpk/shared-types';
 import {
   clearSession,
@@ -6,7 +7,24 @@ import {
   saveSession,
 } from './auth';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
+const RAILWAY_API = 'https://api-production-2057.up.railway.app';
+
+function resolveApiBase(): string {
+  const fromExtra = Constants.expoConfig?.extra?.apiUrl;
+  if (typeof fromExtra === 'string' && fromExtra.length > 0) {
+    return fromExtra.replace(/\/$/, '');
+  }
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+  // Dev default: local API. Release/preview builds use Railway via app.config.js.
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    return 'http://localhost:4000';
+  }
+  return RAILWAY_API;
+}
+
+const API_BASE = resolveApiBase();
 
 export class ApiError extends Error {
   status: number;
@@ -26,7 +44,10 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refreshToken) return null;
   const res = await fetch(`${API_BASE}/api/auth/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
     body: JSON.stringify({ refreshToken }),
   });
   if (!res.ok) {
@@ -46,6 +67,7 @@ export async function api<T>(
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
+  headers.set('Cache-Control', 'no-store');
 
   const useAuth = options.auth !== false;
   let token = await getAccessToken();
@@ -53,13 +75,19 @@ export async function api<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  let res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  let res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
 
   if (res.status === 401 && useAuth) {
     token = await refreshAccessToken();
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
-      res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      res = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers,
+      });
     }
   }
 

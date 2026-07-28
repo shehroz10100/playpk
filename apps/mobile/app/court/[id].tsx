@@ -30,6 +30,8 @@ type Availability = {
     id: string;
     name: string;
     pricePerHour: number;
+    basePricePerHour?: number;
+    discountPercent?: number | null;
     indoor: boolean;
     hasAC: boolean;
     sport: { name: string };
@@ -77,7 +79,7 @@ export default function CourtSlotsScreen() {
   const days = useMemo(() => nextSevenDays(), []);
   const [selectedDate, setSelectedDate] = useState(days[0]?.iso ?? '');
   const [data, setData] = useState<Availability | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [selectedSlots, setSelectedSlots] = useState<Slot[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [waitlisting, setWaitlisting] = useState(false);
@@ -86,12 +88,22 @@ export default function CourtSlotsScreen() {
     setLoading(true);
     api<Availability>(`/api/slots/court/${id}/availability?days=7`, { auth: false })
       .then(({ data: res }) => {
+        const listRate = res.court.basePricePerHour ?? res.court.pricePerHour;
         const normalized = {
           ...res,
-          slots: res.slots.map((s) => ({ ...s, date: toIsoDate(s.date) })),
+          court: {
+            ...res.court,
+            pricePerHour: listRate,
+            basePricePerHour: listRate,
+          },
+          slots: res.slots.map((s) => ({
+            ...s,
+            date: toIsoDate(s.date),
+            price: s.status === 'AVAILABLE' ? listRate : Number(s.price),
+          })),
         };
         setData(normalized);
-        setSelectedSlot(null);
+        setSelectedSlots([]);
         const firstWithSlots = days.find((d) =>
           normalized.slots.some((s) => s.date === d.iso && s.status === 'AVAILABLE'),
         );
@@ -106,6 +118,18 @@ export default function CourtSlotsScreen() {
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   const availableCount = daySlots.filter((s) => s.status === 'AVAILABLE').length;
+  const advanceTotal = selectedSlots.length * BOOKING_ADVANCE_PKR;
+  const courtTotal = selectedSlots.reduce((sum, s) => sum + s.price, 0);
+
+  function toggleSlot(slot: Slot) {
+    if (slot.status !== 'AVAILABLE') return;
+    setSelectedSlots((prev) => {
+      if (prev.some((s) => s.id === slot.id)) {
+        return prev.filter((s) => s.id !== slot.id);
+      }
+      return [...prev, slot].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    });
+  }
 
   async function joinWaitlist(slot: Slot) {
     setWaitlisting(true);
@@ -143,14 +167,18 @@ export default function CourtSlotsScreen() {
   }
 
   const selectedDay = days.find((d) => d.iso === selectedDate);
+  const listRate = data.court.basePricePerHour ?? data.court.pricePerHour;
 
   return (
     <Screen style={{ paddingHorizontal: 0 }}>
       <View style={[styles.header, { paddingHorizontal: compact ? 12 : 16 }]}>
         <Text style={[styles.title, { fontSize: compact ? 20 : 22 }]}>{data.court.name}</Text>
         <Muted>
-          {data.court.sport.name} · {data.court.branch.name} · rate{' '}
-          {formatPkr(data.court.pricePerHour)}/hr · advance {formatPkr(BOOKING_ADVANCE_PKR)}
+          {data.court.sport.name} · {data.court.branch.name} · rate {formatPkr(listRate)}/hr ·
+          advance {formatPkr(BOOKING_ADVANCE_PKR)}/slot
+          {data.court.discountPercent
+            ? ` · ${data.court.discountPercent}% off remaining at venue`
+            : ''}
         </Muted>
         <View style={styles.row}>
           <Badge label={data.court.indoor ? 'Indoor' : 'Outdoor'} />
@@ -181,7 +209,7 @@ export default function CourtSlotsScreen() {
               accessibilityLabel={`${day.weekday} ${day.dayNum} ${day.month}, ${count} slots`}
               onPress={() => {
                 setSelectedDate(day.iso);
-                setSelectedSlot(null);
+                setSelectedSlots([]);
               }}
               style={({ pressed }) => [
                 styles.day,
@@ -204,7 +232,7 @@ export default function CourtSlotsScreen() {
       <View style={{ paddingHorizontal: compact ? 12 : 16, marginBottom: 8 }}>
         <Muted>
           {selectedDay
-            ? `${selectedDay.weekday} ${selectedDay.dayNum} ${selectedDay.month} · ${availableCount} available`
+            ? `${selectedDay.weekday} ${selectedDay.dayNum} ${selectedDay.month} · ${availableCount} available · tap multiple slots`
             : 'Pick a day'}
         </Muted>
       </View>
@@ -225,11 +253,11 @@ export default function CourtSlotsScreen() {
         renderItem={({ item }) => {
           const available = item.status === 'AVAILABLE';
           const booked = item.status === 'BOOKED';
-          const selected = selectedSlot?.id === item.id;
+          const selected = selectedSlots.some((s) => s.id === item.id);
           return (
             <Pressable
               disabled={!available}
-              onPress={() => setSelectedSlot(item)}
+              onPress={() => toggleSlot(item)}
               style={({ pressed }) => [
                 styles.slot,
                 !available && !booked && styles.slotDisabled,
@@ -242,7 +270,7 @@ export default function CourtSlotsScreen() {
                   {item.startTime} – {item.endTime}
                 </Text>
                 <Muted>
-                  Advance {formatPkr(BOOKING_ADVANCE_PKR)} · rate {formatPkr(item.price)}/hr
+                  {formatPkr(item.price)}/hr · advance {formatPkr(BOOKING_ADVANCE_PKR)}
                 </Muted>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 6 }}>
@@ -270,28 +298,42 @@ export default function CourtSlotsScreen() {
       <View style={[styles.footer, { left: compact ? 12 : 16, right: compact ? 12 : 16 }]}>
         <Card style={{ marginBottom: 8 }}>
           <Muted>
-            {selectedSlot
-              ? `${selectedDate} · ${selectedSlot.startTime}-${selectedSlot.endTime} · advance ${formatPkr(BOOKING_ADVANCE_PKR)}`
-              : 'Tap an available time slot to continue'}
+            {selectedSlots.length > 0
+              ? `${selectedDate} · ${selectedSlots.length} slot${selectedSlots.length === 1 ? '' : 's'} · court ${formatPkr(courtTotal)} · advance ${formatPkr(advanceTotal)}`
+              : 'Tap one or more available time slots'}
           </Muted>
         </Card>
         <Button
-          label="Continue to payment"
-          disabled={!selectedSlot}
-          onPress={() =>
+          label={
+            selectedSlots.length > 0
+              ? `Continue · ${formatPkr(advanceTotal)} advance`
+              : 'Continue to payment'
+          }
+          disabled={selectedSlots.length === 0}
+          onPress={() => {
+            const sorted = [...selectedSlots].sort((a, b) =>
+              a.startTime.localeCompare(b.startTime),
+            );
             router.push({
               pathname: '/booking/confirm',
               params: {
-                slotId: selectedSlot!.id,
+                slotIds: sorted.map((s) => s.id).join(','),
+                slotId: sorted[0]!.id,
                 courtName: data.court.name,
                 branchName: data.court.branch.name,
                 date: selectedDate,
-                startTime: selectedSlot!.startTime,
-                endTime: selectedSlot!.endTime,
-                price: String(selectedSlot!.price),
+                startTime: sorted[0]!.startTime,
+                endTime: sorted[sorted.length - 1]!.endTime,
+                total: String(courtTotal),
+                times: sorted.map((s) => `${s.startTime}-${s.endTime}`).join(','),
+                rates: sorted.map((s) => String(s.price)).join(','),
+                discountPercent:
+                  data.court.discountPercent != null
+                    ? String(data.court.discountPercent)
+                    : '',
               },
-            })
-          }
+            });
+          }}
         />
       </View>
     </Screen>
