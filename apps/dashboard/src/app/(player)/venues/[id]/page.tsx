@@ -737,7 +737,7 @@ export default function VenueDetailPage() {
           </div>
 
           {selectedSlots.length > 0 ? (
-            <div className="fixed inset-x-0 bottom-[5.25rem] z-40 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:pb-0 sm:backdrop-blur-none">
+            <div className="fixed inset-x-0 bottom-[5.25rem] z-40 border-t border-border bg-white/95 p-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
               <p className="mb-2 text-center text-xs font-semibold text-muted-foreground sm:text-left">
                 {selectedSlots.length} slot{selectedSlots.length === 1 ? '' : 's'} · court{' '}
                 {formatPkr(selectedCourtTotal)} · advance {formatPkr(selectedAdvance)}

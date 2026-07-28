@@ -145,14 +145,14 @@ export function Sidebar({ companyId, branchId }: SidebarProps) {
 
   return (
     <>
-      <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-white px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
+      <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-white px-4 py-3 lg:hidden">
         <div>
           <div className="text-sm font-semibold text-navy">PlayPK</div>
           <div className="text-xs text-muted-foreground">Company dashboard</div>
         </div>
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-navy"
+          className="rounded-md border border-border p-2 text-navy"
           onClick={() => setOpen(true)}
           aria-label="Open menu"
         >
