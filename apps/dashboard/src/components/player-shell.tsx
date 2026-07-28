@@ -106,7 +106,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/venues/');
 
   return (
-    <div className="min-h-screen pb-[calc(5.25rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-dvh pb-[calc(5.25rem+env(safe-area-inset-bottom))]">
       {user && isStaffRole(user.role) ? (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-950 sm:px-6">
           Browsing as company staff ({user.email}). Player bookings use this account —{' '}
@@ -116,7 +116,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
           or sign out to use a player login.
         </div>
       ) : null}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-navy/95 text-white backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-navy/95 text-white backdrop-blur-md pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
             href="/discover"
