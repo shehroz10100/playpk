@@ -25,9 +25,9 @@ type Props = {
 };
 
 const sizeMap = {
-  sm: 'h-[5.5rem] w-[4.75rem] sm:h-32 sm:w-[4.75rem]',
-  md: 'h-[6.25rem] w-[5.25rem] sm:h-40 sm:w-[5.5rem] md:h-44 md:w-24 lg:h-48 lg:w-[6.5rem]',
-  lg: 'h-36 w-28 sm:h-48 sm:w-28 md:h-52 md:w-32',
+  sm: 'h-28 w-[4.25rem] sm:h-32 sm:w-[4.75rem]',
+  md: 'h-36 w-[5rem] sm:h-40 sm:w-[5.5rem] md:h-44 md:w-24 lg:h-48 lg:w-[6.5rem]',
+  lg: 'h-40 w-[5.5rem] sm:h-48 sm:w-28 md:h-52 md:w-32',
 };
 
 /** Ask Next/Image for ~2× chip width so retina stays sharp. */
@@ -148,7 +148,7 @@ function SportChip({
           active && 'from-brand/90 via-brand/45 to-brand/20',
         )}
       />
-      <span className="relative z-10 flex h-full items-end justify-center px-1 pb-2 text-center text-[10px] font-bold leading-tight text-white drop-shadow sm:pb-3 sm:text-[11px] md:text-xs">
+      <span className="relative z-10 flex h-full items-end justify-center px-1.5 pb-3 text-center text-[10px] font-bold leading-tight text-white drop-shadow sm:text-[11px] md:text-xs">
         {label}
       </span>
     </button>
