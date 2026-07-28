@@ -68,6 +68,19 @@ body {
     padding-bottom: max(0.5rem, var(--sab));
   }
 
+  .pl-safe {
+    padding-left: max(0px, var(--sal));
+  }
+
+  .pr-safe {
+    padding-right: max(0px, var(--sar));
+  }
+
+  .px-safe {
+    padding-left: max(0px, var(--sal));
+    padding-right: max(0px, var(--sar));
+  }
+
   .min-h-dvh {
     min-height: 100vh;
     min-height: 100dvh;

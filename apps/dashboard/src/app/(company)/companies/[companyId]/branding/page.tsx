@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -168,8 +169,14 @@ export default function CompanyBrandingPage() {
             >
               <div className="flex items-center gap-3">
                 {form.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={form.logoUrl} alt="" className="h-10 w-10 rounded bg-white/20 object-contain" />
+                  <Image
+                    src={form.logoUrl}
+                    alt=""
+                    width={40}
+                    height={40}
+                    unoptimized
+                    className="h-10 w-10 rounded bg-white/20 object-contain"
+                  />
                 ) : null}
                 <div>
                   <div className="text-lg font-semibold">

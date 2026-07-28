@@ -3,6 +3,30 @@
   "framework": "nextjs",
   "installCommand": "NPM_CONFIG_PRODUCTION=false npm install --prefix=../.. --workspace=@playpk/dashboard --workspace=@playpk/shared-types --include-workspace-root --include=dev --no-audit --no-fund",
   "buildCommand": "npm run build --prefix=../.. --workspace=@playpk/dashboard",
+  "headers": [
+    {
+      "source": "/icons/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/media/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",

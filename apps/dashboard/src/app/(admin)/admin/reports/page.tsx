@@ -1,17 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import { api } from '@/lib/api';
 import { formatPkr } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -19,6 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+const AdminReportCharts = dynamic(
+  () => import('@/components/charts/admin-report-charts').then((m) => m.AdminReportCharts),
+  {
+    ssr: false,
+    loading: () => <div className="h-64 animate-pulse rounded-xl bg-muted" />,
+  },
+);
 
 type Report = {
   window: { from: string; to: string };
@@ -136,40 +135,10 @@ export default function AdminReportsPage() {
             </Card>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Daily revenue</CardTitle>
-              </CardHeader>
-              <CardContent className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={report.revenueByDay}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v) => formatPkr(Number(v ?? 0))} />
-                    <Line type="monotone" dataKey="revenue" stroke="#00A651" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>By company</CardTitle>
-              </CardHeader>
-              <CardContent className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={report.revenueByCompany.slice(0, 8)}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v) => formatPkr(Number(v ?? 0))} />
-                    <Bar dataKey="revenue" fill="#0B1F3A" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+          <AdminReportCharts
+            revenueByDay={report.revenueByDay}
+            revenueByCompany={report.revenueByCompany}
+          />
 
           <Card>
             <CardHeader>
@@ -213,10 +182,12 @@ export default function AdminReportsPage() {
                       <td className="px-4 py-3">
                         {b.paymentProofUrl ? (
                           <a href={b.paymentProofUrl} target="_blank" rel="noreferrer">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <Image
                               src={b.paymentProofUrl}
                               alt="Proof"
+                              width={64}
+                              height={48}
+                              unoptimized
                               className="h-12 w-16 rounded border border-border object-cover"
                             />
                           </a>

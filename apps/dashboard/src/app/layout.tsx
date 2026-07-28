@@ -2,18 +2,21 @@ import type { Metadata, Viewport } from 'next';
 import { Barlow, Barlow_Condensed } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { QueryProvider } from '@/components/query-provider';
+import { PwaRegister } from '@/components/pwa-register';
 import './globals.css';
 
 const barlow = Barlow({
   variable: '--font-barlow',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
+  display: 'swap',
 });
 
 const barlowCondensed = Barlow_Condensed({
   variable: '--font-barlow-condensed',
   subsets: ['latin'],
   weight: ['600', '700'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -69,6 +72,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         className={`${barlow.variable} ${barlowCondensed.variable} font-sans antialiased touch-manipulation`}
       >
         <QueryProvider>{children}</QueryProvider>
+        <PwaRegister />
         <SpeedInsights />
       </body>
     </html>

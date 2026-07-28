@@ -39,10 +39,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const nextCompanyId = companyMatch?.[1];
 
     setBranchId(nextBranchId);
+    // Paint shell immediately; resolve company id in background.
+    if (nextCompanyId) setCompanyId(nextCompanyId);
+    setReady(true);
 
     let cancelled = false;
     async function resolveCompany() {
-      // Confirm role from API — only apply if /me matches the access-token subject.
       try {
         const { data } = await api<AuthUser>('/api/auth/me');
         if (applyMeUserToSession(data) && !isStaffRole(data.role)) {
@@ -69,9 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if (!cancelled) setCompanyId(undefined);
     }
 
-    resolveCompany().finally(() => {
-      if (!cancelled) setReady(true);
-    });
+    void resolveCompany();
 
     return () => {
       cancelled = true;
@@ -80,21 +80,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted text-sm text-muted-foreground">
-        Loading workspace…
+      <div className="flex min-h-dvh items-center justify-center bg-muted px-safe text-sm text-muted-foreground">
+        <div className="animate-pulse font-display text-lg font-bold text-navy">
+          Play<span className="text-brand">PK</span>
+        </div>
       </div>
     );
   }
 
   return (
     <NotificationsProvider>
-      <div className="flex min-h-screen flex-col lg:flex-row">
+      <div className="flex min-h-dvh flex-col lg:flex-row">
         <Sidebar companyId={companyId} branchId={branchId} />
         <main className="min-w-0 flex-1 overflow-auto bg-[#F7F9FC]">
-          <div className="sticky top-0 z-20 flex items-center justify-end border-b border-border bg-white/95 px-4 py-2 backdrop-blur sm:px-6">
+          <div className="sticky top-0 z-20 flex items-center justify-end border-b border-border bg-white/95 px-4 py-2 backdrop-blur sm:px-6 px-safe">
             <CompanyNotifications />
           </div>
-          <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-8">{children}</div>
+          <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-8 px-safe">{children}</div>
         </main>
       </div>
     </NotificationsProvider>

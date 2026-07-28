@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { formatPkr } from '@/lib/utils';
@@ -299,11 +300,13 @@ export default function CourtsPage() {
               {court.photos.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {court.photos.map((url) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       key={url}
                       src={url}
                       alt={court.name}
+                      width={112}
+                      height={80}
+                      unoptimized
                       className="h-20 w-28 rounded-md object-cover"
                     />
                   ))}
