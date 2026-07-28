@@ -49,17 +49,6 @@ const tabs = [
   { href: '/me', label: 'Me', icon: UserRound },
 ] as const;
 
-function tabActive(pathname: string, href: string) {
-  return (
-    pathname === href ||
-    pathname.startsWith(`${href}/`) ||
-    (href === '/discover' &&
-      (pathname.startsWith('/venues') ||
-        pathname.startsWith('/courts') ||
-        pathname.startsWith('/book')))
-  );
-}
-
 export function PlayerShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -103,7 +92,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-dvh items-center justify-center px-safe text-sm text-muted-foreground">
+      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         <div className="animate-pulse font-display text-lg font-bold text-navy">
           Play<span className="text-brand">PK</span>
         </div>
@@ -117,9 +106,9 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/venues/');
 
   return (
-    <div className="min-h-dvh pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-0">
+    <div className="min-h-dvh pb-[calc(5.25rem+env(safe-area-inset-bottom))]">
       {user && isStaffRole(user.role) ? (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-950 sm:px-6 px-safe">
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-950 sm:px-6">
           Browsing as company staff ({user.email}). Player bookings use this account —{' '}
           <Link href="/companies" className="font-semibold underline">
             open company dashboard
@@ -128,7 +117,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-navy/95 text-white backdrop-blur-md pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 px-safe">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
             href="/discover"
             className="font-display text-xl font-extrabold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
@@ -162,7 +151,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <nav aria-label="Bookings Events AI" className="border-t border-white/10 bg-navy md:hidden">
+        <nav aria-label="Bookings Events AI" className="border-t border-white/10 bg-navy">
           <div className="mx-auto grid max-w-6xl grid-cols-3 gap-1 px-2 py-1.5 sm:px-6">
             {headerTabs.map((item) => {
               const Icon = item.icon;
@@ -185,37 +174,9 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
             })}
           </div>
         </nav>
-
-        {/* Desktop: primary destinations in header (no fixed bottom bar). */}
-        <nav aria-label="Primary" className="hidden border-t border-white/10 bg-navy md:block">
-          <div className="mx-auto flex max-w-6xl items-center gap-1 overflow-x-auto px-4 py-2 sm:px-6">
-            {[...tabs, ...headerTabs].map((item) => {
-              const Icon = item.icon;
-              const active =
-                'match' in item && typeof item.match === 'function'
-                  ? item.match(pathname)
-                  : tabActive(pathname, item.href);
-              return (
-                <Link
-                  key={`desk-${item.href}`}
-                  href={item.href}
-                  className={cn(
-                    'inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition',
-                    active
-                      ? 'bg-brand text-white'
-                      : 'text-white/70 hover:bg-white/8 hover:text-white',
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-7 px-safe">{children}</main>
+      <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-7">{children}</main>
 
       {/* PlayPro-style + create menu */}
       {createOpen ? (
@@ -226,7 +187,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
             aria-label="Close create menu"
             onClick={() => setCreateOpen(false)}
           />
-          <div className="absolute bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-4 w-[min(18rem,calc(100vw-2rem))] animate-rise overflow-hidden rounded-2xl bg-white shadow-panel sm:right-8 md:bottom-24">
+          <div className="absolute bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-4 w-[min(18rem,calc(100vw-2rem))] animate-rise overflow-hidden rounded-2xl bg-white shadow-panel sm:right-8">
             <div className="border-b border-border px-4 py-3">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Create</p>
               <p className="text-sm font-semibold text-navy">What do you want to post?</p>
@@ -282,7 +243,7 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
           onClick={() => setCreateOpen((o) => !o)}
           className={cn(
             'fixed z-50 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-brand text-white shadow-[0_8px_24px_rgba(0,166,81,0.45)] transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2',
-            'right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] sm:right-8 md:bottom-8',
+            'right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] sm:right-8',
           )}
         >
           {createOpen ? <X className="h-6 w-6" /> : <Plus className="h-7 w-7" strokeWidth={2.5} />}
@@ -291,12 +252,18 @@ export function PlayerShell({ children }: { children: React.ReactNode }) {
 
       <nav
         aria-label="Customer"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-white/95 shadow-[0_-8px_24px_rgba(11,31,58,0.06)] backdrop-blur-md md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-white/95 shadow-[0_-8px_24px_rgba(11,31,58,0.06)] backdrop-blur-md"
       >
         <div className="mx-auto grid max-w-lg grid-cols-6 gap-0.5 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5">
           {tabs.map((item) => {
             const Icon = item.icon;
-            const active = tabActive(pathname, item.href);
+            const active =
+              pathname === item.href ||
+              pathname.startsWith(`${item.href}/`) ||
+              (item.href === '/discover' &&
+                (pathname.startsWith('/venues') ||
+                  pathname.startsWith('/courts') ||
+                  pathname.startsWith('/book')));
             const showBadge = item.href === '/me' && unread > 0;
             return (
               <Link

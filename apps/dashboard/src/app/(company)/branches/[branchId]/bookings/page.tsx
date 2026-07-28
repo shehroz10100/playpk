@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { formatPkr } from '@/lib/utils';
@@ -187,12 +186,10 @@ export default function BookingsPage() {
                   rel="noreferrer"
                   className="block bg-muted"
                 >
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={booking.paymentProofUrl!}
                     alt={`Payment proof from ${booking.user.name}`}
-                    width={400}
-                    height={176}
-                    unoptimized
                     className="h-44 w-full object-contain bg-[#F4F6F8]"
                   />
                 </a>
@@ -355,12 +352,10 @@ export default function BookingsPage() {
                           className="mt-1 inline-block"
                           title="Open payment screenshot"
                         >
-                          <Image
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
                             src={booking.paymentProofUrl}
                             alt="Payment proof"
-                            width={112}
-                            height={80}
-                            unoptimized
                             className="h-20 w-28 rounded-md border border-border object-cover"
                           />
                           <span className="mt-1 block text-[10px] font-semibold text-brand">

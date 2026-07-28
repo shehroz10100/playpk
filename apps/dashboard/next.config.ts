@@ -34,33 +34,16 @@ function resolveApiOrigin(): string {
 const API_ORIGIN = resolveApiOrigin();
 
 const nextConfig = {
-  transpilePackages: ['@playpk/shared-types'],
+  transpilePackages: ['@playpk/shared-types', '@shadergradient/react'],
   serverExternalPackages: ['pg', 'bcryptjs'],
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion', 'date-fns'],
+    optimizePackageImports: ['@shadergradient/react'],
   },
-  async headers() {
-    return [
-      {
-        source: '/icons/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
-      },
-      {
-        source: '/media/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
-        ],
-      },
-      {
-        source: '/sw.js',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
-          { key: 'Service-Worker-Allowed', value: '/' },
-        ],
-      },
-    ];
+  webpack: (config: { resolve: { conditionNames?: string[] } }) => {
+    // @shadergradient/react only exports the "import" condition — without this,
+    // Next/webpack fails with "Package path . is not exported".
+    config.resolve.conditionNames = ['import', 'require', 'default', 'node', 'browser'];
+    return config;
   },
   async rewrites() {
     // fallback = only proxy to Railway when no Next.js page/API route matches.
@@ -83,8 +66,6 @@ const nextConfig = {
     };
   },
   images: {
-    formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 60 * 60 * 24 * 7,
     remotePatterns: [
       {
         protocol: 'http',

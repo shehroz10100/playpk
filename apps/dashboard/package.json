@@ -10,10 +10,13 @@
   },
   "dependencies": {
     "@playpk/shared-types": "*",
+    "@react-three/fiber": "^9.0.0",
+    "@shadergradient/react": "^2.4.20",
     "@supabase/supabase-js": "^2.110.7",
     "@tanstack/react-query": "^5.101.2",
     "@vercel/speed-insights": "^2.0.0",
     "bcryptjs": "^2.4.3",
+    "camera-controls": "^3.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
@@ -27,6 +30,8 @@
     "recharts": "3.9.2",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^3.4.1",
+    "three": "^0.180.0",
+    "three-stdlib": "^2.36.0",
     "typescript": "^5"
   },
   "devDependencies": {
@@ -35,6 +40,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.180.0",
     "eslint": "^9",
     "eslint-config-next": "15.1.0"
   }

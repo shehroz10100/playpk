@@ -330,7 +330,7 @@ export default function ChannelRoomPage() {
                       {(m.mine || isStaff) && (
                         <button
                           type="button"
-                          className="cursor-pointer opacity-100 transition md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                          className="cursor-pointer opacity-0 transition group-hover:opacity-100"
                           aria-label="Delete message"
                           onClick={() => void deleteMsg(m.id)}
                         >

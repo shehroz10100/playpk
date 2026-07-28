@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -383,16 +382,16 @@ export default function VenueDetailPage() {
                         : 'border-white/30 bg-navy/40 text-white hover:bg-navy/55',
                     )}
                   >
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={resolveSportCover(s.name)}
                       alt=""
-                      width={24}
-                      height={24}
                       className="h-6 w-6 rounded-full object-cover"
                       onError={(e) => {
                         e.currentTarget.src = resolveSportCover('All');
                       }}
-                    />                    {s.name}
+                    />
+                    {s.name}
                   </button>
                 );
               })}
@@ -500,11 +499,10 @@ export default function VenueDetailPage() {
                   key={s.key}
                   className="flex items-center gap-3 rounded-2xl bg-white px-3 py-3 shadow-panel"
                 >
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={resolveSportCover(s.name, s.iconUrl)}
                     alt=""
-                    width={40}
-                    height={40}
                     className="h-10 w-10 rounded-xl object-cover"
                   />
                   <span className="font-semibold text-navy">{s.name}</span>
@@ -582,11 +580,10 @@ export default function VenueDetailPage() {
                         : 'border-border bg-white text-navy hover:border-navy/30',
                     )}
                   >
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={resolveSportCover(s.name, s.iconUrl)}
                       alt=""
-                      width={40}
-                      height={40}
                       className="h-10 w-10 rounded-xl object-cover"
                     />
                     <span className="text-xs font-bold">{s.name}</span>
@@ -740,7 +737,7 @@ export default function VenueDetailPage() {
           </div>
 
           {selectedSlots.length > 0 ? (
-            <div className="fixed inset-x-0 bottom-[5.25rem] z-40 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:bottom-0 sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:pb-0 sm:backdrop-blur-none">
+            <div className="fixed inset-x-0 bottom-[5.25rem] z-40 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:pb-0 sm:backdrop-blur-none">
               <p className="mb-2 text-center text-xs font-semibold text-muted-foreground sm:text-left">
                 {selectedSlots.length} slot{selectedSlots.length === 1 ? '' : 's'} · court{' '}
                 {formatPkr(selectedCourtTotal)} · advance {formatPkr(selectedAdvance)}
@@ -892,11 +889,10 @@ export default function VenueDetailPage() {
                           : 'border-border bg-white hover:border-brand/40',
                       )}
                     >
-                      <Image
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
                         src={resolveSportCover(s.name, s.iconUrl)}
                         alt=""
-                        width={48}
-                        height={48}
                         className="h-12 w-12 rounded-xl object-cover"
                       />
                       <span className="flex-1 font-bold text-navy">{s.name}</span>
