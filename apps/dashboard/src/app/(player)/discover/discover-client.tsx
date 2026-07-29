@@ -109,15 +109,14 @@ export function DiscoverClient({ initialVenues, initialSports }: Props) {
 
   return (
     <div className="space-y-7 sm:space-y-9">
-      {/* Hero — brand + headline + search CTA (marketplace pattern) */}
-      <section className="-mx-4 overflow-hidden sm:-mx-6 sm:rounded-3xl animate-fade-in">
+      {/* Hero — break out of the page container so it reaches screen edges on web + mobile. */}
+      <section className="relative left-1/2 right-1/2 -mt-5 -ml-[50vw] -mr-[50vw] w-screen overflow-hidden animate-fade-in sm:-mt-7">
         <HeroMedia
           clip={HERO_CLIP}
           autoPlay
-          className="sm:rounded-3xl"
-          minClassName="min-h-[280px] sm:min-h-[320px]"
+          minClassName="min-h-[300px] sm:min-h-[340px] lg:min-h-[360px]"
         >
-          <div className="flex min-h-[280px] flex-col justify-end gap-5 px-5 py-6 sm:min-h-[320px] sm:px-8 sm:py-9">
+          <div className="mx-auto flex min-h-[300px] w-full max-w-6xl flex-col justify-end gap-5 px-4 py-6 sm:min-h-[340px] sm:px-6 sm:py-9 lg:min-h-[360px] lg:px-8">
             <div>
               <p className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
                 Play<span className="text-brand">PK</span>
